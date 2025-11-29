@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-slate-800;
+  }
+}
+
+@layer utilities {
+
+  /* Fade in animation */
+  .animate-in {
+    animation-fill-mode: both;
+  }
+
+  .fade-in {
+    animation-name: fadeIn;
+    animation-duration: 0.5s;
+  }
+
+  .slide-in-from-left {
+    animation-name: slideInFromLeft;
+    animation-duration: 0.7s;
+  }
+
+  .slide-in-from-right {
+    animation-name: slideInFromRight;
+    animation-duration: 0.7s;
+  }
+
+  .slide-in-from-bottom {
+    animation-name: slideInFromBottom;
+    animation-duration: 0.6s;
+  }
+
+  .slide-in-from-top {
+    animation-name: slideInFromTop;
+    animation-duration: 0.3s;
+  }
+
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .zoom-in-95 {
+    animation-name: zoomIn95;
+    animation-duration: 0.2s;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zoomIn95 {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
