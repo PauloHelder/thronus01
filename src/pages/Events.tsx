@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Edit3, Trash2 } from 'lucide-react';
 import { Event } from '../types';
 import EventModal from '../components/modals/EventModal';
+import { MOCK_MEMBERS } from '../mocks/members';
 
 const INITIAL_EVENTS: Event[] = [
   { id: '1', title: 'Culto de Celebração', date: '2024-01-21', time: '10:00', type: 'Service', description: 'Culto especial de celebração' },
@@ -243,6 +244,7 @@ const Events: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveEvent}
         event={selectedEvent}
+        members={MOCK_MEMBERS}
       />
     </div>
   );

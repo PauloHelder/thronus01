@@ -38,6 +38,11 @@ const Sidebar: React.FC = () => {
     { to: "/settings", icon: Settings, label: "Configurações" },
   ];
 
+  // Add user management for admins
+  if (user?.role === 'admin' || user?.role === 'superuser') {
+    navItems.splice(navItems.length - 1, 0, { to: "/users", icon: Users, label: "Usuários" });
+  }
+
   // Add subscription for regular users
   if (user?.role !== 'superuser') {
     navItems.push({ to: "/subscription", icon: CreditCard, label: "Assinatura" });

@@ -32,7 +32,7 @@ const TeachingClassModal: React.FC<TeachingClassModalProps> = ({
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [category, setCategory] = useState('');
-    const [status, setStatus] = useState<TeachingClass['status']>('Agendado');
+    const [status, setStatus] = useState<TeachingClass['status']>('Agendada');
 
     useEffect(() => {
         if (teachingClass) {
@@ -56,7 +56,7 @@ const TeachingClassModal: React.FC<TeachingClassModalProps> = ({
             setStartDate('');
             setEndDate('');
             setCategory(categories[0]?.id || '');
-            setStatus('Agendado');
+            setStatus('Agendada');
         }
     }, [teachingClass, isOpen, stages, categories]);
 
@@ -261,10 +261,10 @@ const TeachingClassModal: React.FC<TeachingClassModalProps> = ({
                             onChange={(e) => setStatus(e.target.value as typeof status)}
                             className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                         >
-                            <option value="Agendado">Agendado</option>
+                            <option value="Agendada">Agendada</option>
                             <option value="Em Andamento">Em Andamento</option>
-                            <option value="Concluído">Concluído</option>
-                            <option value="Cancelado">Cancelado</option>
+                            <option value="Concluída">Concluída</option>
+                            <option value="Cancelada">Cancelada</option>
                         </select>
                     </div>
                 </div>

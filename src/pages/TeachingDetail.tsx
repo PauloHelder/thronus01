@@ -112,10 +112,13 @@ const TeachingDetail: React.FC = () => {
 
     const getStatusColor = (status: TeachingClass['status']) => {
         switch (status) {
-            case 'Agendado': return 'bg-blue-100 text-blue-700';
+            case 'Agendado':
+            case 'Agendada': return 'bg-blue-100 text-blue-700';
             case 'Em Andamento': return 'bg-green-100 text-green-700';
-            case 'Concluído': return 'bg-gray-100 text-gray-700';
-            case 'Cancelado': return 'bg-red-100 text-red-700';
+            case 'Concluído':
+            case 'Concluída': return 'bg-gray-100 text-gray-700';
+            case 'Cancelado':
+            case 'Cancelada': return 'bg-red-100 text-red-700';
         }
     };
 

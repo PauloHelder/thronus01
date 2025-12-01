@@ -3,6 +3,7 @@ import { Building, Mail, Phone, MapPin, Users, Calendar, Edit2, Save, X } from '
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { MOCK_CHURCHES } from '../mocks/churches';
+import { ANGOLA_PROVINCES, ANGOLA_MUNICIPALITIES } from '../data/angolaLocations';
 
 const ChurchProfile: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -17,9 +18,11 @@ const ChurchProfile: React.FC = () => {
         denominacao: 'Igreja Assembleia de Deus',
         nif: '123456789',
         endereco: 'Rua Principal, 123',
-        provincia: 'Luanda',
-        municipio: 'Viana',
+        provincia: '',
+        municipio: '',
         bairro: 'Zango',
+        distrito: '',
+        pais: 'Angola',
         categoria: 'Sede',
         email: 'demo@church.com',
         telefone: '+244 900 000 000',
@@ -29,6 +32,7 @@ const ChurchProfile: React.FC = () => {
         memberCount: 1204,
         description: 'Uma igreja comprometida com a transformação de vidas através do evangelho de Jesus Cristo.'
     });
+    const [churchProvince, setChurchProvince] = useState('');
 
     useEffect(() => {
         if (id) {
@@ -40,9 +44,11 @@ const ChurchProfile: React.FC = () => {
                     denominacao: church.denomination,
                     nif: 'N/A',
                     endereco: church.address,
-                    provincia: 'N/A',
-                    municipio: 'N/A',
+                    provincia: '',
+                    municipio: '',
                     bairro: 'N/A',
+                    distrito: '',
+                    pais: 'Angola',
                     categoria: 'Sede',
                     email: church.email,
                     telefone: church.phone,
@@ -52,6 +58,7 @@ const ChurchProfile: React.FC = () => {
                     memberCount: church.memberCount,
                     description: 'Descrição não disponível.'
                 });
+                setChurchProvince('');
             }
         } else if (user) {
             setFormData(prev => ({
@@ -63,6 +70,11 @@ const ChurchProfile: React.FC = () => {
             }));
         }
     }, [id, user]);
+
+    const handleProvinceChange = (newProvince: string) => {
+        setChurchProvince(newProvince);
+        setFormData({ ...formData, provincia: newProvince, municipio: '' });
+    };
 
     const handleSave = () => {
         // Aqui você salvaria os dados no backend
@@ -265,6 +277,7 @@ const ChurchProfile: React.FC = () => {
                                         value={formData.endereco}
                                         onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        placeholder="Rua, Número, Complemento"
                                     />
                                 ) : (
                                     <p className="text-slate-800 font-medium">{formData.endereco}</p>
@@ -273,15 +286,70 @@ const ChurchProfile: React.FC = () => {
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Província
+                                    Bairro
                                 </label>
                                 {isEditing ? (
                                     <input
                                         type="text"
-                                        value={formData.provincia}
-                                        onChange={(e) => setFormData({ ...formData, provincia: e.target.value })}
+                                        value={formData.bairro}
+                                        onChange={(e) => setFormData({ ...formData, bairro: e.target.value })}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        placeholder="Nome do bairro"
                                     />
+                                ) : (
+                                    <p className="text-slate-800 font-medium">{formData.bairro}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Distrito/Comuna
+                                </label>
+                                {isEditing ? (
+                                    <input
+                                        type="text"
+                                        value={formData.distrito || ''}
+                                        onChange={(e) => setFormData({ ...formData, distrito: e.target.value })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        placeholder="Distrito ou comuna"
+                                    />
+                                ) : (
+                                    <p className="text-slate-800 font-medium">{formData.distrito || 'N/A'}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    País
+                                </label>
+                                {isEditing ? (
+                                    <select
+                                        value={formData.pais}
+                                        onChange={(e) => setFormData({ ...formData, pais: e.target.value })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    >
+                                        <option value="Angola">Angola</option>
+                                    </select>
+                                ) : (
+                                    <p className="text-slate-800 font-medium">{formData.pais || 'Angola'}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Província
+                                </label>
+                                {isEditing ? (
+                                    <select
+                                        value={churchProvince}
+                                        onChange={(e) => handleProvinceChange(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    >
+                                        <option value="">Selecione a província</option>
+                                        {ANGOLA_PROVINCES.map(prov => (
+                                            <option key={prov.id} value={prov.id}>{prov.name}</option>
+                                        ))}
+                                    </select>
                                 ) : (
                                     <p className="text-slate-800 font-medium">{formData.provincia}</p>
                                 )}
@@ -292,30 +360,21 @@ const ChurchProfile: React.FC = () => {
                                     Município
                                 </label>
                                 {isEditing ? (
-                                    <input
-                                        type="text"
+                                    <select
                                         value={formData.municipio}
                                         onChange={(e) => setFormData({ ...formData, municipio: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                    />
+                                        disabled={!churchProvince}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <option value="">Selecione o município</option>
+                                        {churchProvince && ANGOLA_MUNICIPALITIES
+                                            .filter(mun => mun.provinceId === churchProvince)
+                                            .map(mun => (
+                                                <option key={mun.id} value={mun.id}>{mun.name}</option>
+                                            ))}
+                                    </select>
                                 ) : (
                                     <p className="text-slate-800 font-medium">{formData.municipio}</p>
-                                )}
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Bairro
-                                </label>
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        value={formData.bairro}
-                                        onChange={(e) => setFormData({ ...formData, bairro: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                    />
-                                ) : (
-                                    <p className="text-slate-800 font-medium">{formData.bairro}</p>
                                 )}
                             </div>
                         </div>

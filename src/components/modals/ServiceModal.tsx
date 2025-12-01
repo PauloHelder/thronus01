@@ -20,7 +20,7 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
         startTime: '',
         preacher: '',
         leader: '',
-        location: '',
+        location: 'Templo Local',
         description: '',
     });
 
@@ -49,7 +49,7 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                 startTime: '',
                 preacher: '',
                 leader: '',
-                location: '',
+                location: 'Templo Local',
                 description: '',
             });
         }
@@ -140,10 +140,9 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Pregador</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Pregador <span className="text-xs text-slate-400">(opcional)</span></label>
                             <input
                                 type="text"
-                                required
                                 value={formData.preacher}
                                 onChange={(e) => setFormData({ ...formData, preacher: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
@@ -151,10 +150,9 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Dirigente</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Dirigente <span className="text-xs text-slate-400">(opcional)</span></label>
                             <input
                                 type="text"
-                                required
                                 value={formData.leader}
                                 onChange={(e) => setFormData({ ...formData, leader: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"

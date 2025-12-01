@@ -144,7 +144,7 @@ const Services: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex flex-col h-full overflow-y-auto lg:overflow-hidden">
             {/* Header com Estatísticas */}
             <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
@@ -261,8 +261,72 @@ const Services: React.FC = () => {
             </div>
 
             {/* Tabela de Cultos */}
-            <div className="flex-1 p-4 lg:p-6 overflow-y-auto bg-gray-50">
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="flex-1 p-4 lg:p-6 lg:overflow-y-auto bg-gray-50">
+                {/* Mobile/Tablet Cards View */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:hidden">
+                    {filteredServices.map((service) => (
+                        <div
+                            key={service.id}
+                            className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                            onClick={() => navigate(`/services/${service.id}`)}
+                        >
+                            <div className="flex items-start justify-between mb-3">
+                                <div>
+                                    <h3 className="font-bold text-slate-800">{service.name}</h3>
+                                    <p className="text-xs text-slate-500">{service.type}</p>
+                                </div>
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
+                                    {service.status}
+                                </span>
+                            </div>
+
+                            <div className="space-y-2 mb-4">
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                    <Calendar size={14} />
+                                    <span>{formatDate(service.date)} • {service.startTime}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                    <User size={14} />
+                                    <span>{service.preacher}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                    <MapPin size={14} />
+                                    <span>{service.location}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                                <div className="flex gap-4">
+                                    <div className="text-center">
+                                        <p className="text-xs text-slate-500">Presença</p>
+                                        <p className="font-bold text-slate-800">{getServiceAttendance(service)}</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-xs text-slate-500">Visitantes</p>
+                                        <p className="font-bold text-blue-600">{getServiceVisitors(service)}</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={(e) => handleEditService(service, e)}
+                                        className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                    >
+                                        <Pencil size={16} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDeleteService(service.id, e)}
+                                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden lg:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
@@ -364,15 +428,15 @@ const Services: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-
-                    {filteredServices.length === 0 && (
-                        <div className="text-center py-12">
-                            <Calendar size={48} className="mx-auto text-gray-400 mb-3" />
-                            <p className="text-slate-600">Nenhum culto encontrado</p>
-                            <p className="text-sm text-slate-500">Adicione um novo culto para começar</p>
-                        </div>
-                    )}
                 </div>
+
+                {filteredServices.length === 0 && (
+                    <div className="text-center py-12">
+                        <Calendar size={48} className="mx-auto text-gray-400 mb-3" />
+                        <p className="text-slate-600">Nenhum culto encontrado</p>
+                        <p className="text-sm text-slate-500">Adicione um novo culto para começar</p>
+                    </div>
+                )}
             </div>
 
             <ServiceModal

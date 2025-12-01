@@ -47,6 +47,7 @@ const DepartmentDetail: React.FC = () => {
     const [department, setDepartment] = useState<Department>(MOCK_DEPARTMENT);
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [editingSchedule, setEditingSchedule] = useState<DepartmentSchedule | null>(null);
 
     const handleAddMembers = (memberIds: string[]) => {
         const newMembers = MOCK_MEMBERS.filter(m => memberIds.includes(m.id));
@@ -65,17 +66,37 @@ const DepartmentDetail: React.FC = () => {
         }
     };
 
-    const handleCreateSchedule = (scheduleData: Omit<DepartmentSchedule, 'id' | 'departmentId'>) => {
-        const newSchedule: DepartmentSchedule = {
-            ...scheduleData,
-            id: crypto.randomUUID(),
-            departmentId: department.id
-        };
+    const handleSaveSchedule = (scheduleData: Omit<DepartmentSchedule, 'id' | 'departmentId'>) => {
+        if (editingSchedule) {
+            // Edit
+            setDepartment({
+                ...department,
+                schedules: department.schedules?.map(s =>
+                    s.id === editingSchedule.id
+                        ? { ...scheduleData, id: s.id, departmentId: s.departmentId }
+                        : s
+                )
+            });
+        } else {
+            // Create
+            const newSchedule: DepartmentSchedule = {
+                ...scheduleData,
+                id: crypto.randomUUID(),
+                departmentId: department.id
+            };
 
-        setDepartment({
-            ...department,
-            schedules: [newSchedule, ...(department.schedules || [])]
-        });
+            setDepartment({
+                ...department,
+                schedules: [newSchedule, ...(department.schedules || [])]
+            });
+        }
+        setEditingSchedule(null);
+        setIsScheduleModalOpen(false);
+    };
+
+    const handleEditSchedule = (schedule: DepartmentSchedule) => {
+        setEditingSchedule(schedule);
+        setIsScheduleModalOpen(true);
     };
 
     const handleDeleteSchedule = (scheduleId: string) => {
@@ -217,7 +238,10 @@ const DepartmentDetail: React.FC = () => {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-slate-800">Escalas</h2>
                         <button
-                            onClick={() => setIsScheduleModalOpen(true)}
+                            onClick={() => {
+                                setEditingSchedule(null);
+                                setIsScheduleModalOpen(true);
+                            }}
                             className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
                         >
                             <Plus size={16} /> Nova Escala
@@ -235,12 +259,19 @@ const DepartmentDetail: React.FC = () => {
                                                 <Calendar size={16} className="text-slate-600" />
                                                 <span className="font-medium text-slate-800">{formatDate(schedule.date)}</span>
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${schedule.type === 'Service'
-                                                        ? 'bg-blue-100 text-blue-700'
-                                                        : 'bg-purple-100 text-purple-700'
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : 'bg-purple-100 text-purple-700'
                                                     }`}>
                                                     {schedule.type === 'Service' ? 'Culto' : 'Evento'}
                                                 </span>
                                             </div>
+                                            <button
+                                                onClick={() => handleEditSchedule(schedule)}
+                                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                title="Editar"
+                                            >
+                                                <Pencil size={14} />
+                                            </button>
                                             <button
                                                 onClick={() => handleDeleteSchedule(schedule.id)}
                                                 className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -301,9 +332,10 @@ const DepartmentDetail: React.FC = () => {
             <CreateScheduleModal
                 isOpen={isScheduleModalOpen}
                 onClose={() => setIsScheduleModalOpen(false)}
-                onSave={handleCreateSchedule}
+                onSave={handleSaveSchedule}
                 departmentMembers={department.members}
                 leader={department.leader}
+                schedule={editingSchedule}
             />
         </div>
     );

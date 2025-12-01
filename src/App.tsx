@@ -32,6 +32,7 @@ import DiscipleshipDetail from './pages/DiscipleshipDetail';
 import UserProfile from './pages/UserProfile';
 import Settings from './pages/Settings';
 import TransactionDetail from './pages/TransactionDetail';
+import UserManagement from './pages/UserManagement';
 
 const AppContent: React.FC = () => {
   const { isOpen } = useSidebar();
@@ -69,6 +70,7 @@ const AppContent: React.FC = () => {
             <Route path="/profile" element={<UserProfile />} />
             <Route path="/logout" element={<Logout />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/users" element={<UserManagement />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

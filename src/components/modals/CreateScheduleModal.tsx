@@ -22,6 +22,7 @@ interface CreateScheduleModalProps {
     onSave: (schedule: Omit<DepartmentSchedule, 'id' | 'departmentId'>) => void;
     departmentMembers: Member[];
     leader?: Member;
+    schedule?: DepartmentSchedule | null;
 }
 
 const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
@@ -29,7 +30,8 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     onClose,
     onSave,
     departmentMembers,
-    leader
+    leader,
+    schedule
 }) => {
     const [type, setType] = useState<'Service' | 'Event'>('Service');
     const [serviceId, setServiceId] = useState('');
@@ -45,14 +47,23 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            setType('Service');
-            setServiceId('');
-            setEventId('');
-            setDate('');
-            setAssignedMembers([]);
-            setNotes('');
+            if (schedule) {
+                setType(schedule.type);
+                setServiceId(schedule.serviceId || '');
+                setEventId(schedule.eventId || '');
+                setDate(schedule.date);
+                setAssignedMembers(schedule.assignedMembers);
+                setNotes(schedule.notes || '');
+            } else {
+                setType('Service');
+                setServiceId('');
+                setEventId('');
+                setDate('');
+                setAssignedMembers([]);
+                setNotes('');
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, schedule]);
 
     useEffect(() => {
         // Atualizar data automaticamente quando selecionar culto ou evento
@@ -106,7 +117,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Criar Nova Escala"
+            title={schedule ? 'Editar Escala' : 'Criar Nova Escala'}
         >
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Tipo de Escala */}
@@ -115,8 +126,8 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                         type="button"
                         onClick={() => { setType('Service'); setServiceId(''); setEventId(''); }}
                         className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${type === 'Service'
-                                ? 'bg-white text-orange-600 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
+                            ? 'bg-white text-orange-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         Culto
@@ -125,8 +136,8 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                         type="button"
                         onClick={() => { setType('Event'); setServiceId(''); setEventId(''); }}
                         className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${type === 'Event'
-                                ? 'bg-white text-orange-600 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
+                            ? 'bg-white text-orange-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         Evento
@@ -205,13 +216,13 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                                 <label
                                     key={member.id}
                                     className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${assignedMembers.includes(member.id)
-                                            ? 'bg-green-50 border border-green-200'
-                                            : 'hover:bg-white border border-transparent'
+                                        ? 'bg-green-50 border border-green-200'
+                                        : 'hover:bg-white border border-transparent'
                                         }`}
                                 >
                                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${assignedMembers.includes(member.id)
-                                            ? 'bg-green-500 border-green-500'
-                                            : 'bg-white border-gray-300'
+                                        ? 'bg-green-500 border-green-500'
+                                        : 'bg-white border-gray-300'
                                         }`}>
                                         {assignedMembers.includes(member.id) && <CheckSquare size={14} className="text-white" />}
                                     </div>
@@ -265,7 +276,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                         className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
                     >
                         <Save size={18} />
-                        Criar Escala
+                        {schedule ? 'Salvar Alterações' : 'Criar Escala'}
                     </button>
                 </div>
             </form>

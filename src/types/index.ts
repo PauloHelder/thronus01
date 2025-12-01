@@ -15,6 +15,8 @@ export interface Member {
   neighborhood?: string;
   district?: string;
   province?: string;
+  country?: string;
+  municipality?: string;
   groupId?: string;
 }
 
@@ -58,6 +60,7 @@ export interface Event {
   time: string;
   type: 'Service' | 'Meeting' | 'Social' | 'Youth';
   description?: string;
+  attendees?: string[]; // IDs dos participantes
 }
 
 export interface Donation {
@@ -86,6 +89,11 @@ export interface Group {
   meetingTime: string;
   meetingPlace?: string;
   address?: string;
+  neighborhood?: string;
+  district?: string;
+  province?: string;
+  country?: string;
+  municipality?: string;
   status: 'Active' | 'Full' | 'Inactive';
   meetings?: GroupMeeting[];
 }
@@ -135,7 +143,7 @@ export interface TeachingClass {
   startDate: string;
   endDate?: string;
   category: string; // Categoria configurável (Homogenia, Adultos, Jovens, etc)
-  status: 'Agendado' | 'Em Andamento' | 'Concluído' | 'Cancelado';
+  status: 'Agendado' | 'Agendada' | 'Em Andamento' | 'Concluído' | 'Concluída' | 'Cancelado' | 'Cancelada';
   students: Member[];
   lessons?: TeachingLesson[];
 }

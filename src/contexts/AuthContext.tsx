@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-interface User {
+export type UserRole = 'admin' | 'leader' | 'member' | string;
+
+export interface User {
     id: string;
     email: string;
     fullName: string;
     churchName: string;
     phone?: string;
-    role?: 'admin' | 'superuser';
+    role: UserRole;
+    permissions?: string[];
 }
 
 interface AuthContextType {
@@ -17,6 +20,7 @@ interface AuthContextType {
     signup: (data: SignupData) => Promise<boolean>;
     logout: () => void;
     loading: boolean;
+    hasPermission: (permission: string) => boolean;
 }
 
 interface SignupData {
@@ -25,6 +29,7 @@ interface SignupData {
     email: string;
     phone?: string;
     password: string;
+    role?: UserRole; // Optional role for signup (default to admin for new church signup)
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,6 +55,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Check if user exists in localStorage (mock database)
         const users = JSON.parse(localStorage.getItem('thronus_users') || '[]');
+
+        // Add mock member user if not exists (FOR TESTING PURPOSES)
+        const mockMemberEmail = 'membro@teste.com';
+        if (!users.find((u: any) => u.email === mockMemberEmail)) {
+            users.push({
+                id: 'mock-member-1',
+                email: mockMemberEmail,
+                password: '123',
+                fullName: 'Membro Teste',
+                churchName: 'Igreja Teste',
+                role: 'member'
+            });
+            localStorage.setItem('thronus_users', JSON.stringify(users));
+        }
+
         const foundUser = users.find((u: any) =>
             (u.email === emailOrPhone || u.phone === emailOrPhone) && u.password === password
         );
@@ -61,7 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 fullName: foundUser.fullName,
                 churchName: foundUser.churchName,
                 phone: foundUser.phone,
-                role: foundUser.role || 'admin' // Default to admin for church admins
+                role: foundUser.role || 'admin', // Default to admin for legacy users
+                permissions: getPermissionsByRole(foundUser.role || 'admin')
             };
             setUser(userData);
             localStorage.setItem('thronus_user', JSON.stringify(userData));
@@ -92,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newUser = {
             id: crypto.randomUUID(),
             ...data,
+            role: data.role || 'admin', // Default to admin if not specified (e.g. creating a new church)
             createdAt: new Date().toISOString()
         };
 
@@ -104,7 +126,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: newUser.email,
             fullName: newUser.fullName,
             churchName: newUser.churchName,
-            phone: newUser.phone
+            phone: newUser.phone,
+            role: newUser.role as UserRole,
+            permissions: getPermissionsByRole(newUser.role as UserRole)
         };
         setUser(userData);
         localStorage.setItem('thronus_user', JSON.stringify(userData));
@@ -118,6 +142,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('thronus_user');
     };
 
+    const getPermissionsByRole = (role: UserRole): string[] => {
+        // Check for custom permissions in localStorage
+        const storedPermissions = localStorage.getItem('thronus_role_permissions');
+        if (storedPermissions) {
+            const parsedPermissions = JSON.parse(storedPermissions);
+            if (parsedPermissions[role]) {
+                return parsedPermissions[role];
+            }
+        }
+
+        // Default permissions if not found in storage
+        switch (role) {
+            case 'admin':
+                return ['all'];
+            case 'leader':
+                return ['view_all', 'edit_department', 'create_event', 'edit_event', 'view_members'];
+            case 'member':
+                return ['view_only'];
+            default:
+                return [];
+        }
+    };
+
+    const hasPermission = (permission: string): boolean => {
+        if (!user) return false;
+        if (user.role === 'admin') return true;
+        if (user.permissions?.includes('all')) return true;
+        return user.permissions?.includes(permission) || false;
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -125,7 +179,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             login,
             signup,
             logout,
-            loading
+            loading,
+            hasPermission
         }}>
             {children}
         </AuthContext.Provider>
