@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 export type UserRole = 'admin' | 'leader' | 'member' | string;
 
@@ -8,6 +8,7 @@ export interface User {
     email: string;
     fullName: string;
     churchName: string;
+    churchId: string;
     phone?: string;
     role: UserRole;
     permissions?: string[];
@@ -29,7 +30,16 @@ interface SignupData {
     email: string;
     phone?: string;
     password: string;
-    role?: UserRole; // Optional role for signup (default to admin for new church signup)
+    role?: UserRole;
+    // Dados adicionais da igreja do formulário
+    sigla?: string;
+    denominacao?: string;
+    nif?: string;
+    endereco?: string;
+    provincia?: string;
+    municipio?: string;
+    bairro?: string;
+    categoria?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,119 +50,267 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check for existing session on mount
     useEffect(() => {
-        const storedUser = localStorage.getItem('thronus_user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-        setLoading(false);
+        checkSession();
     }, []);
+
+    const checkSession = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (session?.user) {
+                // Buscar dados do usuário no banco
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select(`
+                        id,
+                        email,
+                        role,
+                        permissions,
+                        church_id,
+                        member:member_id (
+                            name,
+                            phone
+                        )
+                    `)
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (userData) {
+                    // Buscar nome da igreja
+                    const { data: churchData } = await supabase
+                        .from('churches')
+                        .select('name')
+                        .eq('id', userData.church_id)
+                        .single();
+
+                    const userInfo: User = {
+                        id: userData.id,
+                        email: userData.email,
+                        fullName: userData.member?.name || 'Usuário',
+                        churchName: churchData?.name || 'Igreja',
+                        churchId: userData.church_id,
+                        phone: userData.member?.phone,
+                        role: userData.role as UserRole,
+                        permissions: getPermissionsByRole(userData.role as UserRole, userData.permissions)
+                    };
+
+                    setUser(userInfo);
+                    localStorage.setItem('thronus_user', JSON.stringify(userInfo));
+                }
+            }
+        } catch (error) {
+            console.error('Error checking session:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const login = async (emailOrPhone: string, password: string): Promise<boolean> => {
         setLoading(true);
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Check if user exists in localStorage (mock database)
-        const users = JSON.parse(localStorage.getItem('thronus_users') || '[]');
-
-        // Add mock member user if not exists (FOR TESTING PURPOSES)
-        const mockMemberEmail = 'membro@teste.com';
-        if (!users.find((u: any) => u.email === mockMemberEmail)) {
-            users.push({
-                id: 'mock-member-1',
-                email: mockMemberEmail,
-                password: '123',
-                fullName: 'Membro Teste',
-                churchName: 'Igreja Teste',
-                role: 'member'
+        try {
+            // Login com Supabase Auth
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: emailOrPhone,
+                password: password,
             });
-            localStorage.setItem('thronus_users', JSON.stringify(users));
-        }
 
-        const foundUser = users.find((u: any) =>
-            (u.email === emailOrPhone || u.phone === emailOrPhone) && u.password === password
-        );
+            if (error) {
+                console.error('Login error:', error);
+                setLoading(false);
+                return false;
+            }
 
-        if (foundUser) {
-            const userData: User = {
-                id: foundUser.id,
-                email: foundUser.email,
-                fullName: foundUser.fullName,
-                churchName: foundUser.churchName,
-                phone: foundUser.phone,
-                role: foundUser.role || 'admin', // Default to admin for legacy users
-                permissions: getPermissionsByRole(foundUser.role || 'admin')
-            };
-            setUser(userData);
-            localStorage.setItem('thronus_user', JSON.stringify(userData));
+            if (data.user) {
+                await checkSession();
+                return true;
+            }
+
             setLoading(false);
-            return true;
+            return false;
+        } catch (error) {
+            console.error('Login exception:', error);
+            setLoading(false);
+            return false;
         }
-
-        setLoading(false);
-        return false;
     };
 
     const signup = async (data: SignupData): Promise<boolean> => {
         setLoading(true);
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            // 1. Criar usuário no Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: data.email,
+                password: data.password,
+            });
 
-        // Check if user already exists
-        const users = JSON.parse(localStorage.getItem('thronus_users') || '[]');
-        const existingUser = users.find((u: any) => u.email === data.email);
+            if (authError) {
+                console.error('Auth signup error:', authError);
+                setLoading(false);
+                return false;
+            }
 
-        if (existingUser) {
+            if (!authData.user) {
+                setLoading(false);
+                return false;
+            }
+
+            // 2. Criar slug da igreja (nome sem espaços e minúsculas)
+            const slug = (data.sigla || data.churchName)
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+
+            // 3. Criar igreja no banco
+            const { data: churchData, error: churchError } = await supabase
+                .from('churches')
+                .insert({
+                    name: data.churchName,
+                    slug: slug,
+                    email: data.email,
+                    phone: data.phone,
+                    address: data.endereco,
+                    neighborhood: data.bairro,
+                    district: data.municipio,
+                    province: data.provincia,
+                    plan_id: '00000000-0000-0000-0000-000000000001', // Plano Free por padrão
+                    subscription_status: 'trial',
+                    settings: {
+                        sigla: data.sigla,
+                        denominacao: data.denominacao,
+                        nif: data.nif,
+                        categoria: data.categoria
+                    }
+                })
+                .select()
+                .single();
+
+            if (churchError) {
+                console.error('Church creation error:', churchError);
+                // Deletar usuário do Auth se falhar
+                await supabase.auth.admin.deleteUser(authData.user.id);
+                setLoading(false);
+                return false;
+            }
+
+            // 4. Criar membro (pastor) no banco
+            const { data: memberData, error: memberError } = await supabase
+                .from('members')
+                .insert({
+                    church_id: churchData.id,
+                    name: data.fullName,
+                    email: data.email,
+                    phone: data.phone,
+                    status: 'Active',
+                    church_role: 'Pastor',
+                    is_baptized: true
+                })
+                .select()
+                .single();
+
+            if (memberError) {
+                console.error('Member creation error:', memberError);
+                setLoading(false);
+                return false;
+            }
+
+            // 5. Criar registro de usuário vinculando ao Auth e à igreja
+            const { error: userError } = await supabase
+                .from('users')
+                .insert({
+                    id: authData.user.id,
+                    church_id: churchData.id,
+                    member_id: memberData.id,
+                    email: data.email,
+                    role: 'admin',
+                    permissions: {}
+                });
+
+            if (userError) {
+                console.error('User record creation error:', userError);
+                setLoading(false);
+                return false;
+            }
+
+            // 6. Criar departamentos padrão
+            await supabase.from('departments').insert([
+                {
+                    church_id: churchData.id,
+                    name: 'Secretaria',
+                    icon: 'FileText',
+                    description: 'Departamento responsável pela administração e documentação',
+                    is_default: true
+                },
+                {
+                    church_id: churchData.id,
+                    name: 'Finanças',
+                    icon: 'DollarSign',
+                    description: 'Departamento responsável pela gestão financeira',
+                    is_default: true
+                },
+                {
+                    church_id: churchData.id,
+                    name: 'Louvor',
+                    icon: 'Music',
+                    description: 'Departamento de música e louvor',
+                    is_default: true
+                }
+            ]);
+
+            // 7. Criar categorias financeiras padrão
+            await supabase.from('transaction_categories').insert([
+                { church_id: churchData.id, name: 'Dízimos', type: 'Income', is_system: true },
+                { church_id: churchData.id, name: 'Ofertas', type: 'Income', is_system: true },
+                { church_id: churchData.id, name: 'Doações', type: 'Income', is_system: true },
+                { church_id: churchData.id, name: 'Aluguel', type: 'Expense', is_system: true },
+                { church_id: churchData.id, name: 'Água e Luz', type: 'Expense', is_system: true },
+                { church_id: churchData.id, name: 'Salários', type: 'Expense', is_system: true }
+            ]);
+
+            // 8. Criar estágios cristãos padrão
+            await supabase.from('christian_stages').insert([
+                { church_id: churchData.id, name: 'Novo Convertido', order_index: 1 },
+                { church_id: churchData.id, name: 'Discípulo', order_index: 2 },
+                { church_id: churchData.id, name: 'Obreiro', order_index: 3 },
+                { church_id: churchData.id, name: 'Líder', order_index: 4 }
+            ]);
+
+            // 9. Criar categorias de ensino padrão
+            await supabase.from('teaching_categories').insert([
+                { church_id: churchData.id, name: 'Homogenia' },
+                { church_id: churchData.id, name: 'Adultos' },
+                { church_id: churchData.id, name: 'Jovens' },
+                { church_id: churchData.id, name: 'Adolescentes' },
+                { church_id: churchData.id, name: 'Crianças' }
+            ]);
+
+            // 10. Auto-login após signup
+            await checkSession();
             setLoading(false);
-            return false; // User already exists
+            return true;
+
+        } catch (error) {
+            console.error('Signup exception:', error);
+            setLoading(false);
+            return false;
         }
-
-        // Create new user
-        const newUser = {
-            id: crypto.randomUUID(),
-            ...data,
-            role: data.role || 'admin', // Default to admin if not specified (e.g. creating a new church)
-            createdAt: new Date().toISOString()
-        };
-
-        users.push(newUser);
-        localStorage.setItem('thronus_users', JSON.stringify(users));
-
-        // Auto-login after signup
-        const userData: User = {
-            id: newUser.id,
-            email: newUser.email,
-            fullName: newUser.fullName,
-            churchName: newUser.churchName,
-            phone: newUser.phone,
-            role: newUser.role as UserRole,
-            permissions: getPermissionsByRole(newUser.role as UserRole)
-        };
-        setUser(userData);
-        localStorage.setItem('thronus_user', JSON.stringify(userData));
-
-        setLoading(false);
-        return true;
     };
 
-    const logout = () => {
+    const logout = async () => {
+        await supabase.auth.signOut();
         setUser(null);
         localStorage.removeItem('thronus_user');
     };
 
-    const getPermissionsByRole = (role: UserRole): string[] => {
-        // Check for custom permissions in localStorage
-        const storedPermissions = localStorage.getItem('thronus_role_permissions');
-        if (storedPermissions) {
-            const parsedPermissions = JSON.parse(storedPermissions);
-            if (parsedPermissions[role]) {
-                return parsedPermissions[role];
-            }
+    const getPermissionsByRole = (role: UserRole, customPermissions?: any): string[] => {
+        // Se houver permissões customizadas, usar elas
+        if (customPermissions && Object.keys(customPermissions).length > 0) {
+            return Object.keys(customPermissions).filter(key => customPermissions[key] === true);
         }
 
-        // Default permissions if not found in storage
+        // Permissões padrão por role
         switch (role) {
             case 'admin':
                 return ['all'];

@@ -189,13 +189,22 @@ const SignupPage: React.FC = () => {
                     fullName: formData.nomePastor,
                     email: formData.email,
                     phone: formData.telefone,
-                    password: formData.password
+                    password: formData.password,
+                    // Dados adicionais da igreja
+                    sigla: formData.sigla,
+                    denominacao: formData.denominacao,
+                    nif: formData.nif,
+                    endereco: formData.endereco,
+                    provincia: formData.provincia,
+                    municipio: formData.municipio,
+                    bairro: formData.bairro,
+                    categoria: formData.categoria
                 });
 
                 if (success) {
                     navigate('/dashboard');
                 } else {
-                    setError('Este email já está registrado');
+                    setError('Este email já está registrado ou ocorreu um erro');
                 }
             }
         }

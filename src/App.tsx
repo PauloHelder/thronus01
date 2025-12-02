@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { SidebarProvider, useSidebar } from './contexts/SidebarContext';
 import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import LandingPage from './pages/LandingPage';
@@ -80,46 +81,6 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Create demo user on first load
-  // Create demo user on first load or update if missing
-  React.useEffect(() => {
-    const storedUsers = localStorage.getItem('thronus_users');
-    let users = storedUsers ? JSON.parse(storedUsers) : [];
-    let hasChanges = false;
-
-    if (!users.some((u: any) => u.email === 'demo@church.com')) {
-      users.push({
-        id: 'demo-user-1',
-        churchName: 'Demo Church',
-        fullName: 'Demo User',
-        email: 'demo@church.com',
-        phone: '+1234567890',
-        password: 'demo123',
-        role: 'admin',
-        createdAt: new Date().toISOString()
-      });
-      hasChanges = true;
-    }
-
-    if (!users.some((u: any) => u.email === 'admin@thronus.com')) {
-      users.push({
-        id: 'super-user-1',
-        churchName: 'Thronus Admin',
-        fullName: 'Super Admin',
-        email: 'admin@thronus.com',
-        phone: '+0000000000',
-        password: 'admin123',
-        role: 'superuser',
-        createdAt: new Date().toISOString()
-      });
-      hasChanges = true;
-    }
-
-    if (hasChanges) {
-      localStorage.setItem('thronus_users', JSON.stringify(users));
-    }
-  }, []);
-
   return (
     <Router>
       <AuthProvider>
@@ -131,9 +92,11 @@ const App: React.FC = () => {
 
           {/* Protected Routes */}
           <Route path="/*" element={
-            <SidebarProvider>
-              <AppContent />
-            </SidebarProvider>
+            <ProtectedRoute>
+              <SidebarProvider>
+                <AppContent />
+              </SidebarProvider>
+            </ProtectedRoute>
           } />
         </Routes>
       </AuthProvider>
