@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from '../Modal';
 import { Member } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { ANGOLA_PROVINCES, ANGOLA_MUNICIPALITIES } from '../../data/angolaLocations';
+import { formatDateForInput } from '../../utils/dateUtils';
+import { Camera, X } from 'lucide-react';
 
 interface MemberModalProps {
     isOpen: boolean;
@@ -13,6 +15,8 @@ interface MemberModalProps {
 
 const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, member }) => {
     const { user } = useAuth();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const [formData, setFormData] = useState<Omit<Member, 'id' | 'avatar'>>({
         name: '',
         email: '',
@@ -20,7 +24,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         status: 'Active',
     });
 
-    const [createUser, setCreateUser] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string>('');
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [userRole, setUserRole] = useState<string>('member');
     const [customRoles, setCustomRoles] = useState<string[]>([]);
     const [churchRoles, setChurchRoles] = useState<string[]>([]);
@@ -41,10 +46,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 status: member.status,
                 gender: member.gender,
                 maritalStatus: member.maritalStatus,
-                birthDate: member.birthDate || '',
+                birthDate: formatDateForInput(member.birthDate),
                 churchRole: member.churchRole || '',
                 isBaptized: member.isBaptized || false,
-                baptismDate: member.baptismDate || '',
+                baptismDate: formatDateForInput(member.baptismDate),
                 address: member.address || '',
                 neighborhood: member.neighborhood || '',
                 district: member.district || '',
@@ -53,8 +58,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 municipality: member.municipality || '',
             });
             setMemberProvince(member.province || '');
-            // Reset user creation fields when editing
-            setCreateUser(false);
+            setAvatarUrl(member.avatar || '');
+            setAvatarFile(null);
             setUserRole('member');
         } else {
             setFormData({
@@ -76,10 +81,49 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 municipality: '',
             });
             setMemberProvince('');
-            setCreateUser(false);
+            setAvatarUrl('');
+            setAvatarFile(null);
             setUserRole('member');
         }
     }, [member, isOpen]);
+
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            // Validar tipo de arquivo
+            if (!file.type.startsWith('image/')) {
+                alert('Por favor, selecione apenas arquivos de imagem.');
+                return;
+            }
+
+            // Validar tamanho (máx 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('A imagem deve ter no máximo 5MB.');
+                return;
+            }
+
+            setAvatarFile(file);
+
+            // Criar preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAvatarUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemovePhoto = () => {
+        setAvatarFile(null);
+        setAvatarUrl('');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const getDefaultAvatar = () => {
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'Novo Membro')}&background=f97316&color=fff&size=200`;
+    };
 
     const handleProvinceChange = (newProvince: string) => {
         setMemberProvince(newProvince);
@@ -89,15 +133,29 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Save member data
-        onSave({
-            ...formData,
-            id: member?.id || crypto.randomUUID(),
-            avatar: member?.avatar || `https://i.pravatar.cc/150?u=${formData.email}`,
-        });
+        // Determinar qual avatar usar
+        const finalAvatar = avatarUrl || getDefaultAvatar();
 
-        // If create user is checked, create a user in localStorage (mock)
-        if (createUser && formData.email) {
+        // Save member data
+        // IMPORTANTE: Só enviar 'id' se estiver editando um membro existente
+        if (member) {
+            // Editando membro existente
+            onSave({
+                ...formData,
+                id: member.id,
+                avatar: finalAvatar,
+            });
+        } else {
+            // Criando novo membro - NÃO enviar 'id'
+            onSave({
+                ...formData,
+                avatar: finalAvatar,
+            } as Omit<Member, 'id'>);
+        }
+
+        // If email is provided, create a user in localStorage (mock)
+        // In a real scenario, this would call an API endpoint to create the user in Supabase Auth
+        if (formData.email) {
             const users = JSON.parse(localStorage.getItem('thronus_users') || '[]');
             const existingUser = users.find((u: any) => u.email === formData.email);
 
@@ -113,9 +171,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 };
                 users.push(newUser);
                 localStorage.setItem('thronus_users', JSON.stringify(users));
-                alert(`Usuário criado com sucesso! Email: ${formData.email}, Senha: 123`);
-            } else {
-                alert('Já existe um usuário com este email.');
+                // Only show alert if admin is creating
+                if (user?.role === 'admin') {
+                    alert(`Usuário criado com sucesso! Email: ${formData.email}, Senha: 123`);
+                }
             }
         }
 
@@ -130,6 +189,56 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         >
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-4">
+                    {/* Photo Upload Section */}
+                    <div className="flex flex-col items-center pb-4 border-b border-gray-100">
+                        <div className="relative group">
+                            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-orange-100 bg-gray-100">
+                                <img
+                                    src={avatarUrl || getDefaultAvatar()}
+                                    alt="Avatar"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+
+                            {/* Camera Button */}
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="absolute bottom-0 right-0 p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg transition-all transform hover:scale-110"
+                                title="Adicionar foto"
+                            >
+                                <Camera size={20} />
+                            </button>
+
+                            {/* Remove Photo Button */}
+                            {avatarUrl && (
+                                <button
+                                    type="button"
+                                    onClick={handleRemovePhoto}
+                                    className="absolute top-0 right-0 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all transform hover:scale-110"
+                                    title="Remover foto"
+                                >
+                                    <X size={16} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Hidden File Input */}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoChange}
+                            className="hidden"
+                        />
+
+                        <p className="text-xs text-slate-500 mt-3 text-center">
+                            Clique no ícone da câmera para adicionar uma foto
+                            <br />
+                            <span className="text-slate-400">Máximo 5MB • JPG, PNG ou GIF</span>
+                        </p>
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
                         <input
@@ -144,10 +253,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-xs text-slate-400 font-normal">(Opcional - Necessário para acesso ao sistema)</span></label>
                             <input
                                 type="email"
-                                required
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
@@ -155,10 +263,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Telefone <span className="text-xs text-slate-400 font-normal">(Opcional)</span></label>
                             <input
                                 type="tel"
-                                required
                                 value={formData.phone}
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
@@ -354,47 +461,30 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                             </div>
                         </div>
                     </div>
-                    {/* Acesso ao Sistema - Apenas Admin pode criar usuários */}
-                    {user?.role === 'admin' && (
+
+                    {/* Acesso ao Sistema - Apenas Admin pode definir role, mas criação é automática se tiver email */}
+                    {user?.role === 'admin' && formData.email && (
                         <div className="pt-4 border-t border-gray-100">
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-semibold text-slate-800">Acesso ao Sistema</h4>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        id="createUser"
-                                        checked={createUser}
-                                        onChange={(e) => setCreateUser(e.target.checked)}
-                                        className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                                    />
-                                    <label htmlFor="createUser" className="text-sm text-slate-600 cursor-pointer">
-                                        Criar usuário para este membro
-                                    </label>
+                            <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                                <div className="mb-3">
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Nível de Acesso (Usuário será criado automaticamente)</label>
+                                    <select
+                                        value={userRole}
+                                        onChange={(e) => setUserRole(e.target.value)}
+                                        className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                    >
+                                        <option value="member">Membro (Apenas Visualizar)</option>
+                                        <option value="leader">Líder (Editar Departamento/Eventos)</option>
+                                        <option value="admin">Administrador (Acesso Total)</option>
+                                        {customRoles.map(role => (
+                                            <option key={role} value={role}>{role}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Como um email foi fornecido, um usuário será criado para este membro. A senha padrão será "123456".
+                                    </p>
                                 </div>
                             </div>
-
-                            {createUser && (
-                                <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                                    <div className="mb-3">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Nível de Acesso</label>
-                                        <select
-                                            value={userRole}
-                                            onChange={(e) => setUserRole(e.target.value)}
-                                            className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                        >
-                                            <option value="member">Membro (Apenas Visualizar)</option>
-                                            <option value="leader">Líder (Editar Departamento/Eventos)</option>
-                                            <option value="admin">Administrador (Acesso Total)</option>
-                                            {customRoles.map(role => (
-                                                <option key={role} value={role}>{role}</option>
-                                            ))}
-                                        </select>
-                                        <p className="text-xs text-slate-500 mt-1">
-                                            O usuário poderá fazer login com o email cadastrado acima. A senha padrão será "123456" (deve ser alterada no primeiro acesso).
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>

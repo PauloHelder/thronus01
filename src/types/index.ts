@@ -173,8 +173,8 @@ export interface TeachingCategory {
 export interface Service {
   id: string;
   churchId: string;
-  name: string;
-  type: 'Culto de Domingo' | 'Culto de Meio da Semana' | 'Culto Jovem' | 'Reunião de Oração' | 'Estudo Bíblico' | 'Culto Especial' | 'Conferência';
+  serviceTypeId: string;
+  typeName: string; // Nome do tipo para exibição
   status: 'Agendado' | 'Concluído' | 'Cancelado';
   date: string;
   startTime: string;

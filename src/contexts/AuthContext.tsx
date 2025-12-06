@@ -80,18 +80,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const { data: churchData } = await supabase
                         .from('churches')
                         .select('name')
-                        .eq('id', userData.church_id)
+                        .eq('id', (userData as any).church_id)
                         .single();
 
                     const userInfo: User = {
-                        id: userData.id,
-                        email: userData.email,
-                        fullName: userData.member?.name || 'Usuário',
-                        churchName: churchData?.name || 'Igreja',
-                        churchId: userData.church_id,
-                        phone: userData.member?.phone,
-                        role: userData.role as UserRole,
-                        permissions: getPermissionsByRole(userData.role as UserRole, userData.permissions)
+                        id: (userData as any).id,
+                        email: (userData as any).email,
+                        fullName: (userData as any).member?.name || 'Usuário',
+                        churchName: (churchData && (churchData as any).name) || 'Igreja',
+                        churchId: (userData as any).church_id,
+                        phone: (userData as any).member?.phone,
+                        role: (userData as any).role as UserRole,
+                        permissions: getPermissionsByRole((userData as any).role as UserRole, (userData as any).permissions)
                     };
 
                     setUser(userInfo);
@@ -152,142 +152,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             if (!authData.user) {
+                console.error('No user returned from signup');
                 setLoading(false);
                 return false;
             }
 
-            // 2. Criar slug da igreja (nome sem espaços e minúsculas)
+            // 2. Preparar dados para a RPC
+            const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
             const slug = (data.sigla || data.churchName)
                 .toLowerCase()
                 .replace(/[^a-z0-9]/g, '-')
                 .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '');
+                .replace(/^-|-$/g, '') + '-' + randomSuffix;
 
-            // 3. Criar igreja no banco
-            const { data: churchData, error: churchError } = await supabase
-                .from('churches')
-                .insert({
-                    name: data.churchName,
-                    slug: slug,
-                    email: data.email,
-                    phone: data.phone,
-                    address: data.endereco,
-                    neighborhood: data.bairro,
-                    district: data.municipio,
-                    province: data.provincia,
-                    plan_id: '00000000-0000-0000-0000-000000000001', // Plano Free por padrão
-                    subscription_status: 'trial',
-                    settings: {
-                        sigla: data.sigla,
-                        denominacao: data.denominacao,
-                        nif: data.nif,
-                        categoria: data.categoria
-                    }
-                })
-                .select()
-                .single();
-
-            if (churchError) {
-                console.error('Church creation error:', churchError);
-                // Deletar usuário do Auth se falhar
-                await supabase.auth.admin.deleteUser(authData.user.id);
-                setLoading(false);
-                return false;
-            }
-
-            // 4. Criar membro (pastor) no banco
-            const { data: memberData, error: memberError } = await supabase
-                .from('members')
-                .insert({
-                    church_id: churchData.id,
-                    name: data.fullName,
-                    email: data.email,
-                    phone: data.phone,
-                    status: 'Active',
-                    church_role: 'Pastor',
-                    is_baptized: true
-                })
-                .select()
-                .single();
-
-            if (memberError) {
-                console.error('Member creation error:', memberError);
-                setLoading(false);
-                return false;
-            }
-
-            // 5. Criar registro de usuário vinculando ao Auth e à igreja
-            const { error: userError } = await supabase
-                .from('users')
-                .insert({
-                    id: authData.user.id,
-                    church_id: churchData.id,
-                    member_id: memberData.id,
-                    email: data.email,
-                    role: 'admin',
-                    permissions: {}
-                });
-
-            if (userError) {
-                console.error('User record creation error:', userError);
-                setLoading(false);
-                return false;
-            }
-
-            // 6. Criar departamentos padrão
-            await supabase.from('departments').insert([
-                {
-                    church_id: churchData.id,
-                    name: 'Secretaria',
-                    icon: 'FileText',
-                    description: 'Departamento responsável pela administração e documentação',
-                    is_default: true
+            // 3. Chamar a função segura de cadastro (RPC)
+            // @ts-ignore - RPC types are not properly inferred
+            const { data: rpcData, error: rpcError } = await supabase.rpc('complete_signup', {
+                p_user_id: authData.user.id,
+                p_email: data.email,
+                p_church_name: data.churchName,
+                p_church_slug: slug,
+                p_phone: data.phone || '',
+                p_address: data.endereco || '',
+                p_neighborhood: data.bairro || '',
+                p_district: data.municipio || '',
+                p_province: data.provincia || '',
+                p_settings: {
+                    sigla: data.sigla,
+                    denominacao: data.denominacao,
+                    nif: data.nif,
+                    categoria: data.categoria
                 },
-                {
-                    church_id: churchData.id,
-                    name: 'Finanças',
-                    icon: 'DollarSign',
-                    description: 'Departamento responsável pela gestão financeira',
-                    is_default: true
-                },
-                {
-                    church_id: churchData.id,
-                    name: 'Louvor',
-                    icon: 'Music',
-                    description: 'Departamento de música e louvor',
-                    is_default: true
-                }
-            ]);
+                p_full_name: data.fullName
+            } as any);
 
-            // 7. Criar categorias financeiras padrão
-            await supabase.from('transaction_categories').insert([
-                { church_id: churchData.id, name: 'Dízimos', type: 'Income', is_system: true },
-                { church_id: churchData.id, name: 'Ofertas', type: 'Income', is_system: true },
-                { church_id: churchData.id, name: 'Doações', type: 'Income', is_system: true },
-                { church_id: churchData.id, name: 'Aluguel', type: 'Expense', is_system: true },
-                { church_id: churchData.id, name: 'Água e Luz', type: 'Expense', is_system: true },
-                { church_id: churchData.id, name: 'Salários', type: 'Expense', is_system: true }
-            ]);
+            if (rpcError) {
+                console.error('RPC Signup error:', rpcError);
+                // Tenta limpar o usuário do Auth se a criação dos dados falhar
+                await supabase.auth.signOut();
+                setLoading(false);
+                return false;
+            }
 
-            // 8. Criar estágios cristãos padrão
-            await supabase.from('christian_stages').insert([
-                { church_id: churchData.id, name: 'Novo Convertido', order_index: 1 },
-                { church_id: churchData.id, name: 'Discípulo', order_index: 2 },
-                { church_id: churchData.id, name: 'Obreiro', order_index: 3 },
-                { church_id: churchData.id, name: 'Líder', order_index: 4 }
-            ]);
+            if (rpcData && !(rpcData as any).success) {
+                console.error('RPC Signup logic error:', (rpcData as any).error);
+                setLoading(false);
+                return false;
+            }
 
-            // 9. Criar categorias de ensino padrão
-            await supabase.from('teaching_categories').insert([
-                { church_id: churchData.id, name: 'Homogenia' },
-                { church_id: churchData.id, name: 'Adultos' },
-                { church_id: churchData.id, name: 'Jovens' },
-                { church_id: churchData.id, name: 'Adolescentes' },
-                { church_id: churchData.id, name: 'Crianças' }
-            ]);
+            // 4. Finalização
+            // Se tivermos sessão (email confirmado ou auto-confirm), atualizamos o estado local.
+            if (authData.session) {
+                await checkSession();
+            }
 
-            // 10. Auto-login após signup
-            await checkSession();
             setLoading(false);
             return true;
 

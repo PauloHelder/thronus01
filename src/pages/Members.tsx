@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, Pencil, Trash2, Users, TrendingUp, UserCheck, UserX, Calendar, Download, Upload } from 'lucide-react';
+import { Search, Filter, Plus, Pencil, Trash2, Users, TrendingUp, UserCheck, UserX, Calendar, Download, Upload, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Member } from '../types';
 import MemberModal from '../components/modals/MemberModal';
 import ImportMembersModal from '../components/modals/ImportMembersModal';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { MOCK_MEMBERS } from '../mocks/members';
+import { useMembers } from '../hooks/useMembers';
+import { useAuth } from '../contexts/AuthContext';
 
 const Members: React.FC = () => {
   const navigate = useNavigate();
-  const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
+  const { user } = useAuth();
+  const { members, loading, error, addMember, updateMember, deleteMember } = useMembers();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterGender, setFilterGender] = useState<string>('all');
@@ -39,18 +41,23 @@ const Members: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteMember = (id: string, e: React.MouseEvent) => {
+  const handleDeleteMember = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Tem certeza que deseja excluir este membro?')) {
-      setMembers(prev => prev.filter(m => m.id !== id));
+      await deleteMember(id);
     }
   };
 
-  const handleSaveMember = (memberData: Member | Omit<Member, 'id'>) => {
+  const handleSaveMember = async (memberData: Member | Omit<Member, 'id'>) => {
+    console.log('🔵 handleSaveMember chamado com:', memberData);
+    console.log('🔵 Tem ID?', 'id' in memberData);
+
     if ('id' in memberData) {
-      setMembers(prev => prev.map(m => m.id === memberData.id ? memberData as Member : m));
+      console.log('🔵 Atualizando membro existente...');
+      await updateMember(memberData.id, memberData);
     } else {
-      setMembers(prev => [...prev, memberData as Member]);
+      console.log('🔵 Adicionando novo membro...');
+      await addMember(memberData);
     }
     setIsModalOpen(false);
   };
@@ -106,6 +113,31 @@ const Members: React.FC = () => {
     }
     return acc;
   }, [] as { name: string; count: number }[]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="mx-auto text-orange-500 animate-spin mb-4" size={48} />
+          <p className="text-slate-600">Carregando membros...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Users className="mx-auto text-red-300 mb-4" size={48} />
+          <p className="text-red-600 font-medium">{error}</p>
+          <p className="text-sm text-slate-500 mt-2">Tente recarregar a página</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -408,7 +440,6 @@ const Members: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveMember}
         member={selectedMember}
-        churchId="demo-user-1"
       />
 
       <ImportMembersModal

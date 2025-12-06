@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Service } from '../../types';
+import { useServiceTypes } from '../../hooks/useServiceTypes';
 
 interface ServiceModalProps {
     isOpen: boolean;
@@ -11,10 +12,11 @@ interface ServiceModalProps {
 }
 
 const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, service, churchId }) => {
+    const { serviceTypes, loading: loadingTypes } = useServiceTypes();
     const [formData, setFormData] = useState<Omit<Service, 'id'>>({
         churchId: churchId,
-        name: '',
-        type: 'Culto de Domingo',
+        serviceTypeId: '',
+        typeName: '',
         status: 'Agendado',
         date: '',
         startTime: '',
@@ -28,8 +30,8 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
         if (service) {
             setFormData({
                 churchId: service.churchId,
-                name: service.name,
-                type: service.type,
+                serviceTypeId: service.serviceTypeId,
+                typeName: service.typeName,
                 status: service.status,
                 date: service.date,
                 startTime: service.startTime,
@@ -40,27 +42,50 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                 statistics: service.statistics,
             });
         } else {
-            setFormData({
-                churchId: churchId,
-                name: '',
-                type: 'Culto de Domingo',
-                status: 'Agendado',
-                date: '',
-                startTime: '',
-                preacher: '',
-                leader: '',
-                location: 'Templo Local',
-                description: '',
-            });
+            // Set first service type as default when creating new service
+            if (serviceTypes.length > 0 && !formData.serviceTypeId) {
+                const firstType = serviceTypes[0];
+                setFormData(prev => ({
+                    ...prev,
+                    serviceTypeId: firstType.id,
+                    typeName: firstType.name,
+                    startTime: firstType.defaultStartTime?.substring(0, 5) || prev.startTime
+                }));
+            }
         }
-    }, [service, isOpen, churchId]);
+    }, [service, isOpen, serviceTypes]);
+
+    const handleServiceTypeChange = (typeId: string) => {
+        const selectedType = serviceTypes.find(t => t.id === typeId);
+        const updates: any = {
+            ...formData,
+            serviceTypeId: typeId,
+            typeName: selectedType?.name || ''
+        };
+
+        // Pre-fill start time if type has default and form doesn't have a time yet
+        if (selectedType?.defaultStartTime && !service) {
+            updates.startTime = selectedType.defaultStartTime.substring(0, 5);
+        }
+
+        setFormData(updates);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({
-            ...formData,
-            id: service?.id || crypto.randomUUID(),
-        });
+
+        // If editing existing service, include ID. Otherwise, let backend generate it.
+        if (service?.id) {
+            onSave({
+                ...formData,
+                id: service.id,
+            });
+        } else {
+            // Don't include ID for new services - backend will generate it
+            const { id, ...dataWithoutId } = formData as any;
+            onSave(dataWithoutId);
+        }
+
         onClose();
     };
 
@@ -72,34 +97,28 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
         >
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Culto</label>
-                        <input
-                            type="text"
-                            required
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                            placeholder="Ex: Culto de Celebração"
-                        />
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Culto</label>
-                            <select
-                                value={formData.type}
-                                onChange={(e) => setFormData({ ...formData, type: e.target.value as Service['type'] })}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                            >
-                                <option value="Culto de Domingo">Culto de Domingo</option>
-                                <option value="Culto de Meio da Semana">Culto de Meio da Semana</option>
-                                <option value="Culto Jovem">Culto Jovem</option>
-                                <option value="Reunião de Oração">Reunião de Oração</option>
-                                <option value="Estudo Bíblico">Estudo Bíblico</option>
-                                <option value="Culto Especial">Culto Especial</option>
-                                <option value="Conferência">Conferência</option>
-                            </select>
+                            {loadingTypes ? (
+                                <div className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-slate-500">
+                                    Carregando tipos...
+                                </div>
+                            ) : (
+                                <select
+                                    required
+                                    value={formData.serviceTypeId}
+                                    onChange={(e) => handleServiceTypeChange(e.target.value)}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                >
+                                    <option value="">Selecione um tipo</option>
+                                    {serviceTypes.map((type) => (
+                                        <option key={type.id} value={type.id}>
+                                            {type.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>

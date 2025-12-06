@@ -1,93 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil } from 'lucide-react';
-import { Department, DepartmentSchedule, Member } from '../types';
-import { MOCK_MEMBERS } from '../mocks/members';
+import { useDepartments, DepartmentSchedule } from '../hooks/useDepartments';
+import { useMembers } from '../hooks/useMembers';
+import { useServices } from '../hooks/useServices';
+import { useEvents } from '../hooks/useEvents';
 import { getIconEmoji } from '../data/departmentIcons';
 import AddDepartmentMemberModal from '../components/modals/AddDepartmentMemberModal';
 import CreateScheduleModal from '../components/modals/CreateScheduleModal';
 
-// Mock department
-const MOCK_DEPARTMENT: Department = {
-    id: '1',
-    name: 'Louvor',
-    icon: 'Music',
-    description: 'Ministério de música e louvor nos cultos e eventos.',
-    leaderId: '1',
-    coLeaderId: '2',
-    leader: MOCK_MEMBERS[0],
-    coLeader: MOCK_MEMBERS[1],
-    members: [MOCK_MEMBERS[2], MOCK_MEMBERS[3]],
-    schedules: [
-        {
-            id: '1',
-            departmentId: '1',
-            type: 'Service',
-            serviceId: '1',
-            date: '2024-02-04',
-            assignedMembers: ['1', '2', '3'],
-            notes: 'Culto de Domingo - Manhã'
-        },
-        {
-            id: '2',
-            departmentId: '1',
-            type: 'Event',
-            eventId: '1',
-            date: '2024-02-10',
-            assignedMembers: ['1', '3'],
-            notes: 'Retiro de Jovens'
-        }
-    ],
-    isDefault: true
-};
-
 const DepartmentDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [department, setDepartment] = useState<Department>(MOCK_DEPARTMENT);
+    const {
+        selectedDepartment: department,
+        loading,
+        fetchDepartmentDetails,
+        addDepartmentMembers,
+        removeDepartmentMember,
+        addSchedule,
+        updateSchedule,
+        deleteSchedule
+    } = useDepartments();
+    const { members: allMembers } = useMembers();
+    const { services } = useServices();
+    const { events } = useEvents();
+
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<DepartmentSchedule | null>(null);
 
-    const handleAddMembers = (memberIds: string[]) => {
-        const newMembers = MOCK_MEMBERS.filter(m => memberIds.includes(m.id));
-        setDepartment({
-            ...department,
-            members: [...department.members, ...newMembers]
-        });
-    };
+    useEffect(() => {
+        if (id) {
+            fetchDepartmentDetails(id);
+        }
+    }, [id, fetchDepartmentDetails]);
 
-    const handleRemoveMember = (memberId: string) => {
-        if (window.confirm('Tem certeza que deseja remover este membro do departamento?')) {
-            setDepartment({
-                ...department,
-                members: department.members.filter(m => m.id !== memberId)
-            });
+    const handleAddMembers = async (memberIds: string[]) => {
+        if (id) {
+            await addDepartmentMembers(id, memberIds);
+            setIsAddMemberModalOpen(false);
         }
     };
 
-    const handleSaveSchedule = (scheduleData: Omit<DepartmentSchedule, 'id' | 'departmentId'>) => {
+    const handleRemoveMember = async (memberId: string) => {
+        if (id && window.confirm('Tem certeza que deseja remover este membro do departamento?')) {
+            await removeDepartmentMember(id, memberId);
+        }
+    };
+
+    const handleSaveSchedule = async (scheduleData: Omit<DepartmentSchedule, 'id' | 'departmentId'>) => {
+        if (!id) return;
+
         if (editingSchedule) {
             // Edit
-            setDepartment({
-                ...department,
-                schedules: department.schedules?.map(s =>
-                    s.id === editingSchedule.id
-                        ? { ...scheduleData, id: s.id, departmentId: s.departmentId }
-                        : s
-                )
+            await updateSchedule({
+                ...scheduleData,
+                id: editingSchedule.id,
+                departmentId: id
             });
         } else {
             // Create
-            const newSchedule: DepartmentSchedule = {
+            await addSchedule({
                 ...scheduleData,
-                id: crypto.randomUUID(),
-                departmentId: department.id
-            };
-
-            setDepartment({
-                ...department,
-                schedules: [newSchedule, ...(department.schedules || [])]
+                departmentId: id
             });
         }
         setEditingSchedule(null);
@@ -99,22 +75,29 @@ const DepartmentDetail: React.FC = () => {
         setIsScheduleModalOpen(true);
     };
 
-    const handleDeleteSchedule = (scheduleId: string) => {
-        if (window.confirm('Tem certeza que deseja excluir esta escala?')) {
-            setDepartment({
-                ...department,
-                schedules: department.schedules?.filter(s => s.id !== scheduleId)
-            });
+    const handleDeleteSchedule = async (scheduleId: string) => {
+        if (id && window.confirm('Tem certeza que deseja excluir esta escala?')) {
+            await deleteSchedule(id, scheduleId);
         }
     };
 
     const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr + 'T00:00:00');
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-');
+        const date = new Date(Number(year), Number(month) - 1, Number(day));
         return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     };
 
+    if (loading || !department) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+            </div>
+        );
+    }
+
     // Membros disponíveis (que não estão no departamento e não são líder/co-líder)
-    const availableMembers = MOCK_MEMBERS.filter(
+    const availableMembers = allMembers.filter(
         member =>
             member.id !== department.leaderId &&
             member.id !== department.coLeaderId &&
@@ -172,7 +155,11 @@ const DepartmentDetail: React.FC = () => {
                             <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
                                 <p className="text-xs font-semibold text-orange-600 uppercase mb-2">Líder</p>
                                 <div className="flex items-center gap-3">
-                                    <img src={department.leader.avatar} alt="" className="w-12 h-12 rounded-full" />
+                                    <img
+                                        src={department.leader.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(department.leader.name)}&background=random`}
+                                        alt=""
+                                        className="w-12 h-12 rounded-full object-cover"
+                                    />
                                     <div>
                                         <p className="font-medium text-slate-800">{department.leader.name}</p>
                                         <p className="text-sm text-slate-600">{department.leader.email}</p>
@@ -184,7 +171,11 @@ const DepartmentDetail: React.FC = () => {
                             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                 <p className="text-xs font-semibold text-blue-600 uppercase mb-2">Co-líder</p>
                                 <div className="flex items-center gap-3">
-                                    <img src={department.coLeader.avatar} alt="" className="w-12 h-12 rounded-full" />
+                                    <img
+                                        src={department.coLeader.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(department.coLeader.name)}&background=random`}
+                                        alt=""
+                                        className="w-12 h-12 rounded-full object-cover"
+                                    />
                                     <div>
                                         <p className="font-medium text-slate-800">{department.coLeader.name}</p>
                                         <p className="text-sm text-slate-600">{department.coLeader.email}</p>
@@ -211,7 +202,11 @@ const DepartmentDetail: React.FC = () => {
                         <div className="space-y-2">
                             {department.members.map(member => (
                                 <div key={member.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                    <img src={member.avatar} alt="" className="w-12 h-12 rounded-full" />
+                                    <img
+                                        src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}
+                                        alt=""
+                                        className="w-12 h-12 rounded-full object-cover"
+                                    />
                                     <div className="flex-1">
                                         <p className="font-medium text-slate-800">{member.name}</p>
                                         <p className="text-sm text-slate-600">{member.email}</p>
@@ -252,7 +247,7 @@ const DepartmentDetail: React.FC = () => {
                         <div className="space-y-3">
                             {department.schedules
                                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                .map(schedule => (
+                                .map((schedule) => (
                                     <div key={schedule.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
@@ -265,20 +260,22 @@ const DepartmentDetail: React.FC = () => {
                                                     {schedule.type === 'Service' ? 'Culto' : 'Evento'}
                                                 </span>
                                             </div>
-                                            <button
-                                                onClick={() => handleEditSchedule(schedule)}
-                                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                                title="Editar"
-                                            >
-                                                <Pencil size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteSchedule(schedule.id)}
-                                                className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                                                title="Excluir"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleEditSchedule(schedule)}
+                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                    title="Excluir"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         </div>
                                         {schedule.notes && (
                                             <p className="text-sm text-slate-600 mb-2">{schedule.notes}</p>
@@ -289,17 +286,17 @@ const DepartmentDetail: React.FC = () => {
                                         </div>
                                         {schedule.assignedMembers.length > 0 && (
                                             <div className="flex -space-x-2 mt-2">
-                                                {schedule.assignedMembers.slice(0, 5).map(memberId => {
+                                                {schedule.assignedMembers.slice(0, 5).map((memberId) => {
                                                     const member = [...department.members, department.leader, department.coLeader]
                                                         .filter(Boolean)
                                                         .find(m => m?.id === memberId);
                                                     return member ? (
                                                         <img
                                                             key={memberId}
-                                                            src={member.avatar}
+                                                            src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}
                                                             alt={member.name}
                                                             title={member.name}
-                                                            className="w-8 h-8 rounded-full border-2 border-white"
+                                                            className="w-8 h-8 rounded-full border-2 border-white object-cover"
                                                         />
                                                     ) : null;
                                                 })}
@@ -336,6 +333,8 @@ const DepartmentDetail: React.FC = () => {
                 departmentMembers={department.members}
                 leader={department.leader}
                 schedule={editingSchedule}
+                services={services}
+                events={events}
             />
         </div>
     );

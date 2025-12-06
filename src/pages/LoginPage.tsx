@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Phone, AlertCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
-    const { login, loading } = useAuth();
+    const { login, loading, isAuthenticated } = useAuth();
 
     const [showPassword, setShowPassword] = useState(false);
     const [emailOrPhone, setEmailOrPhone] = useState('');
@@ -13,6 +13,13 @@ const LoginPage: React.FC = () => {
     const [rememberMe, setRememberMe] = useState(false);
     const [error, setError] = useState('');
     const [loginType, setLoginType] = useState<'email' | 'phone'>('email');
+
+    // Redirect to dashboard if already authenticated
+    useEffect(() => {
+        if (!loading && isAuthenticated) {
+            navigate('/dashboard');
+        }
+    }, [isAuthenticated, loading, navigate]);
 
     // Detect if input is email or phone
     const detectInputType = (value: string) => {

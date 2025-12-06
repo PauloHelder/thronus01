@@ -1,43 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
-import { Group, Member } from '../../types';
+import { Group } from '../../hooks/useGroups';
+import { Member } from '../../types';
 import { ANGOLA_PROVINCES, ANGOLA_MUNICIPALITIES } from '../../data/angolaLocations';
 
 interface GroupModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (group: Omit<Group, 'id'> | Group) => void;
+    onSave: (group: any) => void;
     group?: Group;
     members?: Member[];
 }
 
+const DAYS_OF_WEEK = [
+    'Segunda-feira',
+    'Terça-feira',
+    'Quarta-feira',
+    'Quinta-feira',
+    'Sexta-feira',
+    'Sábado',
+    'Domingo'
+];
+
 const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group, members = [] }) => {
     const [formData, setFormData] = useState<{
         name: string;
+        meetingDay: string;
         meetingTime: string;
-        meetingPlace: string;
+        location: string;
         address: string;
         neighborhood: string;
         district: string;
         country: string;
         province: string;
         municipality: string;
-        status: Group['status'];
+        status: string;
         leaderId: string;
         coLeaderId: string;
+        type: string;
+        description: string;
     }>({
         name: '',
+        meetingDay: '',
         meetingTime: '',
-        meetingPlace: '',
+        location: '',
         address: '',
         neighborhood: '',
         district: '',
         country: 'Angola',
         province: '',
         municipality: '',
-        status: 'Active',
+        status: 'Ativo',
         leaderId: '',
         coLeaderId: '',
+        type: 'Célula',
+        description: ''
     });
     const [groupProvince, setGroupProvince] = useState('');
 
@@ -45,33 +62,39 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
         if (group) {
             setFormData({
                 name: group.name,
-                meetingTime: group.meetingTime,
-                meetingPlace: group.meetingPlace || '',
+                meetingDay: group.meeting_day || '',
+                meetingTime: group.meeting_time || '',
+                location: group.location || '',
                 address: group.address || '',
                 neighborhood: group.neighborhood || '',
                 district: group.district || '',
                 country: group.country || 'Angola',
                 province: group.province || '',
                 municipality: group.municipality || '',
-                status: group.status,
-                leaderId: group.leaderId || (group.leaders && group.leaders.length > 0 ? group.leaders[0].id : ''),
-                coLeaderId: group.coLeaderId || (group.leaders && group.leaders.length > 1 ? group.leaders[1].id : ''),
+                status: group.status || 'Ativo',
+                leaderId: group.leader_id || '',
+                coLeaderId: group.co_leader_id || '',
+                type: group.type || 'Célula',
+                description: group.description || ''
             });
             setGroupProvince(group.province || '');
         } else {
             setFormData({
                 name: '',
+                meetingDay: '',
                 meetingTime: '',
-                meetingPlace: '',
+                location: '',
                 address: '',
                 neighborhood: '',
                 district: '',
                 country: 'Angola',
                 province: '',
                 municipality: '',
-                status: 'Active',
+                status: 'Ativo',
                 leaderId: '',
                 coLeaderId: '',
+                type: 'Célula',
+                description: ''
             });
             setGroupProvince('');
         }
@@ -85,21 +108,26 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Encontrar os objetos Member completos para os líderes selecionados
-        const leader = members.find(m => m.id === formData.leaderId);
-        const coLeader = members.find(m => m.id === formData.coLeaderId);
+        const groupData = {
+            ...(group?.id ? { id: group.id } : {}),
+            name: formData.name,
+            description: formData.description,
+            type: formData.type,
+            leader_id: formData.leaderId || null,
+            co_leader_id: formData.coLeaderId || null,
+            meeting_day: formData.meetingDay,
+            meeting_time: formData.meetingTime,
+            location: formData.location,
+            address: formData.address,
+            neighborhood: formData.neighborhood,
+            district: formData.district,
+            province: formData.province,
+            country: formData.country,
+            municipality: formData.municipality,
+            status: formData.status
+        };
 
-        const leaders: Member[] = [];
-        if (leader) leaders.push(leader);
-        if (coLeader) leaders.push(coLeader);
-
-        onSave({
-            ...formData,
-            id: group?.id || crypto.randomUUID(),
-            leaders: leaders,
-            members: group?.members || [],
-            memberCount: group?.memberCount || 0,
-        });
+        onSave(groupData);
         onClose();
     };
 
@@ -111,15 +139,41 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
         >
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Grupo</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                placeholder="Ex: Estudo Bíblico"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                            <select
+                                value={formData.type}
+                                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                            >
+                                <option value="Célula">Célula</option>
+                                <option value="Grupo de Estudo">Grupo de Estudo</option>
+                                <option value="Grupo de Oração">Grupo de Oração</option>
+                                <option value="Discipulado">Discipulado</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Grupo</label>
-                        <input
-                            type="text"
-                            required
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                            placeholder="Ex: Estudo Bíblico dos Homens"
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all h-20 resize-none"
+                            placeholder="Breve descrição do grupo..."
                         />
                     </div>
 
@@ -150,7 +204,7 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
                             >
                                 <option value="">Selecione um co-líder</option>
                                 {members
-                                    .filter(m => m.id !== formData.leaderId) // Não mostrar o líder selecionado
+                                    .filter(m => m.id !== formData.leaderId)
                                     .map(member => (
                                         <option key={member.id} value={member.id}>
                                             {member.name}
@@ -163,27 +217,39 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Horário da Reunião</label>
-                            <input
-                                type="text"
-                                required
-                                value={formData.meetingTime}
-                                onChange={(e) => setFormData({ ...formData, meetingTime: e.target.value })}
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Dia da Reunião</label>
+                            <select
+                                value={formData.meetingDay}
+                                onChange={(e) => setFormData({ ...formData, meetingDay: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                placeholder="Ex: Quartas, 19:00"
-                            />
+                            >
+                                <option value="">Selecione o dia</option>
+                                {DAYS_OF_WEEK.map(day => (
+                                    <option key={day} value={day}>{day}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Local de Encontro</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Horário</label>
                             <input
-                                type="text"
-                                value={formData.meetingPlace}
-                                onChange={(e) => setFormData({ ...formData, meetingPlace: e.target.value })}
+                                type="time"
+                                value={formData.meetingTime}
+                                onChange={(e) => setFormData({ ...formData, meetingTime: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                placeholder="Ex: Casa do Líder, Sala 3, Online"
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Local de Encontro</label>
+                        <input
+                            type="text"
+                            value={formData.location}
+                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                            placeholder="Ex: Casa do Líder, Sala 3, Online"
+                        />
                     </div>
 
                     <div>
@@ -266,12 +332,12 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
                         <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
                         <select
                             value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value as Group['status'] })}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                             className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                         >
-                            <option value="Active">Ativo</option>
-                            <option value="Full">Cheio</option>
-                            <option value="Inactive">Inativo</option>
+                            <option value="Ativo">Ativo</option>
+                            <option value="Cheio">Cheio</option>
+                            <option value="Inativo">Inativo</option>
                         </select>
                     </div>
                 </div>

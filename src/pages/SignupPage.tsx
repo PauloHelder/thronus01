@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Building, Phone, User, MapPin, Hash, Link as LinkIcon, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Building, Phone, User, MapPin, Hash, Link as LinkIcon, AlertCircle, Loader2, CheckCircle, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -48,14 +48,43 @@ const CATEGORIAS = [
     'Grupo de oração'
 ];
 
+const PROVINCIAS_ANGOLA = {
+    'Bengo': ['Ambriz', 'Bula Atumba', 'Dande', 'Dembos', 'Nambuangongo', 'Pango Aluquém'],
+    'Benguela': ['Baía Farta', 'Balombo', 'Benguela', 'Bocoio', 'Caimbambo', 'Catumbela', 'Chongoroi', 'Cubal', 'Ganda', 'Lobito'],
+    'Bié': ['Andulo', 'Camacupa', 'Catabola', 'Chinguar', 'Chitembo', 'Cuemba', 'Cunhinga', 'Cuíto', 'Nharea'],
+    'Cabinda': ['Belize', 'Buco-Zau', 'Cabinda', 'Cacongo'],
+    'Cuando Cubango': ['Calai', 'Cuangar', 'Cuchi', 'Cuito Cuanavale', 'Dirico', 'Mavinga', 'Menongue', 'Nancova', 'Rivungo'],
+    'Cuanza Norte': ['Ambaca', 'Banga', 'Bolongongo', 'Cambambe', 'Cazengo', 'Golungo Alto', 'Gonguembo', 'Lucala', 'Quiculungo', 'Samba Caju'],
+    'Cuanza Sul': ['Amboim', 'Cassongue', 'Cela', 'Conda', 'Ebo', 'Libolo', 'Mussende', 'Porto Amboim', 'Quibala', 'Quilenda', 'Seles', 'Sumbe'],
+    'Cunene': ['Cahama', 'Cuanhama', 'Curoca', 'Cuvelai', 'Namacunde', 'Ombadja'],
+    'Huambo': ['Bailundo', 'Caála', 'Catchiungo', 'Chinjenje', 'Ecunha', 'Huambo', 'Londuimbali', 'Longonjo', 'Mungo', 'Tchicala-Tcholohanga', 'Tchindjenje', 'Ucuma'],
+    'Huíla': ['Caconda', 'Cacula', 'Caluquembe', 'Chiange', 'Chibia', 'Chicomba', 'Chipindo', 'Cuvango', 'Humpata', 'Jamba', 'Lubango', 'Matala', 'Quilengues', 'Quipungo'],
+    'Luanda': ['Belas', 'Cacuaco', 'Cazenga', 'Icolo e Bengo', 'Luanda', 'Quiçama', 'Talatona', 'Viana', 'Kilamba Kiaxi'],
+    'Lunda Norte': ['Cambulo', 'Capenda-Camulemba', 'Caungula', 'Chitato', 'Cuango', 'Cuilo', 'Lóvua', 'Lubalo', 'Lucapa', 'Xá-Muteba'],
+    'Lunda Sul': ['Cacolo', 'Dala', 'Muconda', 'Saurimo'],
+    'Malanje': ['Cacuso', 'Calandula', 'Cambundi-Catembo', 'Cangandala', 'Caombo', 'Cuaba Nzogo', 'Cunda-Dia-Baze', 'Luquembo', 'Malanje', 'Marimba', 'Massango', 'Mucari', 'Quela', 'Quirima'],
+    'Moxico': ['Alto Zambeze', 'Bundas', 'Camanongue', 'Léua', 'Luacano', 'Luau', 'Luchazes', 'Lumeje', 'Moxico'],
+    'Namibe': ['Bibala', 'Camacuio', 'Moçâmedes', 'Tômbwa', 'Virei'],
+    'Uíge': ['Alto Cauale', 'Ambuíla', 'Bembe', 'Buengas', 'Bungo', 'Cangola', 'Damba', 'Maquela do Zombo', 'Milunga', 'Mucaba', 'Negage', 'Puri', 'Quimbele', 'Quitexe', 'Songo', 'Uíge'],
+    'Zaire': ['Cuimba', 'Mbanza Congo', 'Nóqui', 'Nzeto', 'Soyo', 'Tomboco']
+};
+
 const SignupPage: React.FC = () => {
     const navigate = useNavigate();
-    const { signup, loading } = useAuth();
+    const { signup, loading, isAuthenticated } = useAuth();
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [step, setStep] = useState(1);
     const [error, setError] = useState('');
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+    // Redirect to dashboard if already authenticated
+    useEffect(() => {
+        if (!loading && isAuthenticated) {
+            navigate('/dashboard');
+        }
+    }, [isAuthenticated, loading, navigate]);
     const [formData, setFormData] = useState({
         // Dados da Igreja
         nomeIgreja: '',
@@ -63,6 +92,7 @@ const SignupPage: React.FC = () => {
         denominacao: '',
         nif: '',
         endereco: '',
+        pais: 'Angola',
         provincia: '',
         municipio: '',
         bairro: '',
@@ -79,7 +109,13 @@ const SignupPage: React.FC = () => {
     });
 
     const updateFormData = (field: string, value: string | boolean) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData(prev => {
+            // Se mudar a província, limpa o município
+            if (field === 'provincia') {
+                return { ...prev, [field]: value, municipio: '' };
+            }
+            return { ...prev, [field]: value };
+        });
         setError('');
     };
 
@@ -122,12 +158,12 @@ const SignupPage: React.FC = () => {
             setError('Por favor, insira o endereço');
             return false;
         }
-        if (!formData.provincia.trim()) {
-            setError('Por favor, insira a província');
+        if (!formData.provincia) {
+            setError('Por favor, selecione a província');
             return false;
         }
-        if (!formData.municipio.trim()) {
-            setError('Por favor, insira o município');
+        if (!formData.municipio) {
+            setError('Por favor, selecione o município');
             return false;
         }
         if (!formData.bairro.trim()) {
@@ -202,7 +238,7 @@ const SignupPage: React.FC = () => {
                 });
 
                 if (success) {
-                    navigate('/dashboard');
+                    setShowSuccessModal(true);
                 } else {
                     setError('Este email já está registrado ou ocorreu um erro');
                 }
@@ -366,20 +402,18 @@ const SignupPage: React.FC = () => {
 
                         {step === 2 && (
                             <div className="grid md:grid-cols-2 gap-6">
-                                {/* Endereço */}
+                                {/* País */}
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        Endereço *
+                                        País *
                                     </label>
                                     <div className="relative">
-                                        <MapPin className="absolute left-3 top-3 text-gray-400" size={20} />
-                                        <textarea
-                                            value={formData.endereco}
-                                            onChange={(e) => updateFormData('endereco', e.target.value)}
-                                            placeholder="Rua, Avenida, número..."
-                                            required
-                                            rows={3}
-                                            className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all resize-none"
+                                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                        <input
+                                            type="text"
+                                            value="Angola"
+                                            readOnly
+                                            className="w-full pl-11 pr-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed"
                                         />
                                     </div>
                                 </div>
@@ -389,14 +423,17 @@ const SignupPage: React.FC = () => {
                                     <label className="block text-sm font-medium text-slate-700 mb-2">
                                         Província *
                                     </label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={formData.provincia}
                                         onChange={(e) => updateFormData('provincia', e.target.value)}
-                                        placeholder="Ex: Luanda"
                                         required
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                    />
+                                    >
+                                        <option value="">Selecione a província</option>
+                                        {Object.keys(PROVINCIAS_ANGOLA).sort().map((prov) => (
+                                            <option key={prov} value={prov}>{prov}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 {/* Município */}
@@ -404,14 +441,18 @@ const SignupPage: React.FC = () => {
                                     <label className="block text-sm font-medium text-slate-700 mb-2">
                                         Município *
                                     </label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={formData.municipio}
                                         onChange={(e) => updateFormData('municipio', e.target.value)}
-                                        placeholder="Ex: Viana"
                                         required
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                    />
+                                        disabled={!formData.provincia}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400"
+                                    >
+                                        <option value="">Selecione o município</option>
+                                        {formData.provincia && PROVINCIAS_ANGOLA[formData.provincia as keyof typeof PROVINCIAS_ANGOLA].sort().map((mun) => (
+                                            <option key={mun} value={mun}>{mun}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 {/* Bairro */}
@@ -427,6 +468,24 @@ const SignupPage: React.FC = () => {
                                         required
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                                     />
+                                </div>
+
+                                {/* Endereço */}
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Endereço Completo *
+                                    </label>
+                                    <div className="relative">
+                                        <MapPin className="absolute left-3 top-3 text-gray-400" size={20} />
+                                        <textarea
+                                            value={formData.endereco}
+                                            onChange={(e) => updateFormData('endereco', e.target.value)}
+                                            placeholder="Rua, Avenida, número, ponto de referência..."
+                                            required
+                                            rows={3}
+                                            className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all resize-none"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -644,6 +703,28 @@ const SignupPage: React.FC = () => {
                         </a>
                     </p>
                 </div>
+
+                {/* Success Modal */}
+                {showSuccessModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center relative animate-in zoom-in-95 duration-300">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Mail className="text-green-600 w-10 h-10" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-800 mb-2">Verifique seu Email</h3>
+                            <p className="text-slate-600 mb-8">
+                                Enviamos um link de confirmação para <strong>{formData.email}</strong>.
+                                Por favor, verifique sua caixa de entrada (e spam) para ativar sua conta.
+                            </p>
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
+                            >
+                                Ir para Login
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Custom Animations */}

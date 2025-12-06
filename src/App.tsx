@@ -10,29 +10,30 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
 import Members from './pages/Members';
-import Groups from './pages/Groups';
-import Events from './pages/Events';
-import Finances from './pages/Finances';
-import Departments from './pages/Departments';
-import Discipleship from './pages/Discipleship';
-import Teaching from './pages/Teaching';
-import ChurchProfile from './pages/ChurchProfile';
-import Churches from './pages/Churches';
-import Logout from './pages/Logout';
 import MemberDetail from './pages/MemberDetail';
 import Services from './pages/Services';
 import ServiceDetail from './pages/ServiceDetail';
+import Groups from './pages/Groups';
 import GroupDetail from './pages/GroupDetail';
+import Events from './pages/Events';
+import EventDetail from './pages/EventDetail';
+import Finance from './pages/Finance'; // Novo módulo
+import Finances from './pages/Finances'; // Antigo (manter por enquanto se necessário, ou remover)
+import TransactionDetail from './pages/TransactionDetail';
+import Departments from './pages/Departments';
 import DepartmentDetail from './pages/DepartmentDetail';
-import Plans from './pages/Plans';
+import Discipleship from './pages/Discipleship';
+import DiscipleshipDetail from './pages/DiscipleshipDetail';
+import Teaching from './pages/Teaching';
+import TeachingDetail from './pages/TeachingDetail';
+import ChurchProfile from './pages/ChurchProfile';
 import ChurchSubscription from './pages/ChurchSubscription';
 import MyChurches from './pages/MyChurches';
-import TeachingDetail from './pages/TeachingDetail';
-import EventDetail from './pages/EventDetail';
-import DiscipleshipDetail from './pages/DiscipleshipDetail';
+import Churches from './pages/Churches';
+import Plans from './pages/Plans';
 import UserProfile from './pages/UserProfile';
+import Logout from './pages/Logout';
 import Settings from './pages/Settings';
-import TransactionDetail from './pages/TransactionDetail';
 import UserManagement from './pages/UserManagement';
 
 const AppContent: React.FC = () => {
@@ -54,8 +55,12 @@ const AppContent: React.FC = () => {
             <Route path="/groups/:id" element={<GroupDetail />} />
             <Route path="/events" element={<Events />} />
             <Route path="/events/:id" element={<EventDetail />} />
-            <Route path="/finances" element={<Finances />} />
+
+            {/* Finance Module */}
+            <Route path="/finance" element={<Finance />} />
+            <Route path="/finances" element={<Finances />} /> {/* Manter compatibilidade se links antigos existirem */}
             <Route path="/finances/:id" element={<TransactionDetail />} />
+
             <Route path="/departments" element={<Departments />} />
             <Route path="/departments/:id" element={<DepartmentDetail />} />
             <Route path="/discipleship" element={<Discipleship />} />

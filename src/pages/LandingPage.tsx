@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
     Users,
     Calendar,
@@ -13,7 +15,16 @@ import {
 } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
+    const navigate = useNavigate();
+    const { isAuthenticated, loading } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    // Redirect to dashboard if already authenticated
+    useEffect(() => {
+        if (!loading && isAuthenticated) {
+            navigate('/dashboard');
+        }
+    }, [isAuthenticated, loading, navigate]);
 
     const features = [
         {

@@ -1,94 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil, BookOpen, Clock, CheckCircle } from 'lucide-react';
-import { TeachingClass, TeachingLesson, Member } from '../types';
-import { MOCK_MEMBERS } from '../mocks/members';
+import { TeachingClass, TeachingLesson } from '../types';
 import AddStudentModal from '../components/modals/AddStudentModal';
 import AddLessonModal from '../components/modals/AddLessonModal';
-
-// Mock class
-const MOCK_CLASS: TeachingClass = {
-    id: '1',
-    name: 'Escola Bíblica Dominical',
-    teacherId: '1',
-    teacher: MOCK_MEMBERS[0],
-    stage: 'Firmar',
-    dayOfWeek: 'Domingo',
-    time: '09:00',
-    room: 'Sala 1',
-    startDate: '2024-01-07',
-    category: 'Adultos',
-    status: 'Em Andamento',
-    students: [MOCK_MEMBERS[1], MOCK_MEMBERS[2], MOCK_MEMBERS[3]],
-    lessons: [
-        {
-            id: '1',
-            classId: '1',
-            date: '2024-01-28',
-            title: 'A Importância da Oração',
-            attendance: ['2', '3'],
-            notes: 'Excelente participação da turma'
-        },
-        {
-            id: '2',
-            classId: '1',
-            date: '2024-01-21',
-            title: 'Fundamentos da Fé Cristã',
-            attendance: ['2', '3', '4'],
-            notes: 'Todos presentes'
-        }
-    ]
-};
+import { useTeaching } from '../hooks/useTeaching';
+import { useMembers } from '../hooks/useMembers';
 
 const TeachingDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [teachingClass, setTeachingClass] = useState<TeachingClass>(MOCK_CLASS);
+    const { fetchClassDetails, addStudentToClass, removeStudentFromClass, addLesson, updateLesson, deleteLesson } = useTeaching();
+    const { members } = useMembers();
+
+    const [teachingClass, setTeachingClass] = useState<TeachingClass | null>(null);
+    const [loading, setLoading] = useState(true);
     const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
     const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
     const [editingLesson, setEditingLesson] = useState<TeachingLesson | null>(null);
 
-    const handleAddStudents = (memberIds: string[]) => {
-        const newStudents = MOCK_MEMBERS.filter(m => memberIds.includes(m.id));
-        setTeachingClass({
-            ...teachingClass,
-            students: [...teachingClass.students, ...newStudents]
-        });
-    };
+    const loadClass = useCallback(async () => {
+        if (!id) return;
+        setLoading(true);
+        const data = await fetchClassDetails(id);
+        if (data) {
+            setTeachingClass(data);
+        } else {
+            console.error("Class not found");
+            // Optionally navigate back or show error
+        }
+        setLoading(false);
+    }, [id, fetchClassDetails]);
 
-    const handleRemoveStudent = (studentId: string) => {
-        if (window.confirm('Tem certeza que deseja remover este aluno da turma?')) {
-            setTeachingClass({
-                ...teachingClass,
-                students: teachingClass.students.filter(s => s.id !== studentId)
-            });
+    useEffect(() => {
+        loadClass();
+    }, [loadClass]);
+
+    const handleAddStudents = async (memberIds: string[]) => {
+        if (!teachingClass) return;
+        const success = await addStudentToClass(teachingClass.id, memberIds);
+        if (success) {
+            await loadClass();
         }
     };
 
-    const handleSaveLesson = (lessonData: Omit<TeachingLesson, 'id' | 'classId'> | TeachingLesson) => {
-        if ('id' in lessonData && teachingClass.lessons?.some(l => l.id === lessonData.id)) {
+    const handleRemoveStudent = async (studentId: string) => {
+        if (!teachingClass) return;
+        if (window.confirm('Tem certeza que deseja remover este aluno da turma?')) {
+            const success = await removeStudentFromClass(teachingClass.id, studentId);
+            if (success) {
+                await loadClass();
+            }
+        }
+    };
+
+    const handleSaveLesson = async (lessonData: Omit<TeachingLesson, 'id' | 'classId'> | TeachingLesson) => {
+        if (!teachingClass) return;
+
+        if ('id' in lessonData) {
             // Edit
-            setTeachingClass({
-                ...teachingClass,
-                lessons: teachingClass.lessons?.map(l =>
-                    l.id === lessonData.id ? { ...lessonData, classId: teachingClass.id } as TeachingLesson : l
-                )
-            });
+            const success = await updateLesson(lessonData.id, lessonData);
+            if (success) {
+                await loadClass();
+                setIsLessonModalOpen(false);
+                setEditingLesson(null);
+            }
         } else {
             // New
-            const newLesson: TeachingLesson = {
-                ...lessonData,
-                id: crypto.randomUUID(),
-                classId: teachingClass.id
-            } as TeachingLesson;
-
-            setTeachingClass({
-                ...teachingClass,
-                lessons: [newLesson, ...(teachingClass.lessons || [])]
-            });
+            const success = await addLesson(teachingClass.id, lessonData);
+            if (success) {
+                await loadClass();
+                setIsLessonModalOpen(false);
+            }
         }
-        setEditingLesson(null);
-        setIsLessonModalOpen(false);
     };
 
     const handleEditLesson = (lesson: TeachingLesson) => {
@@ -96,12 +80,12 @@ const TeachingDetail: React.FC = () => {
         setIsLessonModalOpen(true);
     };
 
-    const handleDeleteLesson = (lessonId: string) => {
+    const handleDeleteLesson = async (lessonId: string) => {
         if (window.confirm('Tem certeza que deseja excluir esta aula?')) {
-            setTeachingClass({
-                ...teachingClass,
-                lessons: teachingClass.lessons?.filter(l => l.id !== lessonId)
-            });
+            const success = await deleteLesson(lessonId);
+            if (success) {
+                await loadClass();
+            }
         }
     };
 
@@ -119,18 +103,44 @@ const TeachingDetail: React.FC = () => {
             case 'Concluída': return 'bg-gray-100 text-gray-700';
             case 'Cancelado':
             case 'Cancelada': return 'bg-red-100 text-red-700';
+            default: return 'bg-gray-100 text-gray-700';
         }
     };
 
+    if (loading) {
+        return (
+            <div className="h-full flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+            </div>
+        );
+    }
+
+    if (!teachingClass) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center gap-4">
+                <h2 className="text-xl font-semibold text-gray-700">Turma não encontrada</h2>
+                <button
+                    onClick={() => navigate('/teaching')}
+                    className="text-orange-500 hover:underline"
+                >
+                    Voltar para Ensino
+                </button>
+            </div>
+        );
+    }
+
     // Available members (not in class and not the teacher)
-    const availableMembers = MOCK_MEMBERS.filter(
+    // Ensure we handle cases where members might be loading
+    const availableMembers = members ? members.filter(
         member => member.id !== teachingClass.teacherId && !teachingClass.students.some(s => s.id === member.id)
-    );
+    ) : [];
 
     // Calculate attendance rate
     const totalLessons = teachingClass.lessons?.length || 0;
-    const attendanceRate = totalLessons > 0
-        ? Math.round((teachingClass.lessons?.reduce((acc, l) => acc + l.attendance.length, 0) || 0) / (totalLessons * teachingClass.students.length) * 100)
+    const totalAttendances = teachingClass.lessons?.reduce((acc, l) => acc + l.attendance.length, 0) || 0;
+    const maxPossibleAttendances = totalLessons * teachingClass.students.length;
+    const attendanceRate = (totalLessons > 0 && teachingClass.students.length > 0)
+        ? Math.round((totalAttendances / maxPossibleAttendances) * 100)
         : 0;
 
     return (

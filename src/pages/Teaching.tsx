@@ -1,64 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, BookOpen, Users, Calendar, Clock, Filter, X } from 'lucide-react';
-import { TeachingClass, ChristianStage, TeachingCategory } from '../types';
-import { MOCK_MEMBERS } from '../mocks/members';
-import { DEFAULT_CHRISTIAN_STAGES, DEFAULT_TEACHING_CATEGORIES } from '../data/teachingDefaults';
+import { TeachingClass } from '../types';
+import { useTeaching } from '../hooks/useTeaching';
+import { useMembers } from '../hooks/useMembers';
 import TeachingClassModal from '../components/modals/TeachingClassModal';
-
-// Mock data
-const INITIAL_CLASSES: TeachingClass[] = [
-  {
-    id: '1',
-    name: 'Escola Bíblica Dominical',
-    teacherId: '1',
-    teacher: MOCK_MEMBERS[0],
-    stage: 'Firmar',
-    dayOfWeek: 'Domingo',
-    time: '09:00',
-    room: 'Sala 1',
-    startDate: '2024-01-07',
-    category: 'Adultos',
-    status: 'Em Andamento',
-    students: [MOCK_MEMBERS[1], MOCK_MEMBERS[2], MOCK_MEMBERS[3]],
-    lessons: []
-  },
-  {
-    id: '2',
-    name: 'Discipulado de Novos Convertidos',
-    teacherId: '2',
-    teacher: MOCK_MEMBERS[1],
-    stage: 'Acolher',
-    dayOfWeek: 'Quarta',
-    time: '19:30',
-    room: 'Sala 2',
-    startDate: '2024-02-01',
-    endDate: '2024-05-31',
-    category: 'Homogenia',
-    status: 'Em Andamento',
-    students: [MOCK_MEMBERS[4], MOCK_MEMBERS[5]],
-    lessons: []
-  },
-  {
-    id: '3',
-    name: 'Formação de Líderes',
-    teacherId: '3',
-    teacher: MOCK_MEMBERS[2],
-    stage: 'Capacitar',
-    dayOfWeek: 'Sábado',
-    time: '14:00',
-    room: 'Auditório',
-    startDate: '2024-03-01',
-    category: 'Líderes',
-    status: 'Agendado',
-    students: [],
-    lessons: []
-  }
-];
 
 const Teaching: React.FC = () => {
   const navigate = useNavigate();
-  const [classes, setClasses] = useState<TeachingClass[]>(INITIAL_CLASSES);
+  const {
+    classes,
+    stages,
+    categories,
+    addClass,
+    updateClass,
+    loading
+  } = useTeaching();
+  const { members } = useMembers();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<TeachingClass | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,11 +26,11 @@ const Teaching: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
 
-  const handleSaveClass = (classData: Omit<TeachingClass, 'id'> | TeachingClass) => {
+  const handleSaveClass = async (classData: Omit<TeachingClass, 'id'> | TeachingClass) => {
     if ('id' in classData && classes.some(c => c.id === classData.id)) {
-      setClasses(prev => prev.map(c => c.id === classData.id ? classData as TeachingClass : c));
+      await updateClass(classData.id, classData);
     } else {
-      setClasses(prev => [...prev, classData as TeachingClass]);
+      await addClass(classData);
     }
     setEditingClass(null);
     setIsModalOpen(false);
@@ -115,13 +74,23 @@ const Teaching: React.FC = () => {
       case 'Concluída': return 'bg-gray-100 text-gray-700';
       case 'Cancelado':
       case 'Cancelada': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
     }
   };
 
   // Stats
-  const totalStudents = classes.reduce((acc, c) => acc + c.students.length, 0);
+  const totalStudents = classes.reduce((acc, c) => acc + (c.students?.length || 0), 0);
   const activeClasses = classes.filter(c => c.status === 'Em Andamento').length;
+  // lessons is assumed to be an array, or if it's counting objects from hook select(..., count), hook maps it.
   const totalLessons = classes.reduce((acc, c) => acc + (c.lessons?.length || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto bg-gray-50">
@@ -237,7 +206,7 @@ const Teaching: React.FC = () => {
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
                   >
                     <option value="All">Todos</option>
-                    {DEFAULT_CHRISTIAN_STAGES.map(stage => (
+                    {stages.map(stage => (
                       <option key={stage.id} value={stage.name}>{stage.name}</option>
                     ))}
                   </select>
@@ -251,7 +220,7 @@ const Teaching: React.FC = () => {
                     className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
                   >
                     <option value="All">Todas</option>
-                    {DEFAULT_TEACHING_CATEGORIES.map(cat => (
+                    {categories.map(cat => (
                       <option key={cat.id} value={cat.name}>{cat.name}</option>
                     ))}
                   </select>
@@ -294,7 +263,11 @@ const Teaching: React.FC = () => {
               {/* Teacher */}
               {teachingClass.teacher && (
                 <div className="flex items-center gap-2 mb-4 p-2 bg-orange-50 rounded-lg">
-                  <img src={teachingClass.teacher.avatar} alt="" className="w-8 h-8 rounded-full" />
+                  <img
+                    src={teachingClass.teacher.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(teachingClass.teacher.name)}&background=random`}
+                    alt=""
+                    className="w-8 h-8 rounded-full"
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-orange-600 font-medium">Professor</p>
                     <p className="text-sm font-medium text-slate-800 truncate">{teachingClass.teacher.name}</p>
@@ -365,9 +338,9 @@ const Teaching: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onSave={handleSaveClass}
           teachingClass={editingClass}
-          members={MOCK_MEMBERS}
-          stages={DEFAULT_CHRISTIAN_STAGES}
-          categories={DEFAULT_TEACHING_CATEGORIES}
+          members={members}
+          stages={stages}
+          categories={categories}
         />
       </div>
     </div>

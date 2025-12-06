@@ -8,7 +8,7 @@ interface AddGroupMemberModalProps {
     onClose: () => void;
     onAddMember: (memberId: string) => void;
     allMembers: Member[];
-    currentGroupId: string;
+    existingMemberIds: string[];
 }
 
 const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
@@ -16,20 +16,17 @@ const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
     onClose,
     onAddMember,
     allMembers,
-    currentGroupId
+    existingMemberIds
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
-    // Filtrar membros elegíveis:
-    // 1. Não devem estar no grupo atual (embora a lógica de groupId já cubra isso, é bom garantir)
-    // 2. Não devem ter um groupId definido (não estão em nenhum grupo)
     const eligibleMembers = useMemo(() => {
         return allMembers.filter(member => {
-            // Se o membro já tem um groupId, ele não é elegível (já está em um grupo)
-            if (member.groupId && member.groupId !== '') return false;
+            // Filter out members already in the group
+            if (existingMemberIds.includes(member.id)) return false;
 
-            // Filtro de pesquisa
+            // Filter by search term
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
                 return (
@@ -40,7 +37,7 @@ const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
 
             return true;
         });
-    }, [allMembers, searchTerm]);
+    }, [allMembers, searchTerm, existingMemberIds]);
 
     const handleAdd = () => {
         if (selectedMemberId) {
@@ -61,7 +58,7 @@ const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
                     <AlertCircle className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
                     <p className="text-sm text-blue-700">
-                        Apenas membros que não pertencem a nenhum grupo serão listados aqui.
+                        Selecione um membro para adicionar a este grupo.
                     </p>
                 </div>
 
@@ -83,8 +80,8 @@ const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
                                 key={member.id}
                                 onClick={() => setSelectedMemberId(member.id)}
                                 className={`p-3 flex items-center gap-3 cursor-pointer transition-colors ${selectedMemberId === member.id
-                                        ? 'bg-orange-50 border-l-4 border-orange-500'
-                                        : 'hover:bg-gray-50 border-l-4 border-transparent'
+                                    ? 'bg-orange-50 border-l-4 border-orange-500'
+                                    : 'hover:bg-gray-50 border-l-4 border-transparent'
                                     }`}
                             >
                                 <img
@@ -100,7 +97,7 @@ const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
                         ))
                     ) : (
                         <div className="p-8 text-center text-slate-500">
-                            {searchTerm ? 'Nenhum membro encontrado.' : 'Todos os membros já estão em grupos.'}
+                            {searchTerm ? 'Nenhum membro encontrado.' : 'Todos os membros disponíveis já estão no grupo.'}
                         </div>
                     )}
                 </div>
@@ -116,8 +113,8 @@ const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
                         onClick={handleAdd}
                         disabled={!selectedMemberId}
                         className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${selectedMemberId
-                                ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
                     >
                         <UserPlus size={18} />

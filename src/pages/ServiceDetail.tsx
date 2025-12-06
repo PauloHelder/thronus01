@@ -1,41 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Clock, User, MapPin, Users, Save } from 'lucide-react';
 import { Service } from '../types';
-
-// Mock data - em produção viria do estado global ou API
-const MOCK_SERVICE: Service = {
-    id: '1',
-    churchId: 'demo-user-1',
-    name: 'Culto de Celebração',
-    type: 'Culto de Domingo',
-    status: 'Concluído',
-    date: '2024-01-21',
-    startTime: '10:00',
-    preacher: 'Pastor João Silva',
-    leader: 'Diácono Pedro Santos',
-    location: 'Templo Principal',
-    description: 'Culto de celebração com louvor e adoração',
-    statistics: {
-        adults: { men: 45, women: 52 },
-        children: { boys: 15, girls: 18 },
-        visitors: { men: 3, women: 5 }
-    }
-};
+import { useServices } from '../hooks/useServices';
 
 const ServiceDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [service, setService] = useState<Service>(MOCK_SERVICE);
-    const [statistics, setStatistics] = useState(service.statistics || {
+    const { getService, updateStatistics } = useServices();
+    const [service, setService] = useState<Service | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [statistics, setStatistics] = useState({
         adults: { men: 0, women: 0 },
         children: { boys: 0, girls: 0 },
         visitors: { men: 0, women: 0 }
     });
 
-    const handleSaveStatistics = () => {
-        setService({ ...service, statistics });
-        alert('Estatísticas salvas com sucesso!');
+    useEffect(() => {
+        const fetchServiceData = async () => {
+            if (!id) return;
+
+            setLoading(true);
+            try {
+                const serviceData = await getService(id);
+                if (serviceData) {
+                    setService(serviceData);
+                    setStatistics(serviceData.statistics || {
+                        adults: { men: 0, women: 0 },
+                        children: { boys: 0, girls: 0 },
+                        visitors: { men: 0, women: 0 }
+                    });
+                } else {
+                    alert('Culto não encontrado');
+                    navigate('/services');
+                }
+            } catch (error) {
+                console.error('Error fetching service:', error);
+                alert('Erro ao carregar culto');
+                navigate('/services');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchServiceData();
+    }, [id]);
+
+    const handleSaveStatistics = async () => {
+        if (!id) return;
+
+        try {
+            await updateStatistics(id, statistics);
+            setService(prev => prev ? { ...prev, statistics } : null);
+            alert('Estatísticas salvas com sucesso!');
+        } catch (error) {
+            console.error('Error saving statistics:', error);
+            alert('Erro ao salvar estatísticas');
+        }
     };
 
     const formatDate = (dateStr: string) => {
@@ -52,41 +73,81 @@ const ServiceDetail: React.FC = () => {
         }
     };
 
+    const getStatusBadgeColor = (status: string) => {
+        switch (status) {
+            case 'Agendado': return 'bg-blue-500/20 text-white border border-white/30';
+            case 'Concluído': return 'bg-green-500/20 text-white border border-white/30';
+            case 'Cancelado': return 'bg-red-500/20 text-white border border-white/30';
+            default: return 'bg-gray-500/20 text-white border border-white/30';
+        }
+    };
+
     const totalAdults = statistics.adults.men + statistics.adults.women;
     const totalChildren = statistics.children.boys + statistics.children.girls;
     const totalVisitors = statistics.visitors.men + statistics.visitors.women;
     // Total geral NÃO inclui visitantes
     const totalAttendance = totalAdults + totalChildren;
 
+    if (loading) {
+        return (
+            <div className="h-full flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
+                    <p className="text-slate-600">Carregando culto...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!service) {
+        return (
+            <div className="h-full flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <Calendar size={64} className="mx-auto text-gray-400 mb-4" />
+                    <p className="text-slate-600 text-lg">Culto não encontrado</p>
+                    <button
+                        onClick={() => navigate('/services')}
+                        className="mt-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
+                    >
+                        Voltar para Cultos
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="h-full overflow-y-auto bg-gray-50">
             {/* Header */}
-            <div className="bg-white border-b border-gray-200 p-4 lg:p-6">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6">
                 <button
                     onClick={() => navigate('/services')}
-                    className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-4 transition-colors"
+                    className="flex items-center gap-2 text-white/90 hover:text-white mb-4 transition-colors"
                 >
                     <ArrowLeft size={20} />
-                    <span className="font-medium">Voltar para Cultos</span>
+                    <span>Voltar para Cultos</span>
                 </button>
-
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                    <div className="flex-1">
-                        <h1 className="text-2xl font-bold text-slate-800 mb-2">{service.name}</h1>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                <div className="flex items-start justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">{service.typeName}</h1>
+                        <div className="flex flex-wrap items-center gap-4 text-white/90">
                             <div className="flex items-center gap-2">
-                                <Calendar size={16} />
-                                <span className="capitalize">{formatDate(service.date)}</span>
+                                <Calendar size={18} />
+                                <span>{formatDate(service.date)}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Clock size={16} />
+                                <Clock size={18} />
                                 <span>{service.startTime}</span>
                             </div>
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
-                                {service.status}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <MapPin size={18} />
+                                <span>{service.location}</span>
+                            </div>
                         </div>
                     </div>
+                    <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusBadgeColor(service.status)}`}>
+                        {service.status}
+                    </span>
                 </div>
             </div>
 
@@ -95,10 +156,6 @@ const ServiceDetail: React.FC = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <h2 className="text-lg font-semibold text-slate-800 mb-4">Informações do Culto</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-600 mb-1">Tipo de Culto</label>
-                            <p className="text-slate-800">{service.type}</p>
-                        </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-600 mb-1">Local</label>
                             <div className="flex items-center gap-2 text-slate-800">
@@ -110,14 +167,14 @@ const ServiceDetail: React.FC = () => {
                             <label className="block text-sm font-medium text-slate-600 mb-1">Pregador</label>
                             <div className="flex items-center gap-2 text-slate-800">
                                 <User size={16} />
-                                <span>{service.preacher}</span>
+                                <span>{service.preacher || 'Não definido'}</span>
                             </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-600 mb-1">Dirigente</label>
                             <div className="flex items-center gap-2 text-slate-800">
                                 <User size={16} />
-                                <span>{service.leader}</span>
+                                <span>{service.leader || 'Não definido'}</span>
                             </div>
                         </div>
                         {service.description && (

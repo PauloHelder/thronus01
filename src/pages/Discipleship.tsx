@@ -1,47 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Users, Calendar, TrendingUp } from 'lucide-react';
-import { DiscipleshipLeader } from '../types';
-import { MOCK_MEMBERS } from '../mocks/members';
+import { useDiscipleship } from '../hooks/useDiscipleship';
+import { useMembers } from '../hooks/useMembers';
 import AddDiscipleshipLeaderModal from '../components/modals/AddDiscipleshipLeaderModal';
-
-// Mock data inicial
-const INITIAL_LEADERS: DiscipleshipLeader[] = [
-  {
-    id: '1',
-    member: MOCK_MEMBERS[0],
-    startDate: '2023-06-15',
-    disciples: [MOCK_MEMBERS[1], MOCK_MEMBERS[2]],
-    meetings: []
-  },
-  {
-    id: '2',
-    member: MOCK_MEMBERS[3],
-    startDate: '2023-08-20',
-    disciples: [MOCK_MEMBERS[4]],
-    meetings: []
-  }
-];
 
 const Discipleship: React.FC = () => {
   const navigate = useNavigate();
-  const [leaders, setLeaders] = useState<DiscipleshipLeader[]>(INITIAL_LEADERS);
+  const { leaders, loading, addLeader } = useDiscipleship();
+  const { members } = useMembers();
+
   const [isAddLeaderModalOpen, setIsAddLeaderModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const handleAddLeader = (memberId: string, startDate: string) => {
-    const member = MOCK_MEMBERS.find(m => m.id === memberId);
-    if (!member) return;
-
-    const newLeader: DiscipleshipLeader = {
-      id: crypto.randomUUID(),
-      member,
-      startDate,
-      disciples: [],
-      meetings: []
-    };
-
-    setLeaders([...leaders, newLeader]);
+  const handleAddLeader = async (memberId: string, startDate: string) => {
+    await addLeader(memberId, startDate);
+    setIsAddLeaderModalOpen(false);
   };
 
   const handleViewDetails = (leaderId: string) => {
@@ -49,7 +23,8 @@ const Discipleship: React.FC = () => {
   };
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00');
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
@@ -59,9 +34,17 @@ const Discipleship: React.FC = () => {
   );
 
   // Membros disponíveis para se tornarem líderes (que ainda não são líderes)
-  const availableMembers = MOCK_MEMBERS.filter(
-    member => !leaders.some(leader => leader.member.id === member.id)
+  const availableMembers = members.filter(
+    member => !leaders.some(leader => leader.member_id === member.id)
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -110,9 +93,9 @@ const Discipleship: React.FC = () => {
               <Calendar className="text-purple-600" size={24} />
             </div>
           </div>
-          <p className="text-sm text-slate-500">Encontros Este Mês</p>
+          <p className="text-sm text-slate-500">Encontros Registrados</p>
           <p className="text-2xl font-bold text-slate-800 mt-1">
-            {leaders.reduce((acc, leader) => acc + (leader.meetings?.length || 0), 0)}
+            {leaders.reduce((acc, leader) => acc + (leader.meetings_count || 0), 0)}
           </p>
         </div>
       </div>
@@ -141,17 +124,17 @@ const Discipleship: React.FC = () => {
           >
             <div className="flex items-start gap-4 mb-4">
               <img
-                src={leader.member.avatar}
+                src={leader.member.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.member.name)}&background=random`}
                 alt={leader.member.name}
-                className="w-16 h-16 rounded-full border-2 border-orange-100"
+                className="w-16 h-16 rounded-full border-2 border-orange-100 object-cover"
               />
               <div className="flex-1">
-                <h3 className="font-bold text-slate-800 group-hover:text-orange-600 transition-colors">
+                <h3 className="font-bold text-slate-800 group-hover:text-orange-600 transition-colors line-clamp-1">
                   {leader.member.name}
                 </h3>
-                <p className="text-sm text-slate-600">{leader.member.email}</p>
+                <p className="text-sm text-slate-600 line-clamp-1">{leader.member.email}</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Líder desde {formatDate(leader.startDate)}
+                  Líder desde {formatDate(leader.start_date)}
                 </p>
               </div>
             </div>
@@ -170,25 +153,25 @@ const Discipleship: React.FC = () => {
                   <Calendar size={16} className="text-purple-600" />
                   <span className="text-sm font-medium text-purple-700">Encontros</span>
                 </div>
-                <span className="text-lg font-bold text-purple-700">{leader.meetings?.length || 0}</span>
+                <span className="text-lg font-bold text-purple-700">{leader.meetings_count || 0}</span>
               </div>
             </div>
 
             {leader.disciples.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Discípulos</p>
-                <div className="flex -space-x-2">
+                <div className="flex -space-x-2 overflow-hidden">
                   {leader.disciples.slice(0, 5).map(disciple => (
                     <img
                       key={disciple.id}
-                      src={disciple.avatar}
+                      src={disciple.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(disciple.name)}&background=random`}
                       alt={disciple.name}
                       title={disciple.name}
-                      className="w-8 h-8 rounded-full border-2 border-white"
+                      className="w-8 h-8 rounded-full border-2 border-white object-cover"
                     />
                   ))}
                   {leader.disciples.length > 5 && (
-                    <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-semibold text-slate-600">
+                    <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-semibold text-slate-600 shrink-0">
                       +{leader.disciples.length - 5}
                     </div>
                   )}
@@ -199,7 +182,7 @@ const Discipleship: React.FC = () => {
         ))}
       </div>
 
-      {filteredLeaders.length === 0 && (
+      {filteredLeaders.length === 0 && !loading && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
           <Users size={48} className="mx-auto mb-4 text-gray-300" />
           <h3 className="text-lg font-semibold text-slate-800 mb-2">

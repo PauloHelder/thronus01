@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -13,13 +13,17 @@ import {
     Heart,
     BookOpen,
     TrendingUp,
-    Activity
+    Activity,
+    Loader2
 } from 'lucide-react';
 import MemberModal from '../components/modals/MemberModal';
 import { Member } from '../types';
+import { useMembers } from '../hooks/useMembers';
 
-// Mock data - em produção, isso viria de uma API
+import { formatDateForInput } from '../utils/dateUtils';
+
 // Estendendo a interface Member para incluir campos extras usados nesta página
+// Em uma implementação real completa, esses dados viriam de tabelas relacionadas
 interface ExtendedMember extends Member {
     role: string;
     joinDate: string;
@@ -33,58 +37,69 @@ interface ExtendedMember extends Member {
     notes: string;
 }
 
-const getMemberById = (id: string): ExtendedMember => {
-    const members: ExtendedMember[] = [
-        {
-            id: '1',
-            name: 'João Silva',
-            email: 'joao.silva@email.com',
-            phone: '+244 900 123 456',
-            avatar: 'https://i.pravatar.cc/150?u=joao',
-            status: 'Active', // Corrigido para maiúsculo para bater com o tipo Member
-            role: 'Líder de Célula',
-            joinDate: '2022-03-15',
-            birthDate: '1985-06-20',
-            address: 'Rua das Flores, 123, Luanda',
-            group: 'Célula Alfa',
-            attendance: 95,
-            lastAttendance: '2024-11-24',
-            baptized: true,
-            maritalStatus: 'Married', // Corrigido para inglês para bater com o tipo Member
-            gender: 'Male',
-            occupation: 'Engenheiro',
-            notes: 'Membro ativo e comprometido. Participa regularmente dos cultos e atividades da célula.'
-        }
-    ];
-
-    return members.find(m => m.id === id) || members[0];
-};
-
 const MemberDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    // Usar estado para permitir atualizações na UI após "edição"
-    const [member, setMember] = useState<ExtendedMember>(getMemberById(id || '1'));
+    const { members, loading: membersLoading, updateMember, deleteMember, refetch } = useMembers();
+
+    const [member, setMember] = useState<ExtendedMember | null>(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!membersLoading && id) {
+            const foundMember = members.find(m => m.id === id);
+
+            if (foundMember) {
+                // Transformar o membro do Supabase no formato estendido esperado pela UI
+                // Preenchendo dados faltantes com valores padrão ou mocks por enquanto
+                setMember({
+                    ...foundMember,
+                    role: foundMember.churchRole || 'Membro',
+                    joinDate: new Date().toISOString(), // Data de cadastro não está no tipo Member, usando atual
+                    birthDate: formatDateForInput(foundMember.birthDate) || new Date().toISOString().split('T')[0],
+                    address: foundMember.address || 'Endereço não informado',
+                    group: 'Sem grupo', // Viria de relacionamento com grupos
+                    attendance: 0, // Viria de estatísticas
+                    lastAttendance: new Date().toISOString(), // Viria de estatísticas
+                    baptized: foundMember.isBaptized || false,
+                    occupation: 'Não informada',
+                    notes: 'Sem observações'
+                });
+            }
+            setLoading(false);
+        }
+    }, [members, membersLoading, id]);
 
     const handleEdit = () => {
         setIsEditModalOpen(true);
     };
 
-    const handleSaveMember = (updatedData: Member | Omit<Member, 'id'>) => {
-        // Mesclar os dados atualizados com o membro existente
-        setMember(prev => ({
-            ...prev,
-            ...updatedData
-        }));
-        setIsEditModalOpen(false);
+    const handleSaveMember = async (updatedData: Member | Omit<Member, 'id'>) => {
+        if (!member) return;
+
+        try {
+            await updateMember(member.id, updatedData);
+            await refetch(); // Garante que temos os dados mais recentes do servidor
+            setIsEditModalOpen(false);
+        } catch (error) {
+            console.error('Erro ao atualizar membro:', error);
+            alert('Erro ao atualizar membro. Tente novamente.');
+        }
     };
 
-    const handleDelete = () => {
-        // Implementar lógica de exclusão
-        setShowDeleteModal(false);
-        navigate('/members');
+    const handleDelete = async () => {
+        if (!member) return;
+
+        try {
+            await deleteMember(member.id);
+            setShowDeleteModal(false);
+            navigate('/members');
+        } catch (error) {
+            console.error('Erro ao excluir membro:', error);
+            alert('Erro ao excluir membro. Tente novamente.');
+        }
     };
 
     const getMaritalStatusTranslation = (status?: string) => {
@@ -93,9 +108,31 @@ const MemberDetail: React.FC = () => {
             case 'Married': return 'Casado(a)';
             case 'Divorced': return 'Divorciado(a)';
             case 'Widowed': return 'Viúvo(a)';
-            default: return status;
+            default: return status || 'Não informado';
         }
     };
+
+    if (loading || membersLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+            </div>
+        );
+    }
+
+    if (!member) {
+        return (
+            <div className="p-8 text-center">
+                <h2 className="text-2xl font-bold text-slate-800">Membro não encontrado</h2>
+                <button
+                    onClick={() => navigate('/members')}
+                    className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg"
+                >
+                    Voltar para Lista
+                </button>
+            </div>
+        );
+    }
 
     const stats = [
         {
@@ -119,7 +156,7 @@ const MemberDetail: React.FC = () => {
         {
             icon: TrendingUp,
             label: 'Status',
-            value: member.status === 'Active' ? 'Ativo' : 'Inativo',
+            value: member.status === 'Active' ? 'Ativo' : (member.status === 'Inactive' ? 'Inativo' : 'Visitante'),
             color: 'bg-orange-500'
         }
     ];
@@ -164,7 +201,7 @@ const MemberDetail: React.FC = () => {
                         <div className="text-center">
                             <div className="w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden border-4 border-orange-100">
                                 <img
-                                    src={member.avatar}
+                                    src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}
                                     alt={member.name}
                                     className="w-full h-full object-cover"
                                 />
@@ -175,7 +212,7 @@ const MemberDetail: React.FC = () => {
                                 ? 'bg-green-100 text-green-700'
                                 : 'bg-gray-100 text-gray-700'
                                 }`}>
-                                {member.status === 'Active' ? 'Ativo' : 'Inativo'}
+                                {member.status === 'Active' ? 'Ativo' : (member.status === 'Inactive' ? 'Inativo' : 'Visitante')}
                             </div>
                         </div>
                     </div>
@@ -188,14 +225,14 @@ const MemberDetail: React.FC = () => {
                                 <Mail className="text-orange-500 flex-shrink-0 mt-1" size={20} />
                                 <div>
                                     <p className="text-sm text-slate-600">Email</p>
-                                    <p className="text-slate-800 font-medium">{member.email}</p>
+                                    <p className="text-slate-800 font-medium break-all">{member.email}</p>
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">
                                 <Phone className="text-orange-500 flex-shrink-0 mt-1" size={20} />
                                 <div>
                                     <p className="text-sm text-slate-600">Telefone</p>
-                                    <p className="text-slate-800 font-medium">{member.phone}</p>
+                                    <p className="text-slate-800 font-medium">{member.phone || 'Não informado'}</p>
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">

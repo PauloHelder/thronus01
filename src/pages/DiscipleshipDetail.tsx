@@ -1,93 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, Calendar, Plus, UserPlus, Trash2, Pencil, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { DiscipleshipLeader, DiscipleshipMeeting, Member } from '../types';
-import { MOCK_MEMBERS } from '../mocks/members';
+import { DiscipleshipMeeting } from '../types';
+import { useDiscipleship } from '../hooks/useDiscipleship';
+import { useMembers } from '../hooks/useMembers';
 import AddDiscipleModal from '../components/modals/AddDiscipleModal';
 import AddDiscipleshipMeetingModal from '../components/modals/AddDiscipleshipMeetingModal';
-
-// Mock data
-const MOCK_LEADER: DiscipleshipLeader = {
-    id: '1',
-    member: MOCK_MEMBERS[0],
-    startDate: '2023-06-15',
-    disciples: [MOCK_MEMBERS[1], MOCK_MEMBERS[2]],
-    meetings: [
-        {
-            id: '1',
-            leaderId: '1',
-            date: '2024-01-25',
-            attendees: ['2', '3'],
-            status: 'Completed',
-            notes: 'Estudo sobre oração'
-        },
-        {
-            id: '2',
-            leaderId: '1',
-            date: '2024-01-18',
-            attendees: ['2'],
-            status: 'Completed',
-            notes: 'Fundamentos da fé'
-        },
-        {
-            id: '3',
-            leaderId: '1',
-            date: '2024-02-01',
-            attendees: [],
-            status: 'Scheduled',
-            notes: 'Próximo encontro - Batismo'
-        }
-    ]
-};
 
 const DiscipleshipDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [leader, setLeader] = useState<DiscipleshipLeader>(MOCK_LEADER);
+    const {
+        selectedLeader: leader,
+        loading,
+        fetchLeaderDetails,
+        addDisciple,
+        removeDisciple,
+        addMeeting,
+        updateMeeting,
+        deleteMeeting
+    } = useDiscipleship();
+    const { members } = useMembers();
+
     const [isAddDiscipleModalOpen, setIsAddDiscipleModalOpen] = useState(false);
     const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
     const [editingMeeting, setEditingMeeting] = useState<DiscipleshipMeeting | null>(null);
 
-    const handleAddDisciple = (memberId: string) => {
-        const member = MOCK_MEMBERS.find(m => m.id === memberId);
-        if (!member) return;
+    useEffect(() => {
+        if (id) {
+            fetchLeaderDetails(id);
+        }
+    }, [id]);
 
-        setLeader({
-            ...leader,
-            disciples: [...leader.disciples, member]
-        });
+    const handleAddDisciple = async (memberId: string) => {
+        if (!leader) return;
+        await addDisciple(leader.id, memberId);
+        setIsAddDiscipleModalOpen(false);
     };
 
-    const handleRemoveDisciple = (discipleId: string) => {
+    const handleRemoveDisciple = async (discipleId: string) => {
+        if (!leader) return;
         if (window.confirm('Tem certeza que deseja remover este discípulo?')) {
-            setLeader({
-                ...leader,
-                disciples: leader.disciples.filter(d => d.id !== discipleId)
-            });
+            await removeDisciple(leader.id, discipleId);
         }
     };
 
-    const handleSaveMeeting = (meetingData: Omit<DiscipleshipMeeting, 'id' | 'leaderId'> | DiscipleshipMeeting) => {
-        if ('id' in meetingData && leader.meetings?.some(m => m.id === meetingData.id)) {
+    const handleSaveMeeting = async (meetingData: Omit<DiscipleshipMeeting, 'id' | 'leaderId'> | DiscipleshipMeeting) => {
+        if (!leader) return;
+
+        if ('id' in meetingData) {
             // Editar
-            setLeader({
-                ...leader,
-                meetings: leader.meetings?.map(m =>
-                    m.id === meetingData.id ? { ...meetingData, leaderId: leader.id } as DiscipleshipMeeting : m
-                )
-            });
+            await updateMeeting({ ...meetingData, leaderId: leader.id } as DiscipleshipMeeting);
         } else {
             // Novo
-            const newMeeting: DiscipleshipMeeting = {
-                ...meetingData,
-                id: crypto.randomUUID(),
-                leaderId: leader.id
-            } as DiscipleshipMeeting;
-
-            setLeader({
-                ...leader,
-                meetings: [newMeeting, ...(leader.meetings || [])]
-            });
+            await addMeeting({ ...meetingData, leaderId: leader.id });
         }
         setEditingMeeting(null);
         setIsMeetingModalOpen(false);
@@ -98,17 +64,16 @@ const DiscipleshipDetail: React.FC = () => {
         setIsMeetingModalOpen(true);
     };
 
-    const handleDeleteMeeting = (meetingId: string) => {
+    const handleDeleteMeeting = async (meetingId: string) => {
         if (window.confirm('Tem certeza que deseja excluir este encontro?')) {
-            setLeader({
-                ...leader,
-                meetings: leader.meetings?.filter(m => m.id !== meetingId)
-            });
+            await deleteMeeting(meetingId);
         }
     };
 
     const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr + 'T00:00:00');
+        if (!dateStr) return '-';
+        const date = new Date(dateStr);
+        // Ajuste para fuso horário se necessário, ou assumir UTC
         return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     };
 
@@ -120,11 +85,21 @@ const DiscipleshipDetail: React.FC = () => {
                 return { color: 'bg-green-100 text-green-700', icon: CheckCircle, label: 'Concluído' };
             case 'Cancelled':
                 return { color: 'bg-red-100 text-red-700', icon: XCircle, label: 'Cancelado' };
+            default:
+                return { color: 'bg-gray-100 text-gray-700', icon: Clock, label: status };
         }
     };
 
+    if (loading || !leader) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+            </div>
+        );
+    }
+
     // Membros disponíveis (que não são discípulos deste líder e não são o próprio líder)
-    const availableMembers = MOCK_MEMBERS.filter(
+    const availableMembers = members.filter(
         member => member.id !== leader.member.id && !leader.disciples.some(d => d.id === member.id)
     );
 
@@ -142,9 +117,9 @@ const DiscipleshipDetail: React.FC = () => {
 
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
                     <img
-                        src={leader.member.avatar}
+                        src={leader.member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(leader.member.name)}&background=random`}
                         alt={leader.member.name}
-                        className="w-20 h-20 rounded-full border-4 border-orange-100"
+                        className="w-20 h-20 rounded-full border-4 border-orange-100 object-cover"
                     />
                     <div className="flex-1">
                         <h1 className="text-2xl font-bold text-slate-800">{leader.member.name}</h1>
@@ -191,7 +166,11 @@ const DiscipleshipDetail: React.FC = () => {
                         <div className="space-y-2">
                             {leader.disciples.map(disciple => (
                                 <div key={disciple.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                    <img src={disciple.avatar} alt="" className="w-12 h-12 rounded-full" />
+                                    <img
+                                        src={disciple.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(disciple.name)}&background=random`}
+                                        alt=""
+                                        className="w-12 h-12 rounded-full object-cover"
+                                    />
                                     <div className="flex-1">
                                         <p className="font-medium text-slate-800">{disciple.name}</p>
                                         <p className="text-sm text-slate-600">{disciple.email}</p>

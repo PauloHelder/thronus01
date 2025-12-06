@@ -3,19 +3,6 @@ import Modal from '../Modal';
 import { Member, DepartmentSchedule } from '../../types';
 import { Save, Calendar, CheckSquare } from 'lucide-react';
 
-// Mock de cultos e eventos (idealmente viriam de props ou contexto)
-const MOCK_SERVICES = [
-    { id: '1', name: 'Culto de Domingo - Manhã', date: '2024-02-04' },
-    { id: '2', name: 'Culto de Domingo - Noite', date: '2024-02-04' },
-    { id: '3', name: 'Culto de Quarta - Doutrina', date: '2024-02-07' },
-];
-
-const MOCK_EVENTS = [
-    { id: '1', name: 'Retiro de Jovens', date: '2024-02-10' },
-    { id: '2', name: 'Conferência Anual', date: '2024-02-15' },
-    { id: '3', name: 'Evangelismo na Praça', date: '2024-02-17' },
-];
-
 interface CreateScheduleModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -23,6 +10,8 @@ interface CreateScheduleModalProps {
     departmentMembers: Member[];
     leader?: Member;
     schedule?: DepartmentSchedule | null;
+    services: any[];
+    events: any[];
 }
 
 const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
@@ -31,7 +20,9 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     onSave,
     departmentMembers,
     leader,
-    schedule
+    schedule,
+    services,
+    events
 }) => {
     const [type, setType] = useState<'Service' | 'Event'>('Service');
     const [serviceId, setServiceId] = useState('');
@@ -68,13 +59,20 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     useEffect(() => {
         // Atualizar data automaticamente quando selecionar culto ou evento
         if (type === 'Service' && serviceId) {
-            const service = MOCK_SERVICES.find(s => s.id === serviceId);
-            if (service) setDate(service.date);
+            const service = services.find(s => s.id === serviceId);
+            if (service) {
+                // Handle different date formats or timestamps
+                const dateVal = service.date.split('T')[0];
+                setDate(dateVal);
+            }
         } else if (type === 'Event' && eventId) {
-            const event = MOCK_EVENTS.find(e => e.id === eventId);
-            if (event) setDate(event.date);
+            const event = events.find(e => e.id === eventId);
+            if (event) {
+                const dateVal = event.date.split('T')[0];
+                setDate(dateVal);
+            }
         }
-    }, [type, serviceId, eventId]);
+    }, [type, serviceId, eventId, services, events]);
 
     const handleToggleMember = (memberId: string) => {
         setAssignedMembers(prev =>
@@ -111,6 +109,11 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
             notes
         });
         onClose();
+    };
+
+    const formatDateDisplay = (dateStr: string) => {
+        if (!dateStr) return '';
+        return new Date(dateStr).toLocaleDateString('pt-BR');
     };
 
     return (
@@ -157,9 +160,9 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                             className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                         >
                             <option value="">Escolha um culto...</option>
-                            {MOCK_SERVICES.map(service => (
+                            {services.map(service => (
                                 <option key={service.id} value={service.id}>
-                                    {service.name}
+                                    {service.typeName || 'Culto de Domingo'} - {formatDateDisplay(service.date)}
                                 </option>
                             ))}
                         </select>
@@ -171,9 +174,9 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                             className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                         >
                             <option value="">Escolha um evento...</option>
-                            {MOCK_EVENTS.map(event => (
+                            {events.map(event => (
                                 <option key={event.id} value={event.id}>
-                                    {event.name}
+                                    {event.title} - {formatDateDisplay(event.date)}
                                 </option>
                             ))}
                         </select>
@@ -232,7 +235,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                                         checked={assignedMembers.includes(member.id)}
                                         onChange={() => handleToggleMember(member.id)}
                                     />
-                                    <img src={member.avatar} alt="" className="w-8 h-8 rounded-full" />
+                                    <img src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`} alt="" className="w-8 h-8 rounded-full" />
                                     <span className="text-sm text-slate-700 flex-1 font-medium">{member.name}</span>
                                     {member.id === leader?.id && (
                                         <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">

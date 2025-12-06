@@ -3,62 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, Clock, User, MapPin, Pencil, Trash2, Filter, Eye } from 'lucide-react';
 import { Service } from '../types';
 import ServiceModal from '../components/modals/ServiceModal';
-
-const INITIAL_SERVICES: Service[] = [
-    {
-        id: '1',
-        churchId: 'demo-user-1',
-        name: 'Culto de Celebração',
-        type: 'Culto de Domingo',
-        status: 'Concluído',
-        date: '2024-01-21',
-        startTime: '10:00',
-        preacher: 'Pastor João Silva',
-        leader: 'Diácono Pedro Santos',
-        location: 'Templo Principal',
-        description: 'Culto de celebração com louvor e adoração',
-        statistics: {
-            adults: { men: 45, women: 52 },
-            children: { boys: 15, girls: 18 },
-            visitors: { men: 3, women: 5 }
-        }
-    },
-    {
-        id: '2',
-        churchId: 'demo-user-1',
-        name: 'Reunião de Oração',
-        type: 'Reunião de Oração',
-        status: 'Agendado',
-        date: '2024-01-24',
-        startTime: '19:30',
-        preacher: 'Pastor Marcos Lima',
-        leader: 'Irmã Maria Costa',
-        location: 'Sala de Oração',
-        description: 'Reunião semanal de oração e intercessão'
-    },
-    {
-        id: '3',
-        churchId: 'demo-user-1',
-        name: 'Culto de Jovens',
-        type: 'Culto Jovem',
-        status: 'Concluído',
-        date: '2024-01-20',
-        startTime: '19:00',
-        preacher: 'Pastor André Oliveira',
-        leader: 'Líder João Pedro',
-        location: 'Auditório',
-        description: 'Culto especial para jovens',
-        statistics: {
-            adults: { men: 30, women: 35 },
-            children: { boys: 5, girls: 8 },
-            visitors: { men: 2, women: 3 }
-        }
-    }
-];
+import { useServices } from '../hooks/useServices';
+import { useServiceTypes } from '../hooks/useServiceTypes';
 
 const Services: React.FC = () => {
     const navigate = useNavigate();
-    const [services, setServices] = useState<Service[]>(INITIAL_SERVICES);
+    const { services, loading, createService, updateService, deleteService } = useServices();
+    const { serviceTypes } = useServiceTypes();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedService, setSelectedService] = useState<Service | undefined>(undefined);
     const [filterType, setFilterType] = useState<string>('all');
@@ -77,20 +28,30 @@ const Services: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDeleteService = (id: string, e: React.MouseEvent) => {
+    const handleDeleteService = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (window.confirm('Tem certeza que deseja excluir este culto?')) {
-            setServices(prev => prev.filter(s => s.id !== id));
+            try {
+                await deleteService(id);
+            } catch (error) {
+                console.error('Error deleting service:', error);
+                alert('Erro ao excluir culto');
+            }
         }
     };
 
-    const handleSaveService = (serviceData: Service | Omit<Service, 'id'>) => {
-        if ('id' in serviceData) {
-            setServices(prev => prev.map(s => s.id === serviceData.id ? serviceData as Service : s));
-        } else {
-            setServices(prev => [...prev, serviceData as Service]);
+    const handleSaveService = async (serviceData: Service | Omit<Service, 'id'>) => {
+        try {
+            if ('id' in serviceData) {
+                await updateService(serviceData.id, serviceData);
+            } else {
+                await createService(serviceData);
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error('Error saving service:', error);
+            alert('Erro ao salvar culto');
         }
-        setIsModalOpen(false);
     };
 
     const getStatusColor = (status: string) => {
@@ -103,7 +64,7 @@ const Services: React.FC = () => {
     };
 
     const filteredServices = services.filter(service => {
-        if (filterType !== 'all' && service.type !== filterType) return false;
+        if (filterType !== 'all' && service.serviceTypeId !== filterType) return false;
         if (filterStatus !== 'all' && service.status !== filterStatus) return false;
         if (startDate && service.date < startDate) return false;
         if (endDate && service.date > endDate) return false;
@@ -160,46 +121,56 @@ const Services: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Cards de Estatísticas */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-blue-600 text-sm font-medium">Total de Cultos</p>
-                                <p className="text-2xl font-bold text-blue-700">{totalServices}</p>
-                            </div>
-                            <Calendar className="text-blue-500" size={32} />
-                        </div>
+                {/* Loading State */}
+                {loading ? (
+                    <div className="text-center py-8">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                        <p className="text-slate-600 mt-2">Carregando cultos...</p>
                     </div>
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-green-600 text-sm font-medium">Concluídos</p>
-                                <p className="text-2xl font-bold text-green-700">{completedServices}</p>
+                ) : (
+                    <>
+                        {/* Cards de Estatísticas */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-blue-600 text-sm font-medium">Total de Cultos</p>
+                                        <p className="text-2xl font-bold text-blue-700">{totalServices}</p>
+                                    </div>
+                                    <Calendar className="text-blue-500" size={32} />
+                                </div>
                             </div>
-                            <Calendar className="text-green-500" size={32} />
-                        </div>
-                    </div>
-                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-orange-600 text-sm font-medium">Agendados</p>
-                                <p className="text-2xl font-bold text-orange-700">{scheduledServices}</p>
+                            <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-green-600 text-sm font-medium">Concluídos</p>
+                                        <p className="text-2xl font-bold text-green-700">{completedServices}</p>
+                                    </div>
+                                    <Calendar className="text-green-500" size={32} />
+                                </div>
                             </div>
-                            <Clock className="text-orange-500" size={32} />
-                        </div>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-purple-600 text-sm font-medium">Total Presença</p>
-                                <p className="text-2xl font-bold text-purple-700">{totalAttendance}</p>
-                                <p className="text-xs text-purple-600 mt-1">Sem visitantes</p>
+                            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-orange-600 text-sm font-medium">Agendados</p>
+                                        <p className="text-2xl font-bold text-orange-700">{scheduledServices}</p>
+                                    </div>
+                                    <Clock className="text-orange-500" size={32} />
+                                </div>
                             </div>
-                            <User className="text-purple-500" size={32} />
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-purple-600 text-sm font-medium">Total Presença</p>
+                                        <p className="text-2xl font-bold text-purple-700">{totalAttendance}</p>
+                                        <p className="text-xs text-purple-600 mt-1">Sem visitantes</p>
+                                    </div>
+                                    <User className="text-purple-500" size={32} />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    </>
+                )}
             </div>
 
             {/* Filtros */}
@@ -217,13 +188,11 @@ const Services: React.FC = () => {
                             className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
                         >
                             <option value="all">Todos</option>
-                            <option value="Culto de Domingo">Culto de Domingo</option>
-                            <option value="Culto de Meio da Semana">Culto de Meio da Semana</option>
-                            <option value="Culto Jovem">Culto Jovem</option>
-                            <option value="Reunião de Oração">Reunião de Oração</option>
-                            <option value="Estudo Bíblico">Estudo Bíblico</option>
-                            <option value="Culto Especial">Culto Especial</option>
-                            <option value="Conferência">Conferência</option>
+                            {serviceTypes.map((type) => (
+                                <option key={type.id} value={type.id}>
+                                    {type.name}
+                                </option>
+                            ))}
                         </select>
                     </div>
                     <div>
@@ -272,8 +241,8 @@ const Services: React.FC = () => {
                         >
                             <div className="flex items-start justify-between mb-3">
                                 <div>
-                                    <h3 className="font-bold text-slate-800">{service.name}</h3>
-                                    <p className="text-xs text-slate-500">{service.type}</p>
+                                    <h3 className="font-bold text-slate-800">{service.typeName}</h3>
+                                    <p className="text-xs text-slate-500">{formatDate(service.date)}</p>
                                 </div>
                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
                                     {service.status}
@@ -282,12 +251,12 @@ const Services: React.FC = () => {
 
                             <div className="space-y-2 mb-4">
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
-                                    <Calendar size={14} />
-                                    <span>{formatDate(service.date)} • {service.startTime}</span>
+                                    <Clock size={14} />
+                                    <span>{service.startTime}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
                                     <User size={14} />
-                                    <span>{service.preacher}</span>
+                                    <span>{service.preacher || 'Não definido'}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
                                     <MapPin size={14} />
@@ -331,9 +300,9 @@ const Services: React.FC = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200 text-xs font-bold text-slate-500 uppercase">
-                                    <th className="px-6 py-4">Nome do Culto</th>
-                                    <th className="px-6 py-4">Tipo</th>
-                                    <th className="px-6 py-4">Data/Hora</th>
+                                    <th className="px-6 py-4">Tipo de Culto</th>
+                                    <th className="px-6 py-4">Data</th>
+                                    <th className="px-6 py-4">Horário</th>
                                     <th className="px-6 py-4">Pregador</th>
                                     <th className="px-6 py-4">Local</th>
                                     <th className="px-6 py-4 text-center">Presença</th>
@@ -351,27 +320,21 @@ const Services: React.FC = () => {
                                     >
                                         <td className="px-6 py-4">
                                             <div>
-                                                <p className="font-medium text-slate-800">{service.name}</p>
+                                                <p className="font-medium text-slate-800">{service.typeName}</p>
                                                 <p className="text-xs text-slate-500">{service.description}</p>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-600 text-sm">{service.type}</td>
+                                        <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(service.date)}</td>
                                         <td className="px-6 py-4">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-1 text-sm text-slate-700">
-                                                    <Calendar size={14} />
-                                                    <span>{formatDate(service.date)}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1 text-xs text-slate-500">
-                                                    <Clock size={12} />
-                                                    <span>{service.startTime}</span>
-                                                </div>
+                                            <div className="flex items-center gap-1 text-sm text-slate-700">
+                                                <Clock size={14} />
+                                                <span>{service.startTime}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2 text-sm text-slate-700">
                                                 <User size={14} />
-                                                <span>{service.preacher}</span>
+                                                <span>{service.preacher || 'Não definido'}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">

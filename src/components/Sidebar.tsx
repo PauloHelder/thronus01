@@ -30,7 +30,7 @@ const Sidebar: React.FC = () => {
     { to: "/members", icon: Users, label: "Membros" },
     { to: "/services", icon: Calendar, label: "Cultos" },
     { to: "/groups", icon: Users2, label: "Grupos" },
-    { to: "/finances", icon: Wallet, label: "Finanças" },
+    { to: "/finance", icon: Wallet, label: "Finanças" },
     { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado" },
     { to: "/departments", icon: Network, label: "Departamentos" },
     { to: "/teaching", icon: GraduationCap, label: "Ensino" },

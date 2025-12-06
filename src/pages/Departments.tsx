@@ -2,37 +2,27 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Users, Calendar } from 'lucide-react';
 import { Department } from '../types';
-import { MOCK_MEMBERS } from '../mocks/members';
-import { getDefaultDepartments } from '../data/defaultDepartments';
+import { useDepartments } from '../hooks/useDepartments';
+import { useMembers } from '../hooks/useMembers';
 import { getIconEmoji } from '../data/departmentIcons';
 import DepartmentModal from '../components/modals/DepartmentModal';
 
-// Inicializar com departamentos padrão
-const DEFAULT_DEPTS = getDefaultDepartments();
-const INITIAL_DEPARTMENTS: Department[] = DEFAULT_DEPTS.map((dept, index) => ({
-    ...dept,
-    id: `default-${index + 1}`,
-    leaderId: MOCK_MEMBERS[index]?.id,
-    leader: MOCK_MEMBERS[index],
-    members: []
-}));
-
 const Departments: React.FC = () => {
     const navigate = useNavigate();
-    const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
+    const { departments, loading, addDepartment, updateDepartment } = useDepartments();
+    const { members } = useMembers();
+
     const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
     const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const handleSaveDepartment = (departmentData: Omit<Department, 'id'> | Department) => {
-        if ('id' in departmentData && departments.some(d => d.id === departmentData.id)) {
+    const handleSaveDepartment = async (departmentData: Omit<Department, 'id'> | Department) => {
+        if ('id' in departmentData) {
             // Editar
-            setDepartments(prev => prev.map(d =>
-                d.id === departmentData.id ? departmentData as Department : d
-            ));
+            await updateDepartment(departmentData.id, departmentData);
         } else {
             // Novo
-            setDepartments(prev => [...prev, departmentData as Department]);
+            await addDepartment(departmentData);
         }
         setEditingDepartment(null);
         setIsDepartmentModalOpen(false);
@@ -51,6 +41,14 @@ const Departments: React.FC = () => {
         dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         dept.description?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -160,9 +158,9 @@ const Departments: React.FC = () => {
                                 <p className="text-xs font-semibold text-orange-600 uppercase mb-1">Líder</p>
                                 <div className="flex items-center gap-2">
                                     <img
-                                        src={department.leader.avatar}
+                                        src={department.leader.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(department.leader.name)}&background=random`}
                                         alt={department.leader.name}
-                                        className="w-6 h-6 rounded-full"
+                                        className="w-6 h-6 rounded-full object-cover"
                                     />
                                     <span className="text-sm font-medium text-slate-800">
                                         {department.leader.name}
@@ -209,7 +207,7 @@ const Departments: React.FC = () => {
                 ))}
             </div>
 
-            {filteredDepartments.length === 0 && (
+            {filteredDepartments.length === 0 && !loading && (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
                     <Users size={48} className="mx-auto mb-4 text-gray-300" />
                     <h3 className="text-lg font-semibold text-slate-800 mb-2">
@@ -226,7 +224,7 @@ const Departments: React.FC = () => {
                 onClose={() => setIsDepartmentModalOpen(false)}
                 onSave={handleSaveDepartment}
                 department={editingDepartment}
-                members={MOCK_MEMBERS}
+                members={members}
             />
         </div>
     );
