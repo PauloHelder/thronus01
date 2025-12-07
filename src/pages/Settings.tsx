@@ -7,6 +7,7 @@ import { DEFAULT_CHRISTIAN_STAGES, DEFAULT_TEACHING_CATEGORIES } from '../data/t
 import { useFinance } from '../hooks/useFinance';
 import { useTeaching } from '../hooks/useTeaching';
 import AccountModal from '../components/modals/AccountModal';
+import EventTypesSettings from '../components/settings/EventTypesSettings';
 
 const MODULES = [
     { id: 'members', label: 'Membros' },
@@ -211,6 +212,16 @@ const Settings: React.FC = () => {
                             Ensino
                         </button>
                         <button
+                            onClick={() => setActiveTab('event-types')}
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'event-types'
+                                ? 'bg-orange-50 text-orange-600'
+                                : 'text-slate-600 hover:bg-gray-50'
+                                }`}
+                        >
+                            <Calendar size={18} />
+                            Tipos de Evento
+                        </button>
+                        <button
                             onClick={() => setActiveTab('service-types')}
                             className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'service-types'
                                 ? 'bg-orange-50 text-orange-600'
@@ -255,6 +266,12 @@ const Settings: React.FC = () => {
                                 As configurações de localização agora estão no Perfil da Igreja.
                                 As funções eclesiásticas foram movidas para a aba "Funções e Permissões".
                             </p>
+                        </div>
+                    )}
+
+                    {activeTab === 'event-types' && (
+                        <div>
+                            <EventTypesSettings />
                         </div>
                     )}
 

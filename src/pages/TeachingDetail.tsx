@@ -59,7 +59,7 @@ const TeachingDetail: React.FC = () => {
 
         if ('id' in lessonData) {
             // Edit
-            const success = await updateLesson(lessonData.id, lessonData);
+            const success = await updateLesson(lessonData.id, teachingClass.id, lessonData);
             if (success) {
                 await loadClass();
                 setIsLessonModalOpen(false);

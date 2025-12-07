@@ -324,6 +324,7 @@ export interface Event {
     start_time: string | null;
     end_time: string | null;
     location: string | null;
+    cover_url: string | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;

@@ -58,9 +58,10 @@ export interface Event {
   title: string;
   date: string; // ISO date string or display string
   time: string;
-  type: 'Service' | 'Meeting' | 'Social' | 'Youth';
+  type: string;
   description?: string;
   attendees?: string[]; // IDs dos participantes
+  coverUrl?: string;
 }
 
 export interface Donation {

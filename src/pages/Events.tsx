@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Edit3, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Event } from '../types';
 import EventModal from '../components/modals/EventModal';
-import { MOCK_MEMBERS } from '../mocks/members';
-
-const INITIAL_EVENTS: Event[] = [
-  { id: '1', title: 'Culto de Celebração', date: '2024-01-21', time: '10:00', type: 'Service', description: 'Culto especial de celebração' },
-  { id: '2', title: 'Reunião de Jovens', date: '2024-01-22', time: '19:00', type: 'Youth', description: 'Encontro semanal de jovens' },
-  { id: '3', title: 'Conferência Anual', date: '2024-01-28', time: '09:00', type: 'Meeting', description: 'Conferência anual da igreja' },
-];
+import { useEvents } from '../hooks/useEvents';
+import { useMembers } from '../hooks/useMembers';
+import { useEventTypes } from '../hooks/useEventTypes';
 
 const Events: React.FC = () => {
-  const [events, setEvents] = useState<Event[]>(INITIAL_EVENTS);
+  const navigate = useNavigate();
+  const { events, addEvent, updateEvent, deleteEvent, loading: loadingEvents, error } = useEvents();
+  const { members, loading: loadingMembers } = useMembers();
+  const { eventTypes } = useEventTypes();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | undefined>(undefined);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -21,24 +22,33 @@ const Events: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleEditEvent = (event: Event) => {
+  const handleEditEvent = (e: React.MouseEvent, event: Event) => {
+    e.stopPropagation();
     setSelectedEvent(event);
     setIsModalOpen(true);
   };
 
-  const handleDeleteEvent = (id: string) => {
+  const handleDeleteEvent = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
     if (window.confirm('Tem certeza que deseja excluir este evento?')) {
-      setEvents(prev => prev.filter(e => e.id !== id));
+      await deleteEvent(id);
     }
   };
 
-  const handleSaveEvent = (eventData: Event | Omit<Event, 'id'>) => {
-    if ('id' in eventData) {
-      setEvents(prev => prev.map(e => e.id === eventData.id ? eventData as Event : e));
+  const handleSaveEvent = async (eventData: Event | Omit<Event, 'id'>, coverFile?: File) => {
+    let success = false;
+
+    // We check if we are editing an existing event (selectedEvent is defined)
+    // or creating a new one. EventModal might send an ID even for new events, so we rely on selectedEvent state.
+    if (selectedEvent && 'id' in eventData) {
+      success = await updateEvent(eventData.id, eventData, coverFile);
     } else {
-      setEvents(prev => [...prev, eventData as Event]);
+      success = await addEvent(eventData, coverFile);
     }
-    setIsModalOpen(false);
+
+    if (success) {
+      setIsModalOpen(false);
+    }
   };
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -63,6 +73,9 @@ const Events: React.FC = () => {
   };
 
   const getEventTypeColor = (type: string) => {
+    const found = eventTypes.find(t => t.name === type);
+    if (found) return found.color;
+
     switch (type) {
       case 'Service': return 'bg-blue-100 text-blue-700';
       case 'Meeting': return 'bg-purple-100 text-purple-700';
@@ -73,6 +86,8 @@ const Events: React.FC = () => {
   };
 
   const getEventTypeLabel = (type: string) => {
+    // If it matches a known dynamic type, use its name (which is the type itself)
+    // Or map the hardcoded ones to Portuguese
     switch (type) {
       case 'Service': return 'Culto';
       case 'Meeting': return 'Reunião';
@@ -82,8 +97,24 @@ const Events: React.FC = () => {
     }
   };
 
+  if (loadingEvents || loadingMembers) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
+          <strong className="font-bold">Erro: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -173,7 +204,10 @@ const Events: React.FC = () => {
               <div
                 key={day}
                 className={`aspect-square border rounded-lg p-2 ${isToday ? 'bg-orange-50 border-orange-300' : 'border-gray-200 hover:bg-gray-50'
-                  } transition-colors cursor-pointer`}
+                  } transition-colors cursor-pointer overflow-hidden min-h-[100px]`}
+                onClick={() => {
+                  // Could implement daily view click here
+                }}
               >
                 <div className={`text-sm font-medium mb-1 ${isToday ? 'text-orange-600' : 'text-slate-700'}`}>
                   {day}
@@ -182,8 +216,12 @@ const Events: React.FC = () => {
                   {dayEvents.slice(0, 2).map(event => (
                     <div
                       key={event.id}
-                      className="text-xs px-1 py-0.5 rounded truncate bg-blue-100 text-blue-700"
+                      className="text-xs px-1 py-0.5 rounded truncate bg-blue-100 text-blue-700 cursor-pointer hover:opacity-80"
                       title={event.title}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/events/${event.id}`);
+                      }}
                     >
                       {event.title}
                     </div>
@@ -204,38 +242,48 @@ const Events: React.FC = () => {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h3 className="text-lg font-bold text-slate-800 mb-4">Próximos Eventos</h3>
         <div className="space-y-3">
-          {events.slice(0, 5).map(event => (
-            <div key={event.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-              <div className="flex-1">
-                <h4 className="font-medium text-slate-800">{event.title}</h4>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-sm text-slate-600">
-                    {new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR')} às {event.time}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getEventTypeColor(event.type)}`}>
-                    {getEventTypeLabel(event.type)}
-                  </span>
-                </div>
-                {event.description && (
-                  <p className="text-sm text-slate-500 mt-1">{event.description}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEditEvent(event)}
-                  className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                >
-                  <Edit3 size={16} />
-                </button>
-                <button
-                  onClick={() => handleDeleteEvent(event.id)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+          {events.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <p>Nenhum evento agendado.</p>
             </div>
-          ))}
+          ) : (
+            events.slice(0, 5).map(event => (
+              <div
+                key={event.id}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                onClick={() => navigate(`/events/${event.id}`)}
+              >
+                <div className="flex-1">
+                  <h4 className="font-medium text-slate-800">{event.title}</h4>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-sm text-slate-600">
+                      {new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR')} às {event.time}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getEventTypeColor(event.type)}`}>
+                      {getEventTypeLabel(event.type)}
+                    </span>
+                  </div>
+                  {event.description && (
+                    <p className="text-sm text-slate-500 mt-1">{event.description}</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => handleEditEvent(e, event)}
+                    className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteEvent(e, event.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -244,10 +292,9 @@ const Events: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveEvent}
         event={selectedEvent}
-        members={MOCK_MEMBERS}
+        members={members}
       />
     </div>
   );
 };
-
 export default Events;

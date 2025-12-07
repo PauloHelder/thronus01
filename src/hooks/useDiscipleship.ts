@@ -279,39 +279,34 @@ export const useDiscipleship = () => {
 
     const addMeeting = async (meeting: Omit<DiscipleshipMeeting, 'id'>) => {
         try {
-            // 1. Insert Meeting
-            const { data: newMeeting, error: insertError } = await supabase
-                .from('discipleship_meetings' as any)
-                .insert({
-                    leader_id: meeting.leaderId,
-                    date: meeting.date,
-                    status: meeting.status,
-                    notes: meeting.notes
-                })
-                .select()
-                .single();
+            // Atomic Server-Side Creation via RPC v2
+            // This avoids RLS visibility gaps and Foreign Key race conditions
+            console.log('Using RPC v2 for atomic meeting creation');
 
-            if (insertError) throw insertError;
+            const { data: meetingId, error: rpcError } = await supabase
+                .rpc('create_discipleship_meeting_v2', {
+                    p_leader_id: meeting.leaderId,
+                    p_date: meeting.date,
+                    p_status: meeting.status,
+                    p_notes: meeting.notes || '',
+                    p_attendees: meeting.attendees || []
+                });
 
-            // 2. Insert Attendance
-            if (meeting.attendees && meeting.attendees.length > 0) {
-                const attendanceRows = meeting.attendees.map(discipleId => ({
-                    meeting_id: newMeeting.id,
-                    disciple_id: discipleId,
-                    present: true
-                }));
-
-                const { error: attError } = await supabase
-                    .from('discipleship_meeting_attendance' as any)
-                    .insert(attendanceRows);
-
-                if (attError) throw attError;
+            if (rpcError) {
+                console.error('RPC Error creating meeting:', rpcError);
+                throw rpcError;
             }
+
+            console.log('Meeting created successfully via RPC with ID:', meetingId);
+
+            if (selectedLeader) await fetchLeaderDetails(selectedLeader.id);
+            return true;
 
             if (selectedLeader) await fetchLeaderDetails(selectedLeader.id);
             return true;
         } catch (err: any) {
             setError(err.message);
+            console.error('Add meeting flow failed:', err);
             return false;
         }
     };

@@ -13,6 +13,7 @@ const DiscipleshipDetail: React.FC = () => {
     const {
         selectedLeader: leader,
         loading,
+        error: hookError,
         fetchLeaderDetails,
         addDisciple,
         removeDisciple,
@@ -25,6 +26,13 @@ const DiscipleshipDetail: React.FC = () => {
     const [isAddDiscipleModalOpen, setIsAddDiscipleModalOpen] = useState(false);
     const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
     const [editingMeeting, setEditingMeeting] = useState<DiscipleshipMeeting | null>(null);
+    const [localError, setLocalError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (hookError) {
+            setLocalError(hookError);
+        }
+    }, [hookError]);
 
     useEffect(() => {
         if (id) {
@@ -34,29 +42,38 @@ const DiscipleshipDetail: React.FC = () => {
 
     const handleAddDisciple = async (memberId: string) => {
         if (!leader) return;
-        await addDisciple(leader.id, memberId);
-        setIsAddDiscipleModalOpen(false);
+        setLocalError(null);
+        const success = await addDisciple(leader.id, memberId);
+        if (success) {
+            setIsAddDiscipleModalOpen(false);
+        }
     };
 
     const handleRemoveDisciple = async (discipleId: string) => {
         if (!leader) return;
         if (window.confirm('Tem certeza que deseja remover este discípulo?')) {
+            setLocalError(null);
             await removeDisciple(leader.id, discipleId);
         }
     };
 
     const handleSaveMeeting = async (meetingData: Omit<DiscipleshipMeeting, 'id' | 'leaderId'> | DiscipleshipMeeting) => {
         if (!leader) return;
+        setLocalError(null);
 
+        let success = false;
         if ('id' in meetingData) {
             // Editar
-            await updateMeeting({ ...meetingData, leaderId: leader.id } as DiscipleshipMeeting);
+            success = await updateMeeting({ ...meetingData, leaderId: leader.id } as DiscipleshipMeeting);
         } else {
             // Novo
-            await addMeeting({ ...meetingData, leaderId: leader.id });
+            success = await addMeeting({ ...meetingData, leaderId: leader.id });
         }
-        setEditingMeeting(null);
-        setIsMeetingModalOpen(false);
+
+        if (success) {
+            setEditingMeeting(null);
+            setIsMeetingModalOpen(false);
+        }
     };
 
     const handleEditMeeting = (meeting: DiscipleshipMeeting) => {
@@ -113,6 +130,7 @@ const DiscipleshipDetail: React.FC = () => {
                 >
                     <ArrowLeft size={20} />
                     <span className="font-medium">Voltar para Discipulado</span>
+                    <span className="text-xs ml-4 text-gray-400 font-mono">v2.1</span>
                 </button>
 
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
@@ -130,6 +148,14 @@ const DiscipleshipDetail: React.FC = () => {
             </div>
 
             <div className="p-4 lg:p-6 space-y-6">
+                {/* Error Alert */}
+                {localError && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
+                        <strong className="font-bold">Erro: </strong>
+                        <span className="block sm:inline">{localError}</span>
+                    </div>
+                )}
+
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">

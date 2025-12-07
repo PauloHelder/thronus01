@@ -426,73 +426,43 @@ export const useTeaching = () => {
     const addLesson = async (classId: string, lessonData: any) => {
         if (!user?.churchId) return false;
         try {
-            // Insert lesson
-            const { data: newLesson, error: lessonError } = await supabase
-                .from('teaching_lessons')
-                .insert({
-                    class_id: classId,
-                    date: lessonData.date,
-                    title: lessonData.title,
-                    notes: lessonData.notes
-                })
-                .select()
-                .single();
+            const { data: lessonId, error: rpcError } = await supabase
+                .rpc('manage_teaching_lesson_v2', {
+                    p_lesson_id: null, // Insert mode
+                    p_class_id: classId,
+                    p_date: lessonData.date,
+                    p_title: lessonData.title,
+                    p_notes: lessonData.notes || '',
+                    p_attendance: lessonData.attendance || []
+                });
 
-            if (lessonError) throw lessonError;
-
-            // Insert attendance
-            if (lessonData.attendance && lessonData.attendance.length > 0) {
-                const attendanceRecords = lessonData.attendance.map((memberId: string) => ({
-                    lesson_id: newLesson.id,
-                    member_id: memberId
-                }));
-                const { error: attError } = await supabase
-                    .from('teaching_lesson_attendance')
-                    .insert(attendanceRecords);
-
-                if (attError) throw attError;
-            }
-
+            if (rpcError) throw rpcError;
             return true;
         } catch (err: any) {
-            console.error('Error adding lesson:', err);
+            console.error('Error adding lesson (RPC v2):', err);
             return false;
         }
     };
 
-    const updateLesson = async (id: string, lessonData: any) => {
+    const updateLesson = async (id: string, classId: string, lessonData: any) => {
         if (!user?.churchId) return false;
         try {
-            // Update lesson details
-            const { error: lessonError } = await supabase
-                .from('teaching_lessons')
-                .update({
-                    date: lessonData.date,
-                    title: lessonData.title,
-                    notes: lessonData.notes
-                })
-                .eq('id', id);
+            // Using RPC v2 which is robust against classId mismatch on update
+            const { error: rpcError } = await supabase
+                .rpc('manage_teaching_lesson_v2', {
+                    p_lesson_id: id, // Update mode
+                    p_class_id: classId, // Only used for insert logic fallback, update logic derives it
+                    p_date: lessonData.date,
+                    p_title: lessonData.title,
+                    p_notes: lessonData.notes || '',
+                    p_attendance: lessonData.attendance || []
+                });
 
-            if (lessonError) throw lessonError;
-
-            // Update attendance: Delete all and re-insert (easiest strategy)
-            await supabase.from('teaching_lesson_attendance').delete().eq('lesson_id', id);
-
-            if (lessonData.attendance && lessonData.attendance.length > 0) {
-                const attendanceRecords = lessonData.attendance.map((memberId: string) => ({
-                    lesson_id: id,
-                    member_id: memberId
-                }));
-                const { error: attError } = await supabase
-                    .from('teaching_lesson_attendance')
-                    .insert(attendanceRecords);
-
-                if (attError) throw attError;
-            }
-
+            if (rpcError) throw rpcError;
             return true;
         } catch (err: any) {
-            console.error('Error updating lesson:', err);
+            console.error('Error updating lesson (RPC v2):', err);
+            setError(err.message || 'Erro ao atualizar aula');
             return false;
         }
     };
