@@ -7,11 +7,12 @@ import ImportMembersModal from '../components/modals/ImportMembersModal';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useMembers } from '../hooks/useMembers';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const Members: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { members, loading, error, addMember, updateMember, deleteMember } = useMembers();
+  const { user, hasPermission } = useAuth();
+  const { members, loading, error, addMember, updateMember, deleteMember, importMembers } = useMembers();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterGender, setFilterGender] = useState<string>('all');
@@ -48,24 +49,96 @@ const Members: React.FC = () => {
     }
   };
 
-  const handleSaveMember = async (memberData: Member | Omit<Member, 'id'>) => {
-    console.log('🔵 handleSaveMember chamado com:', memberData);
-    console.log('🔵 Tem ID?', 'id' in memberData);
+  const handleSaveMember = async (memberData: any) => {
+    // memberData includes autoInviteRole if set in Modal
 
-    if ('id' in memberData) {
-      console.log('🔵 Atualizando membro existente...');
-      await updateMember(memberData.id, memberData);
-    } else {
-      console.log('🔵 Adicionando novo membro...');
-      await addMember(memberData);
+    try {
+      if (memberData.id) {
+        await updateMember(memberData.id, memberData);
+      } else {
+        await addMember(memberData);
+      }
+
+      // Handle Auto Invite (For both Create and Update)
+      if (memberData.email && memberData.autoInviteRole) {
+        // Call RPC
+        const { error: inviteError } = await supabase.rpc('create_user_invite', {
+          p_email: memberData.email,
+          p_role: memberData.autoInviteRole
+        });
+
+        if (inviteError) {
+          // Ignore if "already exists" to avoid spamming user with errors for existing members
+          if (!inviteError.message.includes('permission') && !inviteError.message.includes('User not in')) {
+            // Check common known errors
+            if (inviteError.message.includes('já existe') || inviteError.message.includes('já pertence')) {
+              // Do nothing, or maybe show a toast?
+              console.log('Invite not sent (duplicate or existing user):', inviteError.message);
+            } else {
+              console.error('Error auto-inviting:', inviteError);
+              alert('Membro salvo, mas erro ao criar convite: ' + inviteError.message);
+            }
+          }
+        } else {
+          alert('Membro salvo e convite gerado com sucesso!');
+        }
+      }
+
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error("Error saving member:", err);
+      alert("Erro ao salvar membro");
     }
-    setIsModalOpen(false);
   };
 
-  const handleImport = (importedData: any[]) => {
-    // Aqui você processaria os dados importados e adicionaria aos membros
-    console.log('Dados importados:', importedData);
-    alert(`${importedData.length} membros importados com sucesso!`);
+  const handleImport = async (importedData: any[]) => {
+    const success = await importMembers(importedData);
+    if (success) {
+      alert(`${importedData.length} membros importados com sucesso!`);
+      setIsImportModalOpen(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      // Dynamic import to avoid bundle bloat
+      const XLSX = await import('xlsx');
+
+      // Map current filtered members to export format
+      const exportData = filteredMembers.map(m => ({
+        'Nome': m.name,
+        'Email': m.email,
+        'Telefone': m.phone,
+        'Gênero': m.gender === 'Male' ? 'Masculino' : m.gender === 'Female' ? 'Feminino' : m.gender,
+        'Status': m.status === 'Active' ? 'Ativo' : m.status === 'Inactive' ? 'Inativo' : 'Visitante',
+        'Função': m.churchRole,
+        'Data de Nascimento': m.birthDate ? new Date(m.birthDate).toLocaleDateString('pt-BR') : '',
+        'Estado Civil': m.maritalStatus === 'Single' ? 'Solteiro(a)' :
+          m.maritalStatus === 'Married' ? 'Casado(a)' :
+            m.maritalStatus === 'Divorced' ? 'Divorciado(a)' :
+              m.maritalStatus === 'Widowed' ? 'Viúvo(a)' : m.maritalStatus,
+        'Batizado': m.isBaptized ? 'Sim' : 'Não',
+        'Data de Batismo': m.baptismDate ? new Date(m.baptismDate).toLocaleDateString('pt-BR') : '',
+        'Endereço': m.address,
+        'Bairro': m.neighborhood,
+        'Município': m.municipality,
+        'Província': m.province
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Membros");
+
+      // Save file
+      XLSX.writeFile(wb, "membros_exportados.xlsx");
+
+    } catch (error) {
+      console.error('Error exporting members:', error);
+      alert('Erro ao exportar membros. Tente novamente.');
+    }
   };
 
   // Filtros
@@ -148,24 +221,31 @@ const Members: React.FC = () => {
           <p className="text-slate-600 mt-1">Gerencie os membros da igreja</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium flex items-center gap-2 transition-colors">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium flex items-center gap-2 transition-colors">
             <Download size={18} />
             Exportar
           </button>
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
-          >
-            <Upload size={18} />
-            Importar
-          </button>
-          <button
-            onClick={handleAddMember}
-            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
-          >
-            <Plus size={18} />
-            Novo Membro
-          </button>
+
+          {hasPermission('members_create') && (
+            <>
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+              >
+                <Upload size={18} />
+                Importar
+              </button>
+              <button
+                onClick={handleAddMember}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+              >
+                <Plus size={18} />
+                Novo Membro
+              </button>
+            </>
+          )}
         </div>
       </div>
 

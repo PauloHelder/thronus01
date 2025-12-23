@@ -7,8 +7,11 @@ import { useMembers } from '../hooks/useMembers';
 import { getIconEmoji } from '../data/departmentIcons';
 import DepartmentModal from '../components/modals/DepartmentModal';
 
+import { useAuth } from '../contexts/AuthContext';
+
 const Departments: React.FC = () => {
     const navigate = useNavigate();
+    const { user, hasPermission } = useAuth();
     const { departments, loading, addDepartment, updateDepartment } = useDepartments();
     const { members } = useMembers();
 
@@ -58,16 +61,18 @@ const Departments: React.FC = () => {
                     <h1 className="text-3xl font-bold text-slate-800">Departamentos</h1>
                     <p className="text-slate-600 mt-1">Gestão de departamentos, líderes e escalas</p>
                 </div>
-                <button
-                    onClick={() => {
-                        setEditingDepartment(null);
-                        setIsDepartmentModalOpen(true);
-                    }}
-                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
-                >
-                    <Plus size={18} />
-                    Novo Departamento
-                </button>
+                {hasPermission('departments_create') && (
+                    <button
+                        onClick={() => {
+                            setEditingDepartment(null);
+                            setIsDepartmentModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+                    >
+                        <Plus size={18} />
+                        Novo Departamento
+                    </button>
+                )}
             </div>
 
             {/* Stats Cards */}
@@ -196,12 +201,14 @@ const Departments: React.FC = () => {
                             >
                                 Ver Detalhes
                             </button>
-                            <button
-                                onClick={() => handleEditDepartment(department)}
-                                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
-                            >
-                                Editar
-                            </button>
+                            {hasPermission('departments_edit') && (
+                                <button
+                                    onClick={() => handleEditDepartment(department)}
+                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    Editar
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}

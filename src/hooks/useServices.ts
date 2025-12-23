@@ -41,8 +41,8 @@ export function useServices() {
                 status: dbService.status,
                 date: dbService.date,
                 startTime: dbService.start_time,
-                preacher: '',
-                leader: '',
+                preacher: dbService.preacher_name || '',
+                leader: dbService.leader_name || '',
                 location: dbService.location || '',
                 description: dbService.description || '',
                 statistics: {
@@ -62,8 +62,8 @@ export function useServices() {
             }));
 
             setServices(mappedServices);
-        } catch (err) {
-            console.error('Error fetching services:', err);
+        } catch (err: any) {
+            console.error('Error fetching services:', JSON.stringify(err, null, 2));
             setError(err instanceof Error ? err.message : 'Failed to fetch services');
         } finally {
             setLoading(false);
@@ -84,8 +84,8 @@ export function useServices() {
                 status: service.status,
                 date: service.date,
                 start_time: service.startTime,
-                preacher_id: null, // TODO: Map preacher name to ID
-                leader_id: null,   // TODO: Map leader name to ID
+                preacher_name: service.preacher || null,
+                leader_name: service.leader || null,
                 location: service.location || null,
                 description: service.description || null,
                 stats_adults_men: service.statistics?.adults.men || 0,
@@ -137,8 +137,8 @@ export function useServices() {
                 status: insertedData.status,
                 date: insertedData.date,
                 startTime: insertedData.start_time,
-                preacher: service.preacher,
-                leader: service.leader,
+                preacher: insertedData.preacher_name || '',
+                leader: insertedData.leader_name || '',
                 location: insertedData.location || '',
                 description: insertedData.description || '',
                 statistics: {
@@ -176,6 +176,8 @@ export function useServices() {
             if (service.startTime) dbService.start_time = service.startTime;
             if (service.location !== undefined) dbService.location = service.location || null;
             if (service.description !== undefined) dbService.description = service.description || null;
+            if (service.preacher !== undefined) dbService.preacher_name = service.preacher || null;
+            if (service.leader !== undefined) dbService.leader_name = service.leader || null;
 
             if (service.statistics) {
                 dbService.stats_adults_men = service.statistics.adults.men || 0;
@@ -227,8 +229,8 @@ export function useServices() {
                 status: updatedData.status,
                 date: updatedData.date,
                 startTime: updatedData.start_time,
-                preacher: service.preacher || '',
-                leader: service.leader || '',
+                preacher: updatedData.preacher_name || '',
+                leader: updatedData.leader_name || '',
                 location: updatedData.location || '',
                 description: updatedData.description || '',
                 statistics: {
@@ -295,8 +297,8 @@ export function useServices() {
                 status: data.status,
                 date: data.date,
                 startTime: data.start_time,
-                preacher: '',
-                leader: '',
+                preacher: data.preacher_name || '',
+                leader: data.leader_name || '',
                 location: data.location || '',
                 description: data.description || '',
                 statistics: {

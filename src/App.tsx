@@ -35,6 +35,9 @@ import UserProfile from './pages/UserProfile';
 import Logout from './pages/Logout';
 import Settings from './pages/Settings';
 import UserManagement from './pages/UserManagement';
+import InviteLanding from './pages/InviteLanding';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 const AppContent: React.FC = () => {
   const { isOpen } = useSidebar();
@@ -94,6 +97,9 @@ const App: React.FC = () => {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/accept-invite" element={<InviteLanding />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Routes */}
           <Route path="/*" element={

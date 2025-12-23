@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-export type UserRole = 'admin' | 'leader' | 'member' | string;
+export type UserRole = 'admin' | 'leader' | 'member' | 'supervisor' | string;
 
 export interface User {
     id: string;
@@ -10,8 +10,10 @@ export interface User {
     churchName: string;
     churchId: string;
     phone?: string;
-    role: UserRole;
-    permissions?: string[];
+    role: UserRole; // Primary role
+    roles: string[]; // All roles
+    permissions: string[]; // Computed permissions
+    churchSettings?: any;
 }
 
 interface AuthContextType {
@@ -22,6 +24,7 @@ interface AuthContextType {
     logout: () => void;
     loading: boolean;
     hasPermission: (permission: string) => boolean;
+    hasRole: (role: string) => boolean;
 }
 
 interface SignupData {
@@ -48,9 +51,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Check for existing session on mount
+    // Check for existing session on mount & Listen for Auth Changes
     useEffect(() => {
         checkSession();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log("Auth Event (Global):", event);
+
+            if (event === 'PASSWORD_RECOVERY') {
+                // Force redirect to reset password page
+                // Using hash directly since we are using HashRouter
+                window.location.hash = '/reset-password';
+            }
+
+            if (event === 'SIGNED_IN') {
+                checkSession();
+            }
+            if (event === 'SIGNED_OUT') {
+                setUser(null);
+                localStorage.removeItem('thronus_user');
+            }
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
     }, []);
 
     const checkSession = async () => {
@@ -76,12 +101,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     .single();
 
                 if (userData) {
-                    // Buscar nome da igreja
+                    // Buscar dados da igreja (incluindo settings)
                     const { data: churchData } = await supabase
                         .from('churches')
-                        .select('name')
+                        .select('name, settings')
                         .eq('id', (userData as any).church_id)
                         .single();
+
+                    const dbPermissions = (userData as any).permissions || {};
+                    // Determine roles: use permissions.roles if available, else single role
+                    const primaryRole = (userData as any).role as string;
+                    const roles: string[] = dbPermissions.roles && Array.isArray(dbPermissions.roles) && dbPermissions.roles.length > 0
+                        ? dbPermissions.roles
+                        : [primaryRole];
+
+                    // Computed permissions based on church settings
+                    const churchSettings = (churchData as any)?.settings || {};
+                    const rolePermissionsMap = churchSettings.role_permissions || {};
+
+                    // Default permissions if setting is missing (fallback)
+                    const defaultPermissions: Record<string, string[]> = {
+                        'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'events_view', 'events_edit', 'departments_view', 'departments_edit'],
+                        'leader': ['members_view', 'members_edit', 'events_create', 'events_edit', 'departments_edit', 'departments_create'],
+                        'member': ['members_view', 'events_view', 'services_view']
+                    };
+
+                    const computedPermissions = new Set<string>();
+
+                    roles.forEach(r => {
+                        let perms: string[] = [];
+                        if (r === 'admin') perms = ['all'];
+                        else if (rolePermissionsMap[r]) {
+                            perms = rolePermissionsMap[r];
+                        } else if (defaultPermissions[r]) {
+                            perms = defaultPermissions[r];
+                        }
+
+                        perms.forEach(p => computedPermissions.add(p));
+                    });
 
                     const userInfo: User = {
                         id: (userData as any).id,
@@ -90,8 +147,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         churchName: (churchData && (churchData as any).name) || 'Igreja',
                         churchId: (userData as any).church_id,
                         phone: (userData as any).member?.phone,
-                        role: (userData as any).role as UserRole,
-                        permissions: getPermissionsByRole((userData as any).role as UserRole, (userData as any).permissions)
+                        role: primaryRole,
+                        roles: roles,
+                        permissions: Array.from(computedPermissions),
+                        churchSettings: churchSettings
                     };
 
                     setUser(userInfo);
@@ -208,7 +267,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setLoading(false);
             return true;
-
         } catch (error) {
             console.error('Signup exception:', error);
             setLoading(false);
@@ -222,30 +280,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('thronus_user');
     };
 
-    const getPermissionsByRole = (role: UserRole, customPermissions?: any): string[] => {
-        // Se houver permissões customizadas, usar elas
-        if (customPermissions && Object.keys(customPermissions).length > 0) {
-            return Object.keys(customPermissions).filter(key => customPermissions[key] === true);
-        }
-
-        // Permissões padrão por role
-        switch (role) {
-            case 'admin':
-                return ['all'];
-            case 'leader':
-                return ['view_all', 'edit_department', 'create_event', 'edit_event', 'view_members'];
-            case 'member':
-                return ['view_only'];
-            default:
-                return [];
-        }
-    };
-
     const hasPermission = (permission: string): boolean => {
         if (!user) return false;
-        if (user.role === 'admin') return true;
-        if (user.permissions?.includes('all')) return true;
-        return user.permissions?.includes(permission) || false;
+        if (user.roles.includes('admin') || user.permissions.includes('all')) return true;
+
+        // Simple permission check
+        if (user.permissions.includes(permission)) return true;
+
+        return false;
+    };
+
+    const hasRole = (role: string): boolean => {
+        if (!user) return false;
+        // Admin has all roles conceptually? Maybe not for specific logic.
+        return user.roles.includes(role);
     };
 
     return (
@@ -256,7 +304,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             signup,
             logout,
             loading,
-            hasPermission
+            hasPermission,
+            hasRole
         }}>
             {children}
         </AuthContext.Provider>

@@ -50,7 +50,7 @@ export const useDepartments = () => {
             setDepartments(formattedDepartments);
             setError(null);
         } catch (err: any) {
-            console.error('Error fetching departments:', err);
+            console.error('Error fetching departments:', JSON.stringify(err, null, 2));
             setError('Erro ao carregar departamentos');
         } finally {
             setLoading(false);
@@ -61,7 +61,7 @@ export const useDepartments = () => {
         setLoading(true);
         try {
             // 1. Dept Info + Leader + CoLeader
-            const { data: dept, error: deptError } = await supabase
+            const { data: deptResponse, error: errorResponse } = await supabase
                 .from('departments' as any)
                 .select(`
                     *,
@@ -70,6 +70,9 @@ export const useDepartments = () => {
                 `)
                 .eq('id', id)
                 .maybeSingle();
+
+            const dept = deptResponse as any;
+            const deptError = errorResponse;
 
             if (deptError) throw deptError;
             if (!dept) throw new Error('Departamento não encontrado');

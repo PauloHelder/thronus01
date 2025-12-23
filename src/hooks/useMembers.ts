@@ -39,11 +39,20 @@ export const useMembers = () => {
         // Map fields
         if (data.avatar !== undefined) { dbData.avatar_url = data.avatar; delete dbData.avatar; }
         if (data.maritalStatus !== undefined) { dbData.marital_status = data.maritalStatus; delete dbData.maritalStatus; }
-        if (data.birthDate !== undefined) { dbData.birth_date = data.birthDate; delete dbData.birthDate; }
+        if (data.birthDate !== undefined) {
+            dbData.birth_date = data.birthDate === '' ? null : data.birthDate;
+            delete dbData.birthDate;
+        }
         if (data.churchRole !== undefined) { dbData.church_role = data.churchRole; delete dbData.churchRole; }
         if (data.isBaptized !== undefined) { dbData.is_baptized = data.isBaptized; delete dbData.isBaptized; }
-        if (data.baptismDate !== undefined) { dbData.baptism_date = data.baptismDate; delete dbData.baptismDate; }
+        if (data.baptismDate !== undefined) {
+            dbData.baptism_date = data.baptismDate === '' ? null : data.baptismDate;
+            delete dbData.baptismDate;
+        }
         if (data.groupId !== undefined) { dbData.group_id = data.groupId; delete dbData.groupId; }
+
+        // Remove UI-only fields
+        delete dbData.autoInviteRole;
 
         return dbData;
     };
@@ -192,6 +201,109 @@ export const useMembers = () => {
         }
     };
 
+
+
+    const importMembers = async (membersData: any[]) => {
+        if (!user?.churchId) return false;
+
+        try {
+            setLoading(true);
+            // Helper to parse dates safely (handles Excel serial numbers and strings)
+            const parseDate = (value: any): string | null => {
+                if (!value) return null;
+
+                try {
+                    // Excel serial number
+                    if (typeof value === 'number') {
+                        // Excel dates start from Dec 30 1899
+                        const date = new Date(Math.round((value - 25569) * 86400 * 1000));
+                        return !isNaN(date.getTime()) ? date.toISOString().split('T')[0] : null;
+                    }
+
+                    // String date
+                    const date = new Date(value);
+                    if (!isNaN(date.getTime())) {
+                        return date.toISOString().split('T')[0];
+                    }
+                    return null;
+                } catch {
+                    return null;
+                }
+            };
+
+            // Helper to map values to DB constraints
+            const mapMaritalStatus = (value: string): string | null => {
+                if (!value) return null;
+                const v = value.toLowerCase().trim();
+                // Map Portuguese to English
+                if (v.includes('solteir')) return 'Single';
+                if (v.includes('casad')) return 'Married';
+                if (v.includes('divorciad')) return 'Divorced';
+                if (v.includes('viuv')) return 'Widowed';
+
+                // Check if valid English allowed
+                if (['single', 'married', 'divorced', 'widowed'].includes(v)) {
+                    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+                }
+                return null;
+            };
+
+            const mapGender = (value: string): string | null => {
+                if (!value) return null;
+                const v = value.toLowerCase().trim();
+                if (v === 'masculino' || v === 'male' || v === 'm') return 'Male';
+                if (v === 'feminino' || v === 'female' || v === 'f') return 'Female';
+                return null;
+            };
+
+            const dbData = membersData.map(m => {
+                return {
+                    church_id: user.churchId,
+                    name: m.name,
+                    email: m.email || null,
+                    phone: m.phone || null,
+                    gender: mapGender(m.gender),
+                    birth_date: parseDate(m.birthDate),
+                    marital_status: mapMaritalStatus(m.maritalStatus),
+                    address: m.address || null,
+                    neighborhood: m.neighborhood || null,
+                    district: m.district || null,
+                    province: m.province || null,
+                    municipality: m.municipality || null,
+                    is_baptized: m.isBaptized === 'Sim' || m.isBaptized === true,
+                    baptism_date: parseDate(m.baptismDate),
+                    church_role: m.churchRole || 'Membro',
+                    status: m.status || 'Active'
+                };
+            });
+
+            // Insert sequentially to ensure trigger calculates unique codes correctly without collision
+            for (const member of dbData) {
+                const { error: insertError } = await supabase
+                    .from('members')
+                    .insert(member);
+
+                if (insertError) {
+                    console.error("Error importing specific member:", member.name, insertError);
+                    // Optionally continue or throw? Throwing stops the batch.
+                    // For now, let's catch and maybe report? But user wants success.
+                    // If we throw, we abort partially?
+                    // Ideally we should throw to show error.
+                    throw insertError;
+                }
+            }
+
+            await fetchMembers();
+            return true;
+        } catch (err: any) {
+            console.error('Error importing members:', err);
+            setError('Erro ao importar membros: ' + err.message);
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchMembers();
     }, [user?.churchId]);
@@ -203,6 +315,7 @@ export const useMembers = () => {
         addMember,
         updateMember,
         deleteMember,
+        importMembers,
         refetch: fetchMembers
     };
 };

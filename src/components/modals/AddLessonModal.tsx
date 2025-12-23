@@ -53,14 +53,19 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
             return;
         }
 
-        onSave({
-            id: lesson?.id || crypto.randomUUID(),
+        const lessonData: any = {
             classId: lesson?.classId || '',
             date,
             title,
             attendance,
             notes
-        });
+        };
+
+        if (lesson?.id) {
+            lessonData.id = lesson.id;
+        }
+
+        onSave(lessonData);
         onClose();
     };
 
@@ -118,13 +123,13 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
                                 <label
                                     key={student.id}
                                     className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${attendance.includes(student.id)
-                                            ? 'bg-green-50 border border-green-200'
-                                            : 'hover:bg-white border border-transparent'
+                                        ? 'bg-green-50 border border-green-200'
+                                        : 'hover:bg-white border border-transparent'
                                         }`}
                                 >
                                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${attendance.includes(student.id)
-                                            ? 'bg-green-500 border-green-500'
-                                            : 'bg-white border-gray-300'
+                                        ? 'bg-green-500 border-green-500'
+                                        : 'bg-white border-gray-300'
                                         }`}>
                                         {attendance.includes(student.id) && <CheckSquare size={14} className="text-white" />}
                                     </div>

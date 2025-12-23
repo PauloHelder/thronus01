@@ -68,26 +68,69 @@ const ImportMembersModal: React.FC<ImportMembersModalProps> = ({ isOpen, onClose
         }
     };
 
-    const handleImport = () => {
+    const handleImport = async () => {
         if (!file) {
             setError('Por favor, selecione um arquivo primeiro');
             return;
         }
 
-        // Aqui você processaria o arquivo Excel
-        // Por enquanto, vamos simular o sucesso
-        setSuccess('Importação concluída com sucesso!');
+        try {
+            // Dynamic import to avoid issues if not used
+            const XLSX = await import('xlsx');
 
-        // Simular dados importados
-        const mockImportedData = [
-            { name: 'João Silva', email: 'joao@example.com', phone: '123456789' },
-            { name: 'Maria Santos', email: 'maria@example.com', phone: '987654321' }
-        ];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-        setTimeout(() => {
-            onImport(mockImportedData);
-            onClose();
-        }, 1500);
+                    // Map columns to fields
+                    const mappedData = jsonData.map((row: any) => ({
+                        name: row['Nome'] || row['Name'] || row['nome'],
+                        email: row['Email'] || row['email'],
+                        phone: row['Telefone'] || row['Phone'] || row['telefone'],
+                        gender: row['Gênero'] || row['Gender'] || row['genero'],
+                        birthDate: row['Data de Nascimento'] || row['Birth Date'] || row['nascimento'],
+                        maritalStatus: row['Estado Civil'] || row['Marital Status'],
+                        address: row['Endereço'] || row['Address'],
+                        neighborhood: row['Bairro'] || row['Neighborhood'],
+                        district: row['Distrito'] || row['District'],
+                        province: row['Província'] || row['Province'],
+                        municipality: row['Município'] || row['Municipality'],
+                        isBaptized: row['Batizado'] || row['Baptized'],
+                        baptismDate: row['Data de Batismo'] || row['Baptism Date'],
+                        churchRole: row['Função na Igreja'] || row['Role'] || row['Função'],
+                        status: row['Status']
+                    })).filter(item => item.name); // Filter empty rows/names
+
+                    if (mappedData.length === 0) {
+                        setError('Nenhum dado válido encontrado no arquivo. Verifique se a coluna "Nome" existe.');
+                        return;
+                    }
+
+                    // Send to parent
+                    onImport(mappedData);
+                    setSuccess(`${mappedData.length} membros processados com sucesso!`);
+                    setTimeout(() => {
+                        onClose();
+                        setSuccess('');
+                        setFile(null);
+                    }, 1500);
+
+                } catch (err) {
+                    console.error('Error parsing file:', err);
+                    setError('Erro ao processar o arquivo. Verifique se o formato está correto.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+
+        } catch (err) {
+            console.error('Error importing XLSX lib:', err);
+            setError('Erro ao carregar biblioteca de processamento.');
+        }
     };
 
     const downloadTemplate = () => {
@@ -171,7 +214,7 @@ Maria Santos;maria@example.com;(244) 900 000 002;Feminino;1985-03-20;Solteiro;Av
                             </li>
                             <li className="flex items-start gap-2">
                                 <span className="text-orange-500 mt-1">•</span>
-                                <span>Campos obrigatórios: Nome, Email, Telefone</span>
+                                <span>Campos obrigatórios: Apenas Nome (Email e Telefone são opcionais)</span>
                             </li>
                             <li className="flex items-start gap-2">
                                 <span className="text-orange-500 mt-1">•</span>

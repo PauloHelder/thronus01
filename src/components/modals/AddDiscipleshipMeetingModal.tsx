@@ -53,14 +53,19 @@ const AddDiscipleshipMeetingModal: React.FC<AddDiscipleshipMeetingModalProps> = 
             return;
         }
 
-        onSave({
-            id: meeting?.id || crypto.randomUUID(),
+        const meetingData: any = {
             leaderId: meeting?.leaderId || '',
             date,
             status,
             attendees,
             notes
-        });
+        };
+
+        if (meeting?.id) {
+            meetingData.id = meeting.id;
+        }
+
+        onSave(meetingData);
         onClose();
     };
 
@@ -135,13 +140,13 @@ const AddDiscipleshipMeetingModal: React.FC<AddDiscipleshipMeetingModalProps> = 
                                 <label
                                     key={disciple.id}
                                     className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${attendees.includes(disciple.id)
-                                            ? 'bg-green-50 border border-green-200'
-                                            : 'hover:bg-white border border-transparent'
+                                        ? 'bg-green-50 border border-green-200'
+                                        : 'hover:bg-white border border-transparent'
                                         }`}
                                 >
                                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${attendees.includes(disciple.id)
-                                            ? 'bg-green-500 border-green-500'
-                                            : 'bg-white border-gray-300'
+                                        ? 'bg-green-500 border-green-500'
+                                        : 'bg-white border-gray-300'
                                         }`}>
                                         {attendees.includes(disciple.id) && <CheckSquare size={14} className="text-white" />}
                                     </div>

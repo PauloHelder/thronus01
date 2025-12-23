@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil } from 'lucide-react';
-import { useDepartments, DepartmentSchedule } from '../hooks/useDepartments';
+import { Department, DepartmentSchedule } from '../types';
+import { useDepartments } from '../hooks/useDepartments';
 import { useMembers } from '../hooks/useMembers';
 import { useServices } from '../hooks/useServices';
 import { useEvents } from '../hooks/useEvents';
@@ -9,9 +10,12 @@ import { getIconEmoji } from '../data/departmentIcons';
 import AddDepartmentMemberModal from '../components/modals/AddDepartmentMemberModal';
 import CreateScheduleModal from '../components/modals/CreateScheduleModal';
 
+import { useAuth } from '../contexts/AuthContext';
+
 const DepartmentDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user, hasPermission } = useAuth();
     const {
         selectedDepartment: department,
         loading,
@@ -190,12 +194,14 @@ const DepartmentDetail: React.FC = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-slate-800">Membros do Departamento</h2>
-                        <button
-                            onClick={() => setIsAddMemberModalOpen(true)}
-                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                        >
-                            <UserPlus size={16} /> Adicionar Membros
-                        </button>
+                        {hasPermission('departments_edit') && (
+                            <button
+                                onClick={() => setIsAddMemberModalOpen(true)}
+                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                            >
+                                <UserPlus size={16} /> Adicionar Membros
+                            </button>
+                        )}
                     </div>
 
                     {department.members.length > 0 ? (
@@ -211,12 +217,14 @@ const DepartmentDetail: React.FC = () => {
                                         <p className="font-medium text-slate-800">{member.name}</p>
                                         <p className="text-sm text-slate-600">{member.email}</p>
                                     </div>
-                                    <button
-                                        onClick={() => handleRemoveMember(member.id)}
-                                        className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                        Remover
-                                    </button>
+                                    {hasPermission('departments_edit') && (
+                                        <button
+                                            onClick={() => handleRemoveMember(member.id)}
+                                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                            Remover
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -232,15 +240,17 @@ const DepartmentDetail: React.FC = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-slate-800">Escalas</h2>
-                        <button
-                            onClick={() => {
-                                setEditingSchedule(null);
-                                setIsScheduleModalOpen(true);
-                            }}
-                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                        >
-                            <Plus size={16} /> Nova Escala
-                        </button>
+                        {hasPermission('departments_edit') && (
+                            <button
+                                onClick={() => {
+                                    setEditingSchedule(null);
+                                    setIsScheduleModalOpen(true);
+                                }}
+                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                            >
+                                <Plus size={16} /> Nova Escala
+                            </button>
+                        )}
                     </div>
 
                     {department.schedules && department.schedules.length > 0 ? (
@@ -260,22 +270,24 @@ const DepartmentDetail: React.FC = () => {
                                                     {schedule.type === 'Service' ? 'Culto' : 'Evento'}
                                                 </span>
                                             </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleEditSchedule(schedule)}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                                    title="Editar"
-                                                >
-                                                    <Pencil size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteSchedule(schedule.id)}
-                                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                                                    title="Excluir"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
+                                            {hasPermission('departments_edit') && (
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleEditSchedule(schedule)}
+                                                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                        title="Editar"
+                                                    >
+                                                        <Pencil size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteSchedule(schedule.id)}
+                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                        title="Excluir"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                         {schedule.notes && (
                                             <p className="text-sm text-slate-600 mb-2">{schedule.notes}</p>

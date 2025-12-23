@@ -7,23 +7,41 @@ import {
   Users,
   Users2,
   CalendarDays,
-  HeartHandshake,
   Settings,
   HelpCircle,
   Network,
   BookOpenCheck,
   GraduationCap,
   X,
-  LogOut,
+  CreditCard,
   Building,
   Calendar,
-  CreditCard,
   Wallet
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const { isOpen, closeSidebar } = useSidebar();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+
+  // Helper function to check navigation permissions
+  const checkNavPermission = (path: string): boolean => {
+    // Dashboard is accessible to all logged in users
+    if (path === '/dashboard') return true;
+
+    // Map paths to specific view permissions
+    // Note: These keys must match the module IDs defined in Settings.tsx + '_view'
+    if (path === '/members') return hasPermission('members_view');
+    if (path === '/services') return hasPermission('services_view');
+    if (path === '/groups') return hasPermission('groups_view');
+    if (path === '/finance') return hasPermission('finances_view');
+    if (path === '/discipleship') return hasPermission('discipleship_view');
+    if (path === '/departments') return hasPermission('departments_view');
+    if (path === '/teaching') return hasPermission('teaching_view');
+    if (path === '/events') return hasPermission('events_view');
+
+    // Default fallback
+    return true;
+  };
 
   const navItems = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -35,16 +53,18 @@ const Sidebar: React.FC = () => {
     { to: "/departments", icon: Network, label: "Departamentos" },
     { to: "/teaching", icon: GraduationCap, label: "Ensino" },
     { to: "/events", icon: CalendarDays, label: "Eventos" },
-    { to: "/settings", icon: Settings, label: "Configurações" },
   ];
 
-  // Add user management for admins
+  // Add user management and settings for admins
   if (user?.role === 'admin' || user?.role === 'superuser') {
-    navItems.splice(navItems.length - 1, 0, { to: "/users", icon: Users, label: "Usuários" });
+    navItems.push({ to: "/users", icon: Users, label: "Usuários" });
+    navItems.push({ to: "/settings", icon: Settings, label: "Configurações" });
   }
 
-  // Add subscription for regular users
-  if (user?.role !== 'superuser') {
+  // Add subscription for admins and pastors (excluding superuser who has global view)
+  const canViewSubscription = user?.roles?.some(r => ['admin', 'pastor'].includes(r));
+
+  if (user?.role !== 'superuser' && canViewSubscription) {
     navItems.push({ to: "/subscription", icon: CreditCard, label: "Assinatura" });
   }
 
@@ -53,6 +73,9 @@ const Sidebar: React.FC = () => {
     navItems.splice(1, 0, { to: "/churches", icon: Building, label: "Igrejas" });
     navItems.push({ to: "/plans", icon: CreditCard, label: "Planos" });
   }
+
+  // Filter items based on permissions
+  const filteredNavItems = navItems.filter(item => checkNavPermission(item.to));
 
   return (
     <>
@@ -90,7 +113,7 @@ const Sidebar: React.FC = () => {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

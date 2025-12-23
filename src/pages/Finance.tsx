@@ -11,7 +11,8 @@ import {
     X,
     Eye,
     Trash2,
-    Pencil
+    Pencil,
+    ShieldCheck
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useFinance, FinancialTransaction } from '../hooks/useFinance';
@@ -19,8 +20,15 @@ import TransactionModal from '../components/modals/TransactionModal';
 import AccountModal from '../components/modals/AccountModal';
 import CategoryModal from '../components/modals/CategoryModal';
 import TransactionDetailsModal from '../components/modals/TransactionDetailsModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const Finance = () => {
+    const { hasPermission } = useAuth();
+
+    // Permission check
+    const canView = hasPermission('finances_view');
+
+    // Hooks need to be called unconditionally, so we just condition the return render
     const {
         transactions,
         accounts,
@@ -48,6 +56,17 @@ const Finance = () => {
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [viewingTransaction, setViewingTransaction] = useState<FinancialTransaction | undefined>(undefined);
+
+    // If no permission, return Access Denied immediately
+    if (!canView) {
+        return (
+            <div className="p-8 text-center min-h-screen flex flex-col items-center justify-center bg-gray-50">
+                <ShieldCheck size={48} className="mx-auto text-gray-300 mb-4" />
+                <h2 className="text-xl font-bold text-slate-800">Acesso Negado</h2>
+                <p className="text-slate-600">Você não tem permissão para acessar o módulo financeiro.</p>
+            </div>
+        );
+    }
 
     const handleViewTransaction = (transaction: FinancialTransaction) => {
         setViewingTransaction(transaction);

@@ -279,12 +279,10 @@ export const useDiscipleship = () => {
 
     const addMeeting = async (meeting: Omit<DiscipleshipMeeting, 'id'>) => {
         try {
-            // Atomic Server-Side Creation via RPC v2
-            // This avoids RLS visibility gaps and Foreign Key race conditions
-            console.log('Using RPC v2 for atomic meeting creation');
-
+            console.log('Adding meeting via RPC v2...');
             const { data: meetingId, error: rpcError } = await supabase
-                .rpc('create_discipleship_meeting_v2', {
+                .rpc('manage_discipleship_meeting_v2', {
+                    p_meeting_id: null, // Insert mode
                     p_leader_id: meeting.leaderId,
                     p_date: meeting.date,
                     p_status: meeting.status,
@@ -292,65 +290,37 @@ export const useDiscipleship = () => {
                     p_attendees: meeting.attendees || []
                 });
 
-            if (rpcError) {
-                console.error('RPC Error creating meeting:', rpcError);
-                throw rpcError;
-            }
-
-            console.log('Meeting created successfully via RPC with ID:', meetingId);
-
-            if (selectedLeader) await fetchLeaderDetails(selectedLeader.id);
-            return true;
+            if (rpcError) throw rpcError;
+            console.log('Meeting created successfully:', meetingId);
 
             if (selectedLeader) await fetchLeaderDetails(selectedLeader.id);
             return true;
         } catch (err: any) {
+            console.error('Add meeting failed:', err);
             setError(err.message);
-            console.error('Add meeting flow failed:', err);
             return false;
         }
     };
 
     const updateMeeting = async (meeting: DiscipleshipMeeting) => {
         try {
-            // 1. Update Meeting Details
-            const { error: updateError } = await supabase
-                .from('discipleship_meetings' as any)
-                .update({
-                    date: meeting.date,
-                    status: meeting.status,
-                    notes: meeting.notes
-                })
-                .eq('id', meeting.id);
+            console.log('Updating meeting via RPC v2...');
+            const { error: rpcError } = await supabase
+                .rpc('manage_discipleship_meeting_v2', {
+                    p_meeting_id: meeting.id, // Update mode
+                    p_leader_id: meeting.leaderId, // Used for verification inside RPC if needed, or ignored for update logic depending on impl
+                    p_date: meeting.date,
+                    p_status: meeting.status,
+                    p_notes: meeting.notes || '',
+                    p_attendees: meeting.attendees || []
+                });
 
-            if (updateError) throw updateError;
-
-            // 2. Update Attendance (Delete all and re-insert is easiest for now)
-            // Ideally we should diff, but for small lists this is fine
-            const { error: deleteError } = await supabase
-                .from('discipleship_meeting_attendance' as any)
-                .delete()
-                .eq('meeting_id', meeting.id);
-
-            if (deleteError) throw deleteError;
-
-            if (meeting.attendees && meeting.attendees.length > 0) {
-                const attendanceRows = meeting.attendees.map(discipleId => ({
-                    meeting_id: meeting.id,
-                    disciple_id: discipleId,
-                    present: true
-                }));
-
-                const { error: insertError } = await supabase
-                    .from('discipleship_meeting_attendance' as any)
-                    .insert(attendanceRows);
-
-                if (insertError) throw insertError;
-            }
+            if (rpcError) throw rpcError;
 
             if (selectedLeader) await fetchLeaderDetails(selectedLeader.id);
             return true;
         } catch (err: any) {
+            console.error('Update meeting failed:', err);
             setError(err.message);
             return false;
         }
