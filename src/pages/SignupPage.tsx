@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Building, Phone, User, MapPin, Hash, Link as LinkIcon, AlertCircle, Loader2, CheckCircle, Globe } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Building, Phone, User, MapPin, Hash, Link as LinkIcon, AlertCircle, Loader2, CheckCircle, Globe, Search, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDenominations } from '../hooks/useDenominations';
@@ -49,6 +49,16 @@ const SignupPage: React.FC = () => {
     const [step, setStep] = useState(1);
     const [error, setError] = useState('');
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+    // State for searchable denomination dropdown
+    const [isDenominationOpen, setIsDenominationOpen] = useState(false);
+    const [denominationSearch, setDenominationSearch] = useState('');
+
+    // Filtered denominations
+    const filteredDenominations = denominations.filter(den =>
+        den.name.toLowerCase().includes(denominationSearch.toLowerCase()) ||
+        den.acronym?.toLowerCase().includes(denominationSearch.toLowerCase())
+    );
 
     // Redirect to dashboard if already authenticated
     useEffect(() => {
@@ -338,21 +348,59 @@ const SignupPage: React.FC = () => {
                                     <label className="block text-sm font-medium text-slate-700 mb-2">
                                         Denominação *
                                     </label>
-                                    <select
-                                        value={formData.denominacao}
-                                        onChange={(e) => updateFormData('denominacao', e.target.value)}
-                                        required
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                    >
-                                        <option value="">Selecione uma denominação</option>
-                                        {loadingDenominations ? (
-                                            <option disabled>Carregando...</option>
-                                        ) : (
-                                            denominations.map((den) => (
-                                                <option key={den.id} value={den.name}>{den.name}</option>
-                                            ))
+                                    <div className="relative">
+                                        <div
+                                            onClick={() => setIsDenominationOpen(!isDenominationOpen)}
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-transparent cursor-pointer flex justify-between items-center"
+                                        >
+                                            <span className={formData.denominacao ? "text-slate-800" : "text-gray-500"}>
+                                                {formData.denominacao || "Selecione uma denominação"}
+                                            </span>
+                                            <ChevronDown size={20} className="text-gray-400" />
+                                        </div>
+
+                                        {isDenominationOpen && (
+                                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                                                <div className="p-2 border-b border-gray-100 bg-gray-50">
+                                                    <div className="relative">
+                                                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                        <input
+                                                            type="text"
+                                                            value={denominationSearch}
+                                                            onChange={(e) => setDenominationSearch(e.target.value)}
+                                                            placeholder="Pesquisar..."
+                                                            className="w-full pl-8 pr-3 py-2 bg-white border border-gray-200 rounded text-sm focus:outline-none focus:border-orange-500"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            autoFocus
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="overflow-y-auto flex-1">
+                                                    {loadingDenominations ? (
+                                                        <div className="px-4 py-3 text-sm text-gray-500 text-center">Carregando...</div>
+                                                    ) : filteredDenominations.length === 0 ? (
+                                                        <div className="px-4 py-3 text-sm text-gray-500 text-center">Nenhuma denominação encontrada</div>
+                                                    ) : (
+                                                        filteredDenominations.map((den) => (
+                                                            <button
+                                                                key={den.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    updateFormData('denominacao', den.name);
+                                                                    setIsDenominationOpen(false);
+                                                                    setDenominationSearch('');
+                                                                }}
+                                                                className="w-full px-4 py-2 text-left hover:bg-orange-50 text-sm text-slate-700 transition-colors flex flex-col"
+                                                            >
+                                                                <span className="font-medium">{den.name}</span>
+                                                                {den.acronym && <span className="text-xs text-slate-400">{den.acronym}</span>}
+                                                            </button>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
-                                    </select>
+                                    </div>
                                 </div>
 
                                 {/* Categoria */}

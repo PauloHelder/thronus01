@@ -5,11 +5,11 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Missing Supabase environment variables');
+    throw new Error('Missing Supabase environment variables. Please check your .env file or deployment settings (Vercel/Netlify).');
 }
 
 // Create a typed Supabase client
-export const supabase = createClient<Database>(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 // Helper to get the current user's church_id
 export async function getCurrentUserChurchId(): Promise<string | null> {
