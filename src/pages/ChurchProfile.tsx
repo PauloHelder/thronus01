@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Building, Mail, Phone, MapPin, Users, Calendar, Edit2, Save, X } from 'lucide-react';
+import { Building, Mail, Phone, MapPin, Users, Calendar, Edit2, Save, X, Link2, Check } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { MOCK_CHURCHES } from '../mocks/churches';
 import { ANGOLA_PROVINCES, ANGOLA_MUNICIPALITIES } from '../data/angolaLocations';
 
@@ -11,6 +12,17 @@ const ChurchProfile: React.FC = () => {
     const [isEditing, setIsEditing] = useState(false);
 
     const isReadOnly = !!id;
+
+    // State for linking info
+    const [parentInfo, setParentInfo] = useState<{ id: string; name: string; category: string } | null>(null);
+    const [sharedPermissions, setSharedPermissions] = useState<any>({
+        view_members: false,
+        view_service_stats: false,
+        view_discipleship: false,
+        view_departments: false,
+        view_teaching: false,
+        view_events: false
+    });
 
     const [formData, setFormData] = useState({
         churchName: 'Demo Church',
@@ -35,40 +47,109 @@ const ChurchProfile: React.FC = () => {
     const [churchProvince, setChurchProvince] = useState('');
 
     useEffect(() => {
-        if (id) {
-            const church = MOCK_CHURCHES.find(c => c.id === id);
-            if (church) {
-                setFormData({
-                    churchName: church.name,
-                    sigla: 'N/A',
-                    denominacao: church.denomination,
-                    nif: 'N/A',
-                    endereco: church.address,
-                    provincia: '',
-                    municipio: '',
-                    bairro: 'N/A',
-                    distrito: '',
-                    pais: 'Angola',
-                    categoria: 'Sede',
-                    email: church.email,
-                    telefone: church.phone,
-                    nomePastor: church.pastorName,
-                    codigoVinculacao: 'N/A',
-                    foundedDate: church.joinedAt,
-                    memberCount: church.memberCount,
-                    description: 'Descrição não disponível.'
-                });
-                setChurchProvince('');
+        const fetchChurchData = async () => {
+            if (id) {
+                const church = MOCK_CHURCHES.find(c => c.id === id);
+                if (church) {
+                    setFormData({
+                        churchName: church.name,
+                        sigla: 'N/A',
+                        denominacao: church.denomination,
+                        nif: 'N/A',
+                        endereco: church.address,
+                        provincia: '',
+                        municipio: '',
+                        bairro: 'N/A',
+                        distrito: '',
+                        pais: 'Angola',
+                        categoria: 'Sede',
+                        email: church.email,
+                        telefone: church.phone,
+                        nomePastor: church.pastorName,
+                        codigoVinculacao: 'N/A',
+                        foundedDate: church.joinedAt,
+                        memberCount: church.memberCount,
+                        description: 'Descrição não disponível.'
+                    });
+                    setChurchProvince('');
+                }
+            } else if (user?.churchId) {
+                try {
+                    const { data: churchData, error } = await supabase
+                        .from('churches')
+                        .select('*')
+                        .eq('id', user.churchId)
+                        .single();
+
+                    if (error) throw error;
+
+                    const church = churchData as any;
+
+                    if (church) {
+                        const settings = church.settings || {};
+                        setFormData({
+                            churchName: church.name,
+                            sigla: settings.sigla || '',
+                            denominacao: settings.denominacao || '',
+                            nif: settings.nif || '',
+                            endereco: settings.endereco || '',
+                            provincia: settings.provincia || '',
+                            municipio: settings.municipio || '',
+                            bairro: settings.bairro || '',
+                            distrito: settings.distrito || '',
+                            pais: settings.pais || 'Angola',
+                            categoria: settings.categoria || 'Sede',
+                            email: settings.email || user.email,
+                            telefone: settings.telefone || user.phone || '',
+                            nomePastor: settings.nomePastor || user.fullName,
+                            codigoVinculacao: church.slug || 'N/A',
+                            foundedDate: church.created_at || new Date().toISOString().split('T')[0],
+                            memberCount: settings.memberCount || 0,
+                            description: settings.description || ''
+                        });
+
+                        // Set shared permissions if they exist
+                        if (settings.shared_permissions) {
+                            setSharedPermissions(settings.shared_permissions);
+                        }
+
+                        // Fetch parent church info if linked
+                        if (church.parent_id) {
+                            const { data: parentData } = await supabase
+                                .from('churches')
+                                .select('id, name, settings')
+                                .eq('id', church.parent_id)
+                                .single();
+
+                            if (parentData) {
+                                const pData = parentData as any;
+                                setParentInfo({
+                                    id: pData.id,
+                                    name: pData.name,
+                                    category: pData.settings?.categoria || 'Sede'
+                                });
+                            }
+                        }
+
+                        if (settings.provincia) {
+                            setChurchProvince(settings.provincia);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching church data:', error);
+                    // Fallback
+                    setFormData(prev => ({
+                        ...prev,
+                        churchName: user.churchName,
+                        email: user.email,
+                        telefone: user.phone || prev.telefone,
+                        nomePastor: user.fullName
+                    }));
+                }
             }
-        } else if (user) {
-            setFormData(prev => ({
-                ...prev,
-                churchName: user.churchName,
-                email: user.email,
-                telefone: user.phone || prev.telefone,
-                nomePastor: user.fullName
-            }));
-        }
+        };
+
+        fetchChurchData();
     }, [id, user]);
 
     const handleProvinceChange = (newProvince: string) => {
@@ -445,16 +526,57 @@ const ChurchProfile: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Código de Vinculação */}
-                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl border-2 border-orange-200 p-6">
-                        <h3 className="text-lg font-bold text-slate-800 mb-3">Código de Vinculação</h3>
-                        <p className="text-sm text-slate-600 mb-4">
-                            Use este código para vincular novos membros à sua igreja
-                        </p>
-                        <div className="bg-white rounded-lg p-4 text-center">
-                            <p className="text-3xl font-bold text-orange-600 tracking-wider font-mono">
-                                {formData.codigoVinculacao}
-                            </p>
+                    {/* Vinculação e Permissões */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <Link2 size={24} className="text-orange-500" />
+                            Vinculação
+                        </h3>
+
+                        {parentInfo ? (
+                            <div className="space-y-6">
+                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                                    <p className="text-sm text-blue-600 mb-1">Vinculado a</p>
+                                    <p className="text-lg font-bold text-blue-900">{parentInfo.name}</p>
+                                    <p className="text-xs text-blue-700 mt-1">{parentInfo.category}</p>
+                                </div>
+
+                                <div>
+                                    <h4 className="font-medium text-slate-800 mb-3">Dados Compartilhados</h4>
+                                    <div className="space-y-2">
+                                        {[
+                                            { key: 'view_members', label: 'Ver Membros' },
+                                            { key: 'view_service_stats', label: 'Ver Estatísticas de Culto' },
+                                            { key: 'view_discipleship', label: 'Ver Discipulados' },
+                                            { key: 'view_departments', label: 'Ver Departamentos' },
+                                            { key: 'view_teaching', label: 'Ver Ensino' },
+                                            { key: 'view_events', label: 'Ver Eventos' }
+                                        ].map(({ key, label }) => (
+                                            <div key={key} className="flex items-center gap-2 text-sm">
+                                                <div className={`w-4 h-4 rounded-full flex items-center justify-center ${sharedPermissions[key] ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                                                    {sharedPermissions[key] ? <Check size={10} /> : <X size={10} />}
+                                                </div>
+                                                <span className={sharedPermissions[key] ? 'text-slate-700' : 'text-slate-400'}>{label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                                <p className="text-slate-500 mb-2">Esta igreja não está vinculada a nenhuma sede.</p>
+                                <p className="text-xs text-slate-400">Use a opção "Vincular Igreja" na página "Minhas Igrejas" para iniciar um vínculo.</p>
+                            </div>
+                        )}
+
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                            <h4 className="font-bold text-slate-800 mb-2">Seu Código de Vinculação</h4>
+                            <p className="text-sm text-slate-600 mb-3">Compartilhe este código para que outras igrejas se vinculem a você.</p>
+                            <div className="bg-slate-100 rounded-lg p-3 text-center">
+                                <code className="text-xl font-bold text-orange-600 tracking-wider font-mono select-all">
+                                    {formData.codigoVinculacao}
+                                </code>
+                            </div>
                         </div>
                     </div>
 

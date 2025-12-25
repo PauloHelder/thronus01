@@ -4,10 +4,12 @@ import { Plus, Search, BookOpen, Users, Calendar, Clock, Filter, X } from 'lucid
 import { TeachingClass } from '../types';
 import { useTeaching } from '../hooks/useTeaching';
 import { useMembers } from '../hooks/useMembers';
+import { useAuth } from '../contexts/AuthContext';
 import TeachingClassModal from '../components/modals/TeachingClassModal';
 
 const Teaching: React.FC = () => {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const {
     classes,
     stages,
@@ -101,13 +103,15 @@ const Teaching: React.FC = () => {
             <h1 className="text-3xl font-bold text-slate-800">Ensino</h1>
             <p className="text-slate-600 mt-1">Gestão de turmas, alunos e aulas</p>
           </div>
-          <button
-            onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
-            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
-          >
-            <Plus size={18} />
-            Nova Turma
-          </button>
+          {hasPermission('teaching_create') && (
+            <button
+              onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+            >
+              <Plus size={18} />
+              Nova Turma
+            </button>
+          )}
         </div>
 
         {/* Dashboard Cards */}
@@ -299,12 +303,14 @@ const Teaching: React.FC = () => {
                 >
                   Ver Detalhes
                 </button>
-                <button
-                  onClick={() => handleEditClass(teachingClass)}
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Editar
-                </button>
+                {hasPermission('teaching_edit') && (
+                  <button
+                    onClick={() => handleEditClass(teachingClass)}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Editar
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -321,7 +327,7 @@ const Teaching: React.FC = () => {
                 ? 'Tente ajustar os filtros de pesquisa.'
                 : 'Comece criando turmas de ensino.'}
             </p>
-            {!searchTerm && !hasActiveFilters && (
+            {!searchTerm && !hasActiveFilters && hasPermission('teaching_create') && (
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors mx-auto"

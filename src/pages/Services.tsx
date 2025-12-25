@@ -5,9 +5,11 @@ import { Service } from '../types';
 import ServiceModal from '../components/modals/ServiceModal';
 import { useServices } from '../hooks/useServices';
 import { useServiceTypes } from '../hooks/useServiceTypes';
+import { useAuth } from '../contexts/AuthContext';
 
 const Services: React.FC = () => {
     const navigate = useNavigate();
+    const { hasPermission } = useAuth();
     const { services, loading, createService, updateService, deleteService } = useServices();
     const { serviceTypes } = useServiceTypes();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -113,12 +115,14 @@ const Services: React.FC = () => {
                         <h1 className="text-2xl font-bold text-slate-800">Cultos</h1>
                         <p className="text-slate-600 text-sm">Gerencie os cultos e eventos da igreja</p>
                     </div>
-                    <button
-                        onClick={handleAddService}
-                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors w-fit"
-                    >
-                        <Plus size={16} /> Adicionar Culto
-                    </button>
+                    {hasPermission('services_create') && (
+                        <button
+                            onClick={handleAddService}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors w-fit"
+                        >
+                            <Plus size={16} /> Adicionar Culto
+                        </button>
+                    )}
                 </div>
 
                 {/* Loading State */}
@@ -276,18 +280,22 @@ const Services: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex gap-1">
-                                    <button
-                                        onClick={(e) => handleEditService(service, e)}
-                                        className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                    >
-                                        <Pencil size={16} />
-                                    </button>
-                                    <button
-                                        onClick={(e) => handleDeleteService(service.id, e)}
-                                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    {hasPermission('services_edit') && (
+                                        <>
+                                            <button
+                                                onClick={(e) => handleEditService(service, e)}
+                                                className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                            >
+                                                <Pencil size={16} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDeleteService(service.id, e)}
+                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -370,20 +378,24 @@ const Services: React.FC = () => {
                                                 >
                                                     <Eye size={16} />
                                                 </button>
-                                                <button
-                                                    onClick={(e) => handleEditService(service, e)}
-                                                    className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                                    title="Editar"
-                                                >
-                                                    <Pencil size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => handleDeleteService(service.id, e)}
-                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title="Excluir"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                {hasPermission('services_edit') && (
+                                                    <>
+                                                        <button
+                                                            onClick={(e) => handleEditService(service, e)}
+                                                            className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                                            title="Editar"
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => handleDeleteService(service.id, e)}
+                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Excluir"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

@@ -5,8 +5,11 @@ import { useGroups, Group } from '../hooks/useGroups';
 import { useMembers } from '../hooks/useMembers';
 import GroupModal from '../components/modals/GroupModal';
 
+import { useAuth } from '../contexts/AuthContext';
+
 const Groups: React.FC = () => {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const { groups, loading, error, addGroup, updateGroup, deleteGroup } = useGroups();
   const { members } = useMembers();
 
@@ -76,13 +79,15 @@ const Groups: React.FC = () => {
           <h1 className="text-3xl font-bold text-slate-800">Grupos Pequenos</h1>
           <p className="text-slate-600 mt-1">Gerencie células, grupos de estudo e comunhão</p>
         </div>
-        <button
-          onClick={handleAddGroup}
-          className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
-        >
-          <Plus size={18} />
-          Novo Grupo
-        </button>
+        {hasPermission('groups_create') && (
+          <button
+            onClick={handleAddGroup}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+          >
+            <Plus size={18} />
+            Novo Grupo
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -207,28 +212,32 @@ const Groups: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${group.status === 'Ativo' ? 'bg-green-100 text-green-700' :
-                          group.status === 'Cheio' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
+                        group.status === 'Cheio' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-red-100 text-red-700'
                         }`}>
                         {group.status}
                       </span>
                     </td>
                     <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleEditGroup(group)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="Editar"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteGroup(group.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {hasPermission('groups_edit') && (
+                          <button
+                            onClick={() => handleEditGroup(group)}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Editar"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                        )}
+                        {hasPermission('groups_delete') && (
+                          <button
+                            onClick={() => handleDeleteGroup(group.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

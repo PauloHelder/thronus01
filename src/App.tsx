@@ -38,6 +38,7 @@ import UserManagement from './pages/UserManagement';
 import InviteLanding from './pages/InviteLanding';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import AdminDashboard from './pages/admin/AdminDashboard'; // Import added
 
 const AppContent: React.FC = () => {
   const { isOpen } = useSidebar();
@@ -80,6 +81,7 @@ const AppContent: React.FC = () => {
             <Route path="/logout" element={<Logout />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<UserManagement />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>
@@ -88,9 +90,33 @@ const AppContent: React.FC = () => {
   );
 };
 
+import { Toaster } from 'sonner';
+
 const App: React.FC = () => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Configuração Necessária</h1>
+          <p className="text-gray-600 mb-6">
+            As variáveis de ambiente do Supabase não foram encontradas.
+            Por favor, configure o arquivo <code className="bg-gray-100 px-2 py-1 rounded">.env.local</code>.
+          </p>
+          <div className="text-left bg-gray-100 p-4 rounded text-sm overflow-x-auto">
+            <pre>VITE_SUPABASE_URL=seudatabase.supabase.co</pre>
+            <pre>VITE_SUPABASE_ANON_KEY=suachaveanonima</pre>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Router>
+      <Toaster position="top-right" richColors />
       <AuthProvider>
         <Routes>
           {/* Public Routes */}

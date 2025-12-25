@@ -7,8 +7,11 @@ import { useEvents } from '../hooks/useEvents';
 import { useMembers } from '../hooks/useMembers';
 import { useEventTypes } from '../hooks/useEventTypes';
 
+import { useAuth } from '../contexts/AuthContext';
+
 const Events: React.FC = () => {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const { events, addEvent, updateEvent, deleteEvent, loading: loadingEvents, error } = useEvents();
   const { members, loading: loadingMembers } = useMembers();
   const { eventTypes } = useEventTypes();
@@ -121,12 +124,14 @@ const Events: React.FC = () => {
           <h1 className="text-3xl font-bold text-slate-800">Eventos</h1>
           <p className="text-slate-600 mt-1">Calendário de eventos e atividades da igreja</p>
         </div>
-        <button
-          onClick={handleAddEvent}
-          className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors w-fit"
-        >
-          <Plus size={20} /> Novo Evento
-        </button>
+        {hasPermission('events_create') && (
+          <button
+            onClick={handleAddEvent}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors w-fit"
+          >
+            <Plus size={20} /> Novo Evento
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -268,18 +273,22 @@ const Events: React.FC = () => {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={(e) => handleEditEvent(e, event)}
-                    className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                  >
-                    <Edit3 size={16} />
-                  </button>
-                  <button
-                    onClick={(e) => handleDeleteEvent(e, event.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {hasPermission('events_edit') && (
+                    <button
+                      onClick={(e) => handleEditEvent(e, event)}
+                      className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                  )}
+                  {hasPermission('events_delete') && (
+                    <button
+                      onClick={(e) => handleDeleteEvent(e, event.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))

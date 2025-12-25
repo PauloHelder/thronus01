@@ -4,32 +4,75 @@ import { useNavigate } from 'react-router-dom';
 import { MOCK_CHURCHES } from '../mocks/churches';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+import LinkChurchModal from '../components/modals/LinkChurchModal';
+import { Link2 } from 'lucide-react';
+
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+
 const MyChurches: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'Active' | 'Pending' | 'Inactive'>('all');
+    const [showLinkModal, setShowLinkModal] = useState(false);
 
-    // Filtrar apenas igrejas vinculadas (simulação - em produção viria do backend)
-    // Assumindo que a igreja atual tem ID 'demo-user-1' e está vinculada a outras igrejas
-    const linkedChurches = MOCK_CHURCHES.filter(church =>
-        church.id !== 'demo-user-1' // Excluir a própria igreja
-    );
+    // Real data state
+    const [churches, setChurches] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const filteredChurches = linkedChurches.filter(church => {
+    React.useEffect(() => {
+        const fetchLinkedChurches = async () => {
+            if (!user?.churchId) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('churches')
+                    .select('*')
+                    .eq('parent_id', user.churchId);
+
+                if (error) throw error;
+
+                if (data) {
+                    const mappedChurches = data.map((church: any) => ({
+                        id: church.id,
+                        name: church.name,
+                        email: church.settings?.email || 'N/A',
+                        denomination: church.settings?.denominacao || 'N/A',
+                        pastorName: church.settings?.nomePastor || 'N/A',
+                        address: church.settings?.endereco || 'N/A',
+                        memberCount: church.settings?.memberCount || 0,
+                        status: 'Active', // Default status for now
+                        joinedAt: church.created_at
+                    }));
+                    setChurches(mappedChurches);
+                }
+            } catch (error) {
+                console.error('Error fetching linked churches:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchLinkedChurches();
+    }, [user?.churchId]);
+
+    const filteredChurches = churches.filter(church => {
         const matchesSearch = church.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             church.pastorName.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = filterStatus === 'all' || church.status === filterStatus;
-        return matchesSearch && matchesStatus;
+        // const matchesStatus = filterStatus === 'all' || church.status === filterStatus; 
+        // Note: Real data might not have status yet, assume Active for MVP
+        return matchesSearch;
     });
 
-    // Estatísticas
-    const totalLinkedChurches = linkedChurches.length;
-    const activeChurches = linkedChurches.filter(c => c.status === 'Active').length;
-    const totalMembers = linkedChurches.reduce((sum, c) => sum + c.memberCount, 0);
+    // Statistics based on real data
+    const totalLinkedChurches = churches.length;
+    const activeChurches = churches.length; // Assume all active for now
+    const totalMembers = churches.reduce((sum, c) => sum + c.memberCount, 0);
     const averageMembers = totalLinkedChurches > 0 ? Math.round(totalMembers / totalLinkedChurches) : 0;
 
-    // Dados para gráfico - Top 5 igrejas por membros
-    const memberData = linkedChurches.map(church => ({
+    // Chart Data
+    const memberData = churches.map(church => ({
         name: church.name.length > 15 ? church.name.substring(0, 15) + '...' : church.name,
         members: church.memberCount
     })).sort((a, b) => b.members - a.members).slice(0, 5);
@@ -42,7 +85,19 @@ const MyChurches: React.FC = () => {
                     <h1 className="text-3xl font-bold text-slate-800">Minhas Igrejas</h1>
                     <p className="text-slate-600 mt-1">Igrejas vinculadas à sua supervisão</p>
                 </div>
+                <button
+                    onClick={() => setShowLinkModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-medium hover:shadow-lg transition-all"
+                >
+                    <Link2 size={20} />
+                    Vincular Igreja
+                </button>
             </div>
+
+            <LinkChurchModal
+                isOpen={showLinkModal}
+                onClose={() => setShowLinkModal(false)}
+            />
 
             {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -180,8 +235,8 @@ const MyChurches: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${church.status === 'Active' ? 'bg-green-100 text-green-700' :
-                                                church.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
+                                            church.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-red-100 text-red-700'
                                             }`}>
                                             {church.status === 'Active' ? 'Ativo' : church.status === 'Pending' ? 'Pendente' : 'Inativo'}
                                         </span>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Settings, Menu, User, Building, LogOut, ChevronDown } from 'lucide-react';
+import { Search, Bell, Settings, Menu, User, Building, LogOut, ChevronDown, Link2 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useAuth } from '../contexts/AuthContext';

@@ -96,6 +96,16 @@ const Settings: React.FC = () => {
     const [newSystemRoleName, setNewSystemRoleName] = useState('');
     const [isAddingSystemRole, setIsAddingSystemRole] = useState(false);
 
+    // Shared Permissions Settings
+    const [sharedPermissions, setSharedPermissions] = useState<Record<string, boolean>>({
+        view_members: false,
+        view_service_stats: false,
+        view_discipleship: false,
+        view_departments: false,
+        view_teaching: false,
+        view_events: false
+    });
+
     // Initial Load
     useEffect(() => {
         if (!user?.churchId) return;
@@ -108,9 +118,11 @@ const Settings: React.FC = () => {
                     .eq('id', user.churchId)
                     .single();
 
-                if (data?.settings) {
-                    if (data.settings.role_permissions) {
-                        setRolePermissions(data.settings.role_permissions);
+                if (data && (data as any).settings) {
+                    const settings = (data as any).settings;
+
+                    if (settings.role_permissions) {
+                        setRolePermissions(settings.role_permissions);
                     } else {
                         // Default permissions
                         setRolePermissions({
@@ -120,8 +132,12 @@ const Settings: React.FC = () => {
                         });
                     }
 
-                    if (data.settings.custom_system_roles) {
-                        setCustomSystemRoles(data.settings.custom_system_roles);
+                    if (settings.custom_system_roles) {
+                        setCustomSystemRoles(settings.custom_system_roles);
+                    }
+
+                    if (settings.shared_permissions) {
+                        setSharedPermissions(settings.shared_permissions);
                     }
                 }
             } catch (err) {
@@ -138,7 +154,7 @@ const Settings: React.FC = () => {
         try {
             // Get current settings first
             const { data } = await supabase.from('churches').select('settings').eq('id', user.churchId).single();
-            const currentSettings = data?.settings || {};
+            const currentSettings = (data as any)?.settings || {};
 
             const updatedSettings = {
                 ...currentSettings,
@@ -147,7 +163,7 @@ const Settings: React.FC = () => {
 
             const { error } = await supabase
                 .from('churches')
-                .update({ settings: updatedSettings, updated_at: new Date().toISOString() })
+                .update({ settings: updatedSettings, updated_at: new Date().toISOString() } as any)
                 .eq('id', user.churchId);
 
             if (error) throw error;
@@ -214,6 +230,24 @@ const Settings: React.FC = () => {
         await updateChurchSettings('role_permissions', updatedRolePermissions);
     };
 
+    const handleSharedPermissionToggle = async (key: string) => {
+        const updatedPermissions = {
+            ...sharedPermissions,
+            [key]: !sharedPermissions[key]
+        };
+        setSharedPermissions(updatedPermissions);
+        await updateChurchSettings('shared_permissions', updatedPermissions);
+    };
+
+    const SHARED_PERMISSION_LABELS: Record<string, string> = {
+        view_members: 'Ver Membros',
+        view_service_stats: 'Ver Estatísticas de Culto',
+        view_discipleship: 'Ver Discipulados',
+        view_departments: 'Ver Departamentos',
+        view_teaching: 'Ver Ensino',
+        view_events: 'Ver Eventos'
+    };
+
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
             <h1 className="text-3xl font-bold text-slate-800">Configurações</h1>
@@ -222,7 +256,7 @@ const Settings: React.FC = () => {
                 <button onClick={() => setActiveTab('financial')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'financial' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Financeiro</button>
                 <button onClick={() => setActiveTab('teaching')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'teaching' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Ensino</button>
                 <button onClick={() => setActiveTab('roles')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'roles' || activeTab === 'permissions' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Permissões</button>
-                <button onClick={() => setActiveTab('users')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'users' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Usuários</button>
+                <button onClick={() => setActiveTab('links')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'links' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Vínculos</button>
             </div>
 
             {activeTab === 'financial' && (
@@ -579,15 +613,38 @@ const Settings: React.FC = () => {
             )
             }
 
-            {
-                activeTab === 'users' && (
-                    <div className="text-center py-12 text-slate-500">
-                        <Users size={48} className="mx-auto mb-4 text-gray-300" />
-                        <p>Gestão de Usuários e Permissões</p>
-                        <p className="text-sm mt-2">Para gerenciar usuários, acesse o menu lateral "Usuários".</p>
+            {activeTab === 'links' && (
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="mb-6">
+                        <h2 className="text-lg font-semibold text-slate-800">Vínculos e Permissões</h2>
+                        <p className="text-sm text-slate-500">Configure os dados que sua igreja compartilha com a igreja mãe.</p>
                     </div>
-                )
-            }
+
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+                        <p className="text-sm text-blue-800">
+                            <strong>Atenção:</strong> As opções abaixo determinam exatamente o que a liderança da igreja mãe pode visualizar sobre sua igreja.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {Object.entries(SHARED_PERMISSION_LABELS).map(([key, label]) => (
+                            <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-orange-200 transition-all">
+                                <span className="text-slate-700 font-medium">{label}</span>
+                                <label className="inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={!!sharedPermissions[key]}
+                                        onChange={() => handleSharedPermissionToggle(key)}
+                                    />
+                                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                                </label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Modals */}
             <AccountModal
                 isOpen={isAccountModalOpen}

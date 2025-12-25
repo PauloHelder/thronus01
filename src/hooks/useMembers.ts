@@ -120,6 +120,59 @@ export const useMembers = () => {
             console.log('   - data.length:', data?.length);
 
             if (insertError) {
+                // Check for unique code collision (common when soft-deleted members exist)
+                if (insertError.message.includes('idx_members_unique_code') ||
+                    insertError.message.includes('members_member_code_key')) {
+
+                    console.log('⚠️ Colisão de código detectada. Tentando resolver automaticamente...');
+
+                    // 1. Get current max Visible code to start guessing
+                    const { data: maxCodeData } = await supabase
+                        .from('members')
+                        .select('member_code')
+                        .eq('church_id', user.churchId)
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+
+                    let nextNum = 1;
+                    if (maxCodeData && maxCodeData.length > 0 && maxCodeData[0].member_code) {
+                        const lastCode = maxCodeData[0].member_code;
+                        const match = lastCode.match(/^M(\d+)$/);
+                        if (match) {
+                            nextNum = parseInt(match[1], 10) + 1;
+                        }
+                    }
+
+                    // 2. Retry loop (try next 10 numbers)
+                    for (let i = 0; i < 10; i++) {
+                        const tryCode = `M${String(nextNum + i).padStart(3, '0')}`;
+                        console.log(`   Tentativa ${i + 1}: Usando código manual ${tryCode}`);
+
+                        const retryData = { ...dbData, member_code: tryCode, church_id: user.churchId };
+
+                        const { data: retryResult, error: retryError } = await supabase
+                            .from('members')
+                            .insert(retryData)
+                            .select();
+
+                        if (!retryError && retryResult && retryResult.length > 0) {
+                            console.log('✅ SUCESSO na recuperação automática:', retryResult[0]);
+                            const newMember = transformFromDB(retryResult[0]);
+                            setMembers(prev => [...prev, newMember]);
+                            return true;
+                        }
+
+                        // If error is NOT about unique code, abort
+                        if (retryError && !retryError.message.includes('idx_members_unique_code') &&
+                            !retryError.message.includes('members_member_code_key')) {
+                            throw retryError;
+                        }
+                        // If it IS unique code error, loop continues to next number
+                    }
+                    // If we get here, we failed 10 times
+                    throw new Error("Não foi possível gerar um código único para o membro. Contate o suporte.");
+                }
+
                 console.error('ERRO DO SUPABASE:', insertError);
                 throw insertError;
             }

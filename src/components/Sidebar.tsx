@@ -16,12 +16,13 @@ import {
   CreditCard,
   Building,
   Calendar,
-  Wallet
+  Wallet,
+  Shield // Imported
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const { isOpen, closeSidebar } = useSidebar();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, hasRole } = useAuth();
 
   // Helper function to check navigation permissions
   const checkNavPermission = (path: string): boolean => {
@@ -43,35 +44,38 @@ const Sidebar: React.FC = () => {
     return true;
   };
 
-  const navItems = [
+  let navItems = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/members", icon: Users, label: "Membros" },
-    { to: "/services", icon: Calendar, label: "Cultos" },
-    { to: "/groups", icon: Users2, label: "Grupos" },
-    { to: "/finance", icon: Wallet, label: "Finanças" },
-    { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado" },
-    { to: "/departments", icon: Network, label: "Departamentos" },
-    { to: "/teaching", icon: GraduationCap, label: "Ensino" },
-    { to: "/events", icon: CalendarDays, label: "Eventos" },
   ];
 
-  // Add user management and settings for admins
-  if (user?.role === 'admin' || user?.role === 'superuser') {
+  if (hasRole('superuser')) {
+    // Superuser only gets Dashboard, Users, and Super Admin
     navItems.push({ to: "/users", icon: Users, label: "Usuários" });
-    navItems.push({ to: "/settings", icon: Settings, label: "Configurações" });
-  }
+    navItems.push({ to: "/admin", icon: Shield, label: "Super Admin" });
+  } else {
+    // Normal users get standard modules
+    navItems.push(
+      { to: "/members", icon: Users, label: "Membros" },
+      { to: "/services", icon: Calendar, label: "Cultos" },
+      { to: "/groups", icon: Users2, label: "Grupos" },
+      { to: "/finance", icon: Wallet, label: "Finanças" },
+      { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado" },
+      { to: "/departments", icon: Network, label: "Departamentos" },
+      { to: "/teaching", icon: GraduationCap, label: "Ensino" },
+      { to: "/events", icon: CalendarDays, label: "Eventos" }
+    );
 
-  // Add subscription for admins and pastors (excluding superuser who has global view)
-  const canViewSubscription = user?.roles?.some(r => ['admin', 'pastor'].includes(r));
+    // Add user management and settings for admins
+    if (hasRole('admin')) {
+      navItems.push({ to: "/users", icon: Users, label: "Usuários" });
+      navItems.push({ to: "/settings", icon: Settings, label: "Configurações" });
+    }
 
-  if (user?.role !== 'superuser' && canViewSubscription) {
-    navItems.push({ to: "/subscription", icon: CreditCard, label: "Assinatura" });
-  }
-
-  // Add churches and plans for superusers
-  if (user?.role === 'superuser') {
-    navItems.splice(1, 0, { to: "/churches", icon: Building, label: "Igrejas" });
-    navItems.push({ to: "/plans", icon: CreditCard, label: "Planos" });
+    // Add subscription for admins and pastors
+    const canViewSubscription = user?.roles?.some(r => ['admin', 'pastor'].includes(r));
+    if (canViewSubscription) {
+      navItems.push({ to: "/subscription", icon: CreditCard, label: "Assinatura" });
+    }
   }
 
   // Filter items based on permissions
@@ -96,10 +100,10 @@ const Sidebar: React.FC = () => {
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center font-bold">
-              T
+              Tr
             </div>
             <div>
-              <h1 className="font-bold text-lg">Thronus</h1>
+              <h1 className="font-bold text-lg">Tronus</h1>
               <p className="text-xs text-slate-400">Gestão de Igrejas</p>
             </div>
           </div>

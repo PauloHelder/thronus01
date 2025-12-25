@@ -502,8 +502,7 @@ export const useTeaching = () => {
         deleteStage,
         addCategory,
         deleteCategory,
-        addCategory,
-        deleteCategory,
+
         fetchClassDetails,
         addStudentToClass,
         removeStudentFromClass,

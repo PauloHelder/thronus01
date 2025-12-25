@@ -2,40 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Building, Phone, User, MapPin, Hash, Link as LinkIcon, AlertCircle, Loader2, CheckCircle, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useDenominations } from '../hooks/useDenominations';
 
-const DENOMINACOES = [
-    'Assembleia Cristã Alfa e Omega de Angola',
-    'Assembleia Missionaria Cristã de Angola',
-    'Comunidade das Igrejas do Santo Espirito em África',
-    'Comunidade Evangélica Batistaa em Angola',
-    'Comunidade Evangélica de Aliança em Angola',
-    'Comunidade Islâmica de Angola (CISA)',
-    'Comunidade Islâmica de Angola (COR)',
-    'Congregação Cristã Boa Vontade',
-    'Congregação da Cura e Inspiração Profética',
-    'Convenção Baptista Nacional',
-    'Christ Embassy Angola',
-    'Igreja Assembleia dc Deus',
-    'Igreja de Amor a Jesus Cristo e Espirito Santo',
-    'Igreja dos Apóstolos de Jesus Cristo em Angola',
-    'Igreja dos Apóstolos de Oração e de Salvação Eterna',
-    'Igreja Reformada em Angola',
-    'Igreja de Reavivamento de Angola',
-    'Igreja da Revelação dos Espirito Santos em Angola',
-    'Religião Mpadismo',
-    'Igreja de Senhor Jesus Cristo Renovada Com a Lei do Espirito Santo',
-    'Igreja do Templo Água Viva para todas as Nações',
-    'Igreja Trono de Deus em Angola',
-    'Igreja União da Promessa dos Profetas',
-    'Igreja União dos Profetas Africanos',
-    'Igreja Unida em Angola',
-    'Igreja Universal dos Espirito Santo Deus dos Nossos Antepassados',
-    'Igreja Zintumua Za Bangunza Mua Felica',
-    'Missão Profética Unida em Angola',
-    'Missão Evangélica de Ensinamentos, Libertação e Adoração',
-    'Ministério da Vida Cristã Aprofundada',
-    'União dos Santos Africanos no Mundo'
-];
+// DENOMINACOES removido em favor de tabela no banco de dados
+
 
 const CATEGORIAS = [
     'Sede',
@@ -72,6 +42,7 @@ const PROVINCIAS_ANGOLA = {
 const SignupPage: React.FC = () => {
     const navigate = useNavigate();
     const { signup, loading, isAuthenticated } = useAuth();
+    const { denominations, loading: loadingDenominations } = useDenominations();
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -266,10 +237,10 @@ const SignupPage: React.FC = () => {
                     {/* Logo */}
                     <div className="flex items-center justify-center gap-3 mb-8">
                         <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="font-bold text-white text-2xl">Th</span>
+                            <span className="font-bold text-white text-2xl">Tr</span>
                         </div>
                         <div>
-                            <h1 className="font-bold text-2xl text-slate-800">Thronus</h1>
+                            <h1 className="font-bold text-2xl text-slate-800">Tronus</h1>
                             <p className="text-xs text-slate-500">Gestão de Igrejas</p>
                         </div>
                     </div>
@@ -374,9 +345,13 @@ const SignupPage: React.FC = () => {
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                                     >
                                         <option value="">Selecione uma denominação</option>
-                                        {DENOMINACOES.map((den) => (
-                                            <option key={den} value={den}>{den}</option>
-                                        ))}
+                                        {loadingDenominations ? (
+                                            <option disabled>Carregando...</option>
+                                        ) : (
+                                            denominations.map((den) => (
+                                                <option key={den.id} value={den.name}>{den.name}</option>
+                                            ))
+                                        )}
                                     </select>
                                 </div>
 

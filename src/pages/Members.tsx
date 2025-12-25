@@ -8,6 +8,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import { useMembers } from '../hooks/useMembers';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 const Members: React.FC = () => {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ const Members: React.FC = () => {
     e.stopPropagation();
     if (window.confirm('Tem certeza que deseja excluir este membro?')) {
       await deleteMember(id);
+      toast.success('Membro excluído com sucesso');
     }
   };
 
@@ -76,25 +78,27 @@ const Members: React.FC = () => {
               console.log('Invite not sent (duplicate or existing user):', inviteError.message);
             } else {
               console.error('Error auto-inviting:', inviteError);
-              alert('Membro salvo, mas erro ao criar convite: ' + inviteError.message);
+              toast.warning('Membro salvo, mas erro ao criar convite: ' + inviteError.message);
             }
           }
         } else {
-          alert('Membro salvo e convite gerado com sucesso!');
+          toast.success('Membro salvo e convite gerado com sucesso!');
         }
+      } else {
+        toast.success('Membro salvo com sucesso!');
       }
 
       setIsModalOpen(false);
     } catch (err) {
       console.error("Error saving member:", err);
-      alert("Erro ao salvar membro");
+      toast.error("Erro ao salvar membro");
     }
   };
 
   const handleImport = async (importedData: any[]) => {
     const success = await importMembers(importedData);
     if (success) {
-      alert(`${importedData.length} membros importados com sucesso!`);
+      toast.success(`${importedData.length} membros importados com sucesso!`);
       setIsImportModalOpen(false);
     }
   };
@@ -137,7 +141,7 @@ const Members: React.FC = () => {
 
     } catch (error) {
       console.error('Error exporting members:', error);
-      alert('Erro ao exportar membros. Tente novamente.');
+      toast.error('Erro ao exportar membros. Tente novamente.');
     }
   };
 

@@ -101,10 +101,10 @@ const TransactionDetail: React.FC = () => {
                         <div>
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
-                                    <span className="text-white font-bold text-xl">T</span>
+                                    <span className="text-white font-bold text-xl">Tr</span>
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-slate-800">Thronus</h2>
+                                    <h2 className="text-xl font-bold text-slate-800">Tronus</h2>
                                     <p className="text-sm text-slate-500">Gestão de Igrejas</p>
                                 </div>
                             </div>
@@ -118,8 +118,8 @@ const TransactionDetail: React.FC = () => {
 
                         <div className="text-right">
                             <div className={`inline-block px-4 py-2 rounded-lg mb-4 ${transaction.type === 'Income'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-red-100 text-red-700'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
                                 }`}>
                                 <span className="font-bold text-lg">
                                     {transaction.type === 'Income' ? 'RECEITA' : 'DESPESA'}
@@ -232,7 +232,7 @@ const TransactionDetail: React.FC = () => {
 
                     {/* Footer */}
                     <div className="pt-8 border-t border-gray-200 text-center text-sm text-slate-500">
-                        <p>Este documento foi gerado eletronicamente pelo sistema Thronus</p>
+                        <p>Este documento foi gerado eletronicamente pelo sistema Tronus</p>
                         <p className="mt-1">Para mais informações, entre em contato com a administração da igreja</p>
                     </div>
                 </div>

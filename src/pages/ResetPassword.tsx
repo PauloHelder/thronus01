@@ -124,9 +124,9 @@ const ResetPassword: React.FC = () => {
                 <div className="text-center mb-8">
                     <div className="flex items-center justify-center gap-3 mb-6">
                         <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="font-bold text-white text-xl">Th</span>
+                            <span className="font-bold text-white text-xl">Tr</span>
                         </div>
-                        <span className="font-bold text-2xl text-slate-800">Thronus</span>
+                        <span className="font-bold text-2xl text-slate-800">Tronus</span>
                     </div>
                     <h1 className="text-2xl font-bold text-slate-800 mb-2">Redefinir Senha</h1>
                     <p className="text-slate-600">

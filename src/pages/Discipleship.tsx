@@ -5,8 +5,11 @@ import { useDiscipleship } from '../hooks/useDiscipleship';
 import { useMembers } from '../hooks/useMembers';
 import AddDiscipleshipLeaderModal from '../components/modals/AddDiscipleshipLeaderModal';
 
+import { useAuth } from '../contexts/AuthContext';
+
 const Discipleship: React.FC = () => {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const { leaders, loading, addLeader } = useDiscipleship();
   const { members } = useMembers();
 
@@ -54,13 +57,15 @@ const Discipleship: React.FC = () => {
           <h1 className="text-3xl font-bold text-slate-800">Discipulado</h1>
           <p className="text-slate-600 mt-1">Gestão de líderes, discípulos e encontros</p>
         </div>
-        <button
-          onClick={() => setIsAddLeaderModalOpen(true)}
-          className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
-        >
-          <Plus size={18} />
-          Novo Líder
-        </button>
+        {hasPermission('discipleship_create') && (
+          <button
+            onClick={() => setIsAddLeaderModalOpen(true)}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+          >
+            <Plus size={18} />
+            Novo Líder
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -194,13 +199,15 @@ const Discipleship: React.FC = () => {
               : 'Comece adicionando líderes de discipulado.'}
           </p>
           {!searchTerm && (
-            <button
-              onClick={() => setIsAddLeaderModalOpen(true)}
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors mx-auto"
-            >
-              <Plus size={18} />
-              Adicionar Primeiro Líder
-            </button>
+            hasPermission('discipleship_create') && (
+              <button
+                onClick={() => setIsAddLeaderModalOpen(true)}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors mx-auto"
+              >
+                <Plus size={18} />
+                Adicionar Primeiro Líder
+              </button>
+            )
           )}
         </div>
       )}

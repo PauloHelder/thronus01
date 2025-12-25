@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Users, TrendingUp, DollarSign, Heart, Activity, ArrowUpRight, Loader2, CalendarDays, UserPlus, BookOpen, Target } from 'lucide-react';
+import { Plus, Calendar, Users, TrendingUp, Heart, Activity, ArrowUpRight, Loader2, CalendarDays, UserPlus, BookOpen, Target } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,8 +14,8 @@ interface DashboardStats {
   activeGroups: number;
   totalDepartments: number;
   upcomingEvents: number;
-  monthlyIncome: number;
-  monthlyExpense: number;
+  activeClasses: number;
+  totalStudents: number;
 }
 
 interface RecentActivity {
@@ -29,7 +29,7 @@ interface RecentActivity {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
@@ -38,11 +38,12 @@ const Dashboard: React.FC = () => {
     activeGroups: 0,
     totalDepartments: 0,
     upcomingEvents: 0,
-    monthlyIncome: 0,
-    monthlyExpense: 0,
+    activeClasses: 0,
+    totalStudents: 0,
   });
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [classesData, setClassesData] = useState<any[]>([]);
   const [memberGrowth, setMemberGrowth] = useState<any[]>([]);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
 
@@ -60,13 +61,13 @@ const Dashboard: React.FC = () => {
         groupsResult,
         departmentsResult,
         eventsResult,
-        transactionsResult,
+        classesResult,
       ] = await Promise.all([
         supabase.from('members').select('id, status, created_at').is('deleted_at', null),
         supabase.from('groups').select('id, status').is('deleted_at', null),
         supabase.from('departments').select('id'),
         supabase.from('events').select('id, title, date, start_time, type').gte('date', new Date().toISOString().split('T')[0]).order('date', { ascending: true }).limit(5),
-        supabase.from('transactions').select('type, amount, date').gte('date', getFirstDayOfMonth()).lte('date', getLastDayOfMonth()),
+        supabase.from('teaching_classes').select('id, name, status, students:teaching_class_students(member_id)').is('deleted_at', null),
       ]);
 
       // Calcular estatísticas
@@ -77,13 +78,27 @@ const Dashboard: React.FC = () => {
       const totalDepartments = departmentsResult.data?.length || 0;
       const upcomingEventsCount = eventsResult.data?.length || 0;
 
-      const monthlyIncome = transactionsResult.data
-        ?.filter(t => t.type === 'Income')
-        .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      // Calcular estatísticas de Ensino
+      const classes = classesResult.data || [];
+      const activeClasses = classes.filter(c => c.status === 'Em Andamento' || c.status === 'Agendado' || c.status === 'Agendada').length;
 
-      const monthlyExpense = transactionsResult.data
-        ?.filter(t => t.type === 'Expense')
-        .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      // Total Unique Students across all classes
+      const uniqueStudents = new Set();
+      classes.forEach((c: any) => {
+        c.students?.forEach((s: any) => uniqueStudents.add(s.member_id));
+      });
+      const totalStudents = uniqueStudents.size;
+
+      // Prepare chart data (Top 5 classes by students)
+      const classesChartData = classes
+        .map((c: any) => ({
+          name: c.name,
+          students: c.students?.length || 0
+        }))
+        .sort((a, b) => b.students - a.students)
+        .slice(0, 5);
+
+      setClassesData(classesChartData);
 
       setStats({
         totalMembers,
@@ -92,8 +107,8 @@ const Dashboard: React.FC = () => {
         activeGroups,
         totalDepartments,
         upcomingEvents: upcomingEventsCount,
-        monthlyIncome,
-        monthlyExpense,
+        activeClasses,
+        totalStudents,
       });
 
       // Eventos próximos
@@ -186,16 +201,6 @@ const Dashboard: React.FC = () => {
     return data;
   };
 
-  const getFirstDayOfMonth = () => {
-    const date = new Date();
-    return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
-  };
-
-  const getLastDayOfMonth = () => {
-    const date = new Date();
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
-  };
-
   const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -207,13 +212,6 @@ const Dashboard: React.FC = () => {
     if (diffMins < 60) return `há ${diffMins} min`;
     if (diffHours < 24) return `há ${diffHours}h`;
     return `há ${diffDays}d`;
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-AO', {
-      style: 'currency',
-      currency: 'AOA',
-    }).format(value);
   };
 
   const formatEventDate = (dateString: string) => {
@@ -254,11 +252,6 @@ const Dashboard: React.FC = () => {
     { name: 'Inativos', value: stats.totalMembers - stats.activeMembers, color: '#e2e8f0' },
   ];
 
-  const financeData = [
-    { name: 'Receitas', value: stats.monthlyIncome, color: '#10b981' },
-    { name: 'Despesas', value: stats.monthlyExpense, color: '#ef4444' },
-  ];
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -281,18 +274,22 @@ const Dashboard: React.FC = () => {
           <p className="text-slate-600 mt-1">Aqui está o resumo da sua igreja hoje</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={() => setIsMemberModalOpen(true)}
-            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-lg shadow-orange-500/30"
-          >
-            <Plus size={16} /> Adicionar Membro
-          </button>
-          <button
-            onClick={() => navigate('/events')}
-            className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-slate-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-          >
-            <Calendar size={16} /> Criar Evento
-          </button>
+          {hasPermission('members_create') && (
+            <button
+              onClick={() => setIsMemberModalOpen(true)}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-lg shadow-orange-500/30"
+            >
+              <Plus size={16} /> Adicionar Membro
+            </button>
+          )}
+          {hasPermission('events_create') && (
+            <button
+              onClick={() => navigate('/events')}
+              className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-slate-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+            >
+              <Calendar size={16} /> Criar Evento
+            </button>
+          )}
         </div>
       </div>
 
@@ -334,16 +331,16 @@ const Dashboard: React.FC = () => {
           <p className="text-white/70 text-xs mt-2">este mês</p>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-xl shadow-lg text-white">
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-6 rounded-xl shadow-lg text-white">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6" />
+              <BookOpen className="w-6 h-6" />
             </div>
-            <TrendingUp className="w-5 h-5 opacity-70" />
+            <ArrowUpRight className="w-5 h-5 opacity-70" />
           </div>
-          <h3 className="text-white/80 text-sm font-medium mb-1">Saldo do Mês</h3>
-          <p className="text-3xl font-bold">{formatCurrency(stats.monthlyIncome - stats.monthlyExpense)}</p>
-          <p className="text-white/70 text-xs mt-2">Receitas: {formatCurrency(stats.monthlyIncome)}</p>
+          <h3 className="text-white/80 text-sm font-medium mb-1">Total de Alunos</h3>
+          <p className="text-3xl font-bold">{stats.totalStudents}</p>
+          <p className="text-white/70 text-xs mt-2">{stats.activeClasses} turmas ativas</p>
         </div>
       </div>
 
@@ -380,18 +377,18 @@ const Dashboard: React.FC = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* Finance Overview */}
+        {/* Teaching Overview */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-green-500" />
-            Visão Financeira
+            <BookOpen className="w-5 h-5 text-indigo-500" />
+            Alunos por Turma
           </h3>
           <div className="flex items-center justify-center">
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={financeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#94a3b8" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+              <BarChart data={classesData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <XAxis type="number" stroke="#94a3b8" style={{ fontSize: '12px' }} />
+                <YAxis dataKey="name" type="category" width={100} stroke="#94a3b8" style={{ fontSize: '12px' }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#fff',
@@ -399,13 +396,8 @@ const Dashboard: React.FC = () => {
                     borderRadius: '8px',
                     fontSize: '12px',
                   }}
-                  formatter={(value: any) => formatCurrency(value)}
                 />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                  {financeData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
+                <Bar dataKey="students" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </div>

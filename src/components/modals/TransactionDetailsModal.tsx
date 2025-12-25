@@ -58,7 +58,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({
                                 <Building2 size={24} />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-800">Thronus Church</h1>
+                                <h1 className="text-xl font-bold text-slate-800">Tronus Church</h1>
                                 <p className="text-sm text-slate-500">Gestão Financeira</p>
                             </div>
                         </div>
@@ -136,7 +136,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({
                     {/* Footer */}
                     <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
                         <p className="text-xs text-slate-400 text-center md:text-left">
-                            Este é um comprovante digital gerado pelo sistema Thronus.
+                            Este é um comprovante digital gerado pelo sistema Tronus.
                             <br />ID Único: {transaction.id}
                         </p>
                         <div className="flex gap-3 w-full md:w-auto">

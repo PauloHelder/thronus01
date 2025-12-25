@@ -69,7 +69,7 @@ const LandingPage: React.FC = () => {
         {
             name: 'Pastor João Silva',
             church: 'Comunidade da Graça',
-            text: 'O Thronus transformou a forma como gerimos a nossa igreja. A interface é intuitiva e a nossa equipa adora!',
+            text: 'O Tronus transformou a forma como gerimos a nossa igreja. A interface é intuitiva e a nossa equipa adora!',
             avatar: 'https://i.pravatar.cc/150?u=john'
         },
         {
@@ -81,7 +81,7 @@ const LandingPage: React.FC = () => {
         {
             name: 'Miguel Chen',
             church: 'Igreja Esperança da Cidade',
-            text: 'Vimos um aumento de 40% no engajamento dos membros desde a implementação do Thronus. Altamente recomendado!',
+            text: 'Vimos um aumento de 40% no engajamento dos membros desde a implementação do Tronus. Altamente recomendado!',
             avatar: 'https://i.pravatar.cc/150?u=michael'
         }
     ];
@@ -101,10 +101,10 @@ const LandingPage: React.FC = () => {
                         {/* Logo */}
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg transform -rotate-3">
-                                <span className="font-bold text-white text-xl tracking-tighter">Th</span>
+                                <span className="font-bold text-white text-xl tracking-tighter">Tr</span>
                             </div>
                             <div>
-                                <h1 className="font-bold text-xl tracking-tight text-slate-800">Thronus</h1>
+                                <h1 className="font-bold text-xl tracking-tight text-slate-800">Tronus</h1>
                                 <p className="text-xs text-slate-500 hidden sm:block">Church Management</p>
                             </div>
                         </div>
@@ -151,7 +151,7 @@ const LandingPage: React.FC = () => {
                                 ✨ Plataforma Moderna de Gestão de Igrejas
                             </div>
                             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-800 leading-tight">
-                                Potencialize sua Igreja com o <span className="text-orange-500">Thronus</span>
+                                Potencialize sua Igreja com o <span className="text-orange-500">Tronus</span>
                             </h1>
                             <p className="text-lg text-slate-600 leading-relaxed">
                                 A plataforma tudo-em-um para gerir membros, eventos, doações e muito mais.
@@ -249,7 +249,7 @@ const LandingPage: React.FC = () => {
                     <div className="text-center mb-16">
                         <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-4">Amado por Igrejas em Todo o Mundo</h2>
                         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                            Veja o que os líderes de igrejas estão a dizer sobre o Thronus
+                            Veja o que os líderes de igrejas estão a dizer sobre o Tronus
                         </p>
                     </div>
 
@@ -385,7 +385,7 @@ const LandingPage: React.FC = () => {
                 <div className="max-w-4xl mx-auto text-center">
                     <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Pronto para Transformar a sua Igreja?</h2>
                     <p className="text-lg text-slate-300 mb-8">
-                        Junte-se a centenas de igrejas que já usam o Thronus para otimizar as suas operações
+                        Junte-se a centenas de igrejas que já usam o Tronus para otimizar as suas operações
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <a href="/#/signup" className="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium text-lg transition-all hover:scale-105 shadow-lg">
@@ -405,9 +405,9 @@ const LandingPage: React.FC = () => {
                         <div>
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                                    <span className="font-bold text-white text-xl">Th</span>
+                                    <span className="font-bold text-white text-xl">Tr</span>
                                 </div>
-                                <span className="font-bold text-white text-xl">Thronus</span>
+                                <span className="font-bold text-white text-xl">Tronus</span>
                             </div>
                             <p className="text-sm">Plataforma moderna de gestão de igrejas</p>
                         </div>
@@ -436,7 +436,7 @@ const LandingPage: React.FC = () => {
                         </div>
                     </div>
                     <div className="border-t border-slate-800 pt-8 text-center text-sm">
-                        <p>&copy; 2024 Thronus. Todos os direitos reservados.</p>
+                        <p>&copy; 2024 Tronus. Todos os direitos reservados.</p>
                     </div>
                 </div>
             </footer >
