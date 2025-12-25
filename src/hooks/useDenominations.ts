@@ -31,7 +31,8 @@ export function useDenominations() {
             setDenominations(data || []);
         } catch (error) {
             console.error('Erro ao buscar denominações:', error);
-            // Don't show toast on fetch error to avoid spamming public users if table doesn't exist yet
+            // Show toast to help debug
+            toast.error('Erro ao carregar denominações. Verifique o console.');
         } finally {
             setLoading(false);
         }
