@@ -27,7 +27,6 @@ BEGIN
         ALTER TABLE denominations ADD COLUMN recognition_year INTEGER;
     END IF;
 END $$;
-
 -- 3. Enable RLS
 ALTER TABLE denominations ENABLE ROW LEVEL SECURITY;
 
