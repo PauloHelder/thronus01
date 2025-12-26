@@ -134,42 +134,42 @@ const Services: React.FC = () => {
                 ) : (
                     <>
                         {/* Cards de Estatísticas */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
-                                <div className="flex items-center justify-between">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 md:p-6 rounded-lg border border-blue-200">
+                                <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-2">
                                     <div>
-                                        <p className="text-blue-600 text-sm font-medium">Total de Cultos</p>
-                                        <p className="text-2xl font-bold text-blue-700">{totalServices}</p>
+                                        <p className="text-blue-600 text-xs md:text-sm font-medium">Total de Cultos</p>
+                                        <p className="text-xl md:text-2xl font-bold text-blue-700">{totalServices}</p>
                                     </div>
-                                    <Calendar className="text-blue-500" size={32} />
+                                    <Calendar className="text-blue-500 w-6 h-6 md:w-8 md:h-8" />
                                 </div>
                             </div>
-                            <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
-                                <div className="flex items-center justify-between">
+                            <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 md:p-6 rounded-lg border border-green-200">
+                                <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-2">
                                     <div>
-                                        <p className="text-green-600 text-sm font-medium">Concluídos</p>
-                                        <p className="text-2xl font-bold text-green-700">{completedServices}</p>
+                                        <p className="text-green-600 text-xs md:text-sm font-medium">Concluídos</p>
+                                        <p className="text-xl md:text-2xl font-bold text-green-700">{completedServices}</p>
                                     </div>
-                                    <Calendar className="text-green-500" size={32} />
+                                    <Calendar className="text-green-500 w-6 h-6 md:w-8 md:h-8" />
                                 </div>
                             </div>
-                            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
-                                <div className="flex items-center justify-between">
+                            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 md:p-6 rounded-lg border border-orange-200">
+                                <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-2">
                                     <div>
-                                        <p className="text-orange-600 text-sm font-medium">Agendados</p>
-                                        <p className="text-2xl font-bold text-orange-700">{scheduledServices}</p>
+                                        <p className="text-orange-600 text-xs md:text-sm font-medium">Agendados</p>
+                                        <p className="text-xl md:text-2xl font-bold text-orange-700">{scheduledServices}</p>
                                     </div>
-                                    <Clock className="text-orange-500" size={32} />
+                                    <Clock className="text-orange-500 w-6 h-6 md:w-8 md:h-8" />
                                 </div>
                             </div>
-                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
-                                <div className="flex items-center justify-between">
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 md:p-6 rounded-lg border border-purple-200">
+                                <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-2">
                                     <div>
-                                        <p className="text-purple-600 text-sm font-medium">Total Presença</p>
-                                        <p className="text-2xl font-bold text-purple-700">{totalAttendance}</p>
-                                        <p className="text-xs text-purple-600 mt-1">Sem visitantes</p>
+                                        <p className="text-purple-600 text-xs md:text-sm font-medium">Total Presença</p>
+                                        <p className="text-xl md:text-2xl font-bold text-purple-700">{totalAttendance}</p>
+                                        <p className="text-[10px] md:text-xs text-purple-600 mt-1">Sem visitantes</p>
                                     </div>
-                                    <User className="text-purple-500" size={32} />
+                                    <User className="text-purple-500 w-6 h-6 md:w-8 md:h-8" />
                                 </div>
                             </div>
                         </div>

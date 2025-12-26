@@ -228,32 +228,33 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                        <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
-                            <Building size={24} />
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                        <div className="p-2 md:p-3 bg-blue-100 text-blue-600 rounded-lg">
+                            <Building size={20} className="md:w-6 md:h-6" />
                         </div>
                         <div>
-                            <p className="text-sm text-slate-500">Total de Igrejas</p>
-                            <h3 className="text-2xl font-bold text-slate-800">{stats.totalChurches}</h3>
+                            <p className="text-xs md:text-sm text-slate-500">Total de Igrejas</p>
+                            <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.totalChurches}</h3>
                         </div>
                     </div>
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                        <div className="p-3 bg-green-100 text-green-600 rounded-lg">
-                            <Activity size={24} />
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                        <div className="p-2 md:p-3 bg-green-100 text-green-600 rounded-lg">
+                            <Activity size={20} className="md:w-6 md:h-6" />
                         </div>
                         <div>
-                            <p className="text-sm text-slate-500">Igrejas Ativas</p>
-                            <h3 className="text-2xl font-bold text-slate-800">{stats.activeChurches}</h3>
+                            <p className="text-xs md:text-sm text-slate-500">Igrejas Ativas</p>
+                            <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.activeChurches}</h3>
                         </div>
                     </div>
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                        <div className="p-3 bg-purple-100 text-purple-600 rounded-lg">
-                            <Users size={24} />
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 col-span-2 md:col-span-1">
+                        <div className="p-2 md:p-3 bg-purple-100 text-purple-600 rounded-lg">
+                            <Users size={20} className="md:w-6 md:h-6" />
                         </div>
                         <div>
-                            <p className="text-sm text-slate-500">Total de Usuários</p>
-                            <h3 className="text-2xl font-bold text-slate-800">{stats.totalUsers}</h3>
+                            <p className="text-xs md:text-sm text-slate-500">Total de Usuários</p>
+                            <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.totalUsers}</h3>
                         </div>
                     </div>
                 </div>
@@ -462,7 +463,7 @@ const AdminDashboard: React.FC = () => {
 
                 {activeTab === 'denominations' && (
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                        <div className="p-4 md:p-6 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50">
                             <div>
                                 <h2 className="text-lg font-semibold text-slate-800">Gerenciar Denominações</h2>
                                 <p className="text-sm text-slate-500">Lista de denominações disponíveis para cadastro</p>
@@ -472,7 +473,7 @@ const AdminDashboard: React.FC = () => {
                                     setDenomFormData({ id: '', name: '', acronym: '', doctrinal_current: '', max_leader: '', recognition_year: '' });
                                     setIsDenomModalOpen(true);
                                 }}
-                                className="px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors flex items-center gap-2"
+                                className="w-full md:w-auto px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
                             >
                                 <Plus size={18} />
                                 Nova Denominação
@@ -483,10 +484,10 @@ const AdminDashboard: React.FC = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-white border-b border-gray-100">
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Nome / Sigla</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Líder / Corrente</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Ano Rec.</th>
-                                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Ações</th>
+                                        <th className="px-4 md:px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Nome / Detalhes</th>
+                                        <th className="hidden md:table-cell px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Líder / Corrente</th>
+                                        <th className="hidden md:table-cell px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Ano Rec.</th>
+                                        <th className="px-4 md:px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -505,25 +506,28 @@ const AdminDashboard: React.FC = () => {
                                     ) : (
                                         denominations.map(den => (
                                             <tr key={den.id} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-6 py-4">
+                                                <td className="px-4 md:px-6 py-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
+                                                        <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0">
                                                             <Book size={16} />
                                                         </div>
                                                         <div>
                                                             <p className="font-medium text-slate-800">{den.name}</p>
-                                                            {den.acronym && <p className="text-xs text-slate-400">{den.acronym}</p>}
+                                                            <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-1">
+                                                                {den.acronym && <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-medium">{den.acronym}</span>}
+                                                                <span className="md:hidden">{den.max_leader}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="hidden md:table-cell px-6 py-4">
                                                     <div>
                                                         {den.max_leader && <p className="text-sm text-slate-700">{den.max_leader}</p>}
                                                         {den.doctrinal_current && <p className="text-xs text-slate-500">{den.doctrinal_current}</p>}
                                                         {!den.max_leader && !den.doctrinal_current && <span className="text-slate-400">-</span>}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">
+                                                <td className="hidden md:table-cell px-6 py-4 text-sm text-slate-600">
                                                     {den.recognition_year || '-'}
                                                 </td>
                                                 <td className="px-6 py-4 text-right">

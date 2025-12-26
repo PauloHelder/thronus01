@@ -115,45 +115,45 @@ const Teaching: React.FC = () => {
         </div>
 
         {/* Dashboard Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 lg:gap-6">
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+          <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2 md:mb-4">
               <div className="p-2 bg-blue-100 rounded-lg">
-                <BookOpen className="text-blue-600" size={24} />
+                <BookOpen className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
               </div>
             </div>
-            <p className="text-sm text-slate-500">Total de Turmas</p>
-            <p className="text-2xl font-bold text-slate-800 mt-1">{classes.length}</p>
+            <p className="text-xs md:text-sm text-slate-500">Total de Turmas</p>
+            <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">{classes.length}</p>
           </div>
 
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2 md:mb-4">
               <div className="p-2 bg-green-100 rounded-lg">
-                <Users className="text-green-600" size={24} />
+                <Users className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
               </div>
             </div>
-            <p className="text-sm text-slate-500">Total de Alunos</p>
-            <p className="text-2xl font-bold text-slate-800 mt-1">{totalStudents}</p>
+            <p className="text-xs md:text-sm text-slate-500">Total de Alunos</p>
+            <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">{totalStudents}</p>
           </div>
 
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2 md:mb-4">
               <div className="p-2 bg-purple-100 rounded-lg">
-                <Calendar className="text-purple-600" size={24} />
+                <Calendar className="text-purple-600 w-5 h-5 md:w-6 md:h-6" />
               </div>
             </div>
-            <p className="text-sm text-slate-500">Turmas Ativas</p>
-            <p className="text-2xl font-bold text-slate-800 mt-1">{activeClasses}</p>
+            <p className="text-xs md:text-sm text-slate-500">Turmas Ativas</p>
+            <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">{activeClasses}</p>
           </div>
 
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2 md:mb-4">
               <div className="p-2 bg-orange-100 rounded-lg">
-                <Clock className="text-orange-600" size={24} />
+                <Clock className="text-orange-600 w-5 h-5 md:w-6 md:h-6" />
               </div>
             </div>
-            <p className="text-sm text-slate-500">Aulas Ministradas</p>
-            <p className="text-2xl font-bold text-slate-800 mt-1">{totalLessons}</p>
+            <p className="text-xs md:text-sm text-slate-500">Aulas Ministradas</p>
+            <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">{totalLessons}</p>
           </div>
         </div>
 

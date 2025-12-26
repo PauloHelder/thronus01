@@ -294,53 +294,53 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-xl shadow-lg text-white">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <Users className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <ArrowUpRight className="w-5 h-5 opacity-70" />
+            <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 opacity-70" />
           </div>
-          <h3 className="text-white/80 text-sm font-medium mb-1">Total de Membros</h3>
-          <p className="text-3xl font-bold">{stats.totalMembers}</p>
-          <p className="text-white/70 text-xs mt-2">{stats.activeMembers} ativos</p>
+          <h3 className="text-white/80 text-xs md:text-sm font-medium mb-1">Total de Membros</h3>
+          <p className="text-xl md:text-3xl font-bold">{stats.totalMembers}</p>
+          <p className="text-white/70 text-[10px] md:text-xs mt-1 md:mt-2">{stats.activeMembers} ativos</p>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-xl shadow-lg text-white">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <Heart className="w-6 h-6" />
+        <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <Heart className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <ArrowUpRight className="w-5 h-5 opacity-70" />
+            <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 opacity-70" />
           </div>
-          <h3 className="text-white/80 text-sm font-medium mb-1">Grupos Ativos</h3>
-          <p className="text-3xl font-bold">{stats.activeGroups}</p>
-          <p className="text-white/70 text-xs mt-2">de {stats.totalGroups} grupos</p>
+          <h3 className="text-white/80 text-xs md:text-sm font-medium mb-1">Grupos Ativos</h3>
+          <p className="text-xl md:text-3xl font-bold">{stats.activeGroups}</p>
+          <p className="text-white/70 text-[10px] md:text-xs mt-1 md:mt-2">de {stats.totalGroups} grupos</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-xl shadow-lg text-white">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <CalendarDays className="w-6 h-6" />
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <CalendarDays className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <ArrowUpRight className="w-5 h-5 opacity-70" />
+            <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 opacity-70" />
           </div>
-          <h3 className="text-white/80 text-sm font-medium mb-1">Próximos Eventos</h3>
-          <p className="text-3xl font-bold">{stats.upcomingEvents}</p>
-          <p className="text-white/70 text-xs mt-2">este mês</p>
+          <h3 className="text-white/80 text-xs md:text-sm font-medium mb-1">Próximos Eventos</h3>
+          <p className="text-xl md:text-3xl font-bold">{stats.upcomingEvents}</p>
+          <p className="text-white/70 text-[10px] md:text-xs mt-1 md:mt-2">este mês</p>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-6 rounded-xl shadow-lg text-white">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-6 h-6" />
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 md:p-6 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <BookOpen className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <ArrowUpRight className="w-5 h-5 opacity-70" />
+            <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 opacity-70" />
           </div>
-          <h3 className="text-white/80 text-sm font-medium mb-1">Total de Alunos</h3>
-          <p className="text-3xl font-bold">{stats.totalStudents}</p>
-          <p className="text-white/70 text-xs mt-2">{stats.activeClasses} turmas ativas</p>
+          <h3 className="text-white/80 text-xs md:text-sm font-medium mb-1">Total de Alunos</h3>
+          <p className="text-xl md:text-3xl font-bold">{stats.totalStudents}</p>
+          <p className="text-white/70 text-[10px] md:text-xs mt-1 md:mt-2">{stats.activeClasses} turmas ativas</p>
         </div>
       </div>
 

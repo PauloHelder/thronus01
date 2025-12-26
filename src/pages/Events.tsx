@@ -135,26 +135,26 @@ const Events: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200">
-          <p className="text-blue-600 text-sm font-medium">Total de Eventos</p>
-          <p className="text-3xl font-bold text-blue-700 mt-1">{events.length}</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 md:p-6 rounded-xl border border-blue-200">
+          <p className="text-blue-600 text-xs md:text-sm font-medium">Total de Eventos</p>
+          <p className="text-xl md:text-3xl font-bold text-blue-700 mt-1">{events.length}</p>
         </div>
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200">
-          <p className="text-purple-600 text-sm font-medium">Cultos</p>
-          <p className="text-3xl font-bold text-purple-700 mt-1">
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 md:p-6 rounded-xl border border-purple-200">
+          <p className="text-purple-600 text-xs md:text-sm font-medium">Cultos</p>
+          <p className="text-xl md:text-3xl font-bold text-purple-700 mt-1">
             {events.filter(e => e.type === 'Service').length}
           </p>
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl border border-green-200">
-          <p className="text-green-600 text-sm font-medium">Reuniões</p>
-          <p className="text-3xl font-bold text-green-700 mt-1">
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 md:p-6 rounded-xl border border-green-200">
+          <p className="text-green-600 text-xs md:text-sm font-medium">Reuniões</p>
+          <p className="text-xl md:text-3xl font-bold text-green-700 mt-1">
             {events.filter(e => e.type === 'Meeting').length}
           </p>
         </div>
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl border border-orange-200">
-          <p className="text-orange-600 text-sm font-medium">Eventos Jovens</p>
-          <p className="text-3xl font-bold text-orange-700 mt-1">
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 md:p-6 rounded-xl border border-orange-200">
+          <p className="text-orange-600 text-xs md:text-sm font-medium">Eventos Jovens</p>
+          <p className="text-xl md:text-3xl font-bold text-orange-700 mt-1">
             {events.filter(e => e.type === 'Youth').length}
           </p>
         </div>

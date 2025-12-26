@@ -69,37 +69,37 @@ const Discipleship: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+        <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between mb-2 md:mb-4">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <Users className="text-blue-600" size={24} />
+              <Users className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
             </div>
           </div>
-          <p className="text-sm text-slate-500">Total de Líderes</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{leaders.length}</p>
+          <p className="text-xs md:text-sm text-slate-500">Total de Líderes</p>
+          <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">{leaders.length}</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between mb-2 md:mb-4">
             <div className="p-2 bg-green-100 rounded-lg">
-              <TrendingUp className="text-green-600" size={24} />
+              <TrendingUp className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
             </div>
           </div>
-          <p className="text-sm text-slate-500">Total de Discípulos</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">
+          <p className="text-xs md:text-sm text-slate-500">Total de Discípulos</p>
+          <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">
             {leaders.reduce((acc, leader) => acc + leader.disciples.length, 0)}
           </p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm col-span-2 md:col-span-1">
+          <div className="flex items-center justify-between mb-2 md:mb-4">
             <div className="p-2 bg-purple-100 rounded-lg">
-              <Calendar className="text-purple-600" size={24} />
+              <Calendar className="text-purple-600 w-5 h-5 md:w-6 md:h-6" />
             </div>
           </div>
-          <p className="text-sm text-slate-500">Encontros Registrados</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">
+          <p className="text-xs md:text-sm text-slate-500">Encontros Registrados</p>
+          <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">
             {leaders.reduce((acc, leader) => acc + (leader.meetings_count || 0), 0)}
           </p>
         </div>

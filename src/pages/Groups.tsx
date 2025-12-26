@@ -91,39 +91,39 @@ const Groups: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-              <Users size={24} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+        <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="p-2 md:p-3 bg-blue-50 text-blue-600 rounded-lg">
+              <Users size={20} className="md:w-6 md:h-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Total de Grupos</p>
-              <p className="text-2xl font-bold text-slate-800">{groups.length}</p>
+              <p className="text-xs md:text-sm font-medium text-slate-500">Total de Grupos</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-800">{groups.length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-              <Users size={24} />
+        <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="p-2 md:p-3 bg-green-50 text-green-600 rounded-lg">
+              <Users size={20} className="md:w-6 md:h-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Membros em Grupos</p>
-              <p className="text-2xl font-bold text-slate-800">
+              <p className="text-xs md:text-sm font-medium text-slate-500">Membros em Grupos</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-800">
                 {groups.reduce((acc, curr) => acc + (curr.member_count || 0), 0)}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-orange-50 text-orange-600 rounded-lg">
-              <MapPin size={24} />
+        <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm col-span-2 md:col-span-1">
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="p-2 md:p-3 bg-orange-50 text-orange-600 rounded-lg">
+              <MapPin size={20} className="md:w-6 md:h-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Grupos Ativos</p>
-              <p className="text-2xl font-bold text-slate-800">
+              <p className="text-xs md:text-sm font-medium text-slate-500">Grupos Ativos</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-800">
                 {groups.filter(g => g.status === 'Ativo').length}
               </p>
             </div>

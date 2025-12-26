@@ -254,52 +254,52 @@ const Members: React.FC = () => {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 md:p-6 rounded-xl border border-blue-200">
           <div className="flex items-center justify-between mb-2">
-            <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-              <Users className="text-white" size={24} />
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+              <Users className="text-white w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <TrendingUp className="text-blue-600" size={20} />
+            <TrendingUp className="text-blue-600 w-4 h-4 md:w-5 md:h-5" />
           </div>
-          <p className="text-blue-600 text-sm font-medium">Total de Membros</p>
-          <p className="text-3xl font-bold text-blue-900 mt-1">{totalMembers}</p>
+          <p className="text-blue-600 text-xs md:text-sm font-medium">Total de Membros</p>
+          <p className="text-xl md:text-3xl font-bold text-blue-900 mt-1">{totalMembers}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl border border-green-200">
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 md:p-6 rounded-xl border border-green-200">
           <div className="flex items-center justify-between mb-2">
-            <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
-              <UserCheck className="text-white" size={24} />
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-lg flex items-center justify-center">
+              <UserCheck className="text-white w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <TrendingUp className="text-green-600" size={20} />
+            <TrendingUp className="text-green-600 w-4 h-4 md:w-5 md:h-5" />
           </div>
-          <p className="text-green-600 text-sm font-medium">Membros Ativos</p>
-          <p className="text-3xl font-bold text-green-900 mt-1">{activeMembers}</p>
-          <p className="text-xs text-green-700 mt-1">{((activeMembers / totalMembers) * 100).toFixed(0)}% do total</p>
+          <p className="text-green-600 text-xs md:text-sm font-medium">Membros Ativos</p>
+          <p className="text-xl md:text-3xl font-bold text-green-900 mt-1">{activeMembers}</p>
+          <p className="text-[10px] md:text-xs text-green-700 mt-1">{totalMembers > 0 ? ((activeMembers / totalMembers) * 100).toFixed(0) : 0}% do total</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200">
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 md:p-6 rounded-xl border border-purple-200">
           <div className="flex items-center justify-between mb-2">
-            <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
-              <Calendar className="text-white" size={24} />
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+              <Calendar className="text-white w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <TrendingUp className="text-purple-600" size={20} />
+            <TrendingUp className="text-purple-600 w-4 h-4 md:w-5 md:h-5" />
           </div>
-          <p className="text-purple-600 text-sm font-medium">Batizados</p>
-          <p className="text-3xl font-bold text-purple-900 mt-1">{baptizedMembers}</p>
-          <p className="text-xs text-purple-700 mt-1">{((baptizedMembers / totalMembers) * 100).toFixed(0)}% do total</p>
+          <p className="text-purple-600 text-xs md:text-sm font-medium">Batizados</p>
+          <p className="text-xl md:text-3xl font-bold text-purple-900 mt-1">{baptizedMembers}</p>
+          <p className="text-[10px] md:text-xs text-purple-700 mt-1">{totalMembers > 0 ? ((baptizedMembers / totalMembers) * 100).toFixed(0) : 0}% do total</p>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl border border-orange-200">
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 md:p-6 rounded-xl border border-orange-200">
           <div className="flex items-center justify-between mb-2">
-            <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
-              <UserX className="text-white" size={24} />
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+              <UserX className="text-white w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <TrendingUp className="text-orange-600" size={20} />
+            <TrendingUp className="text-orange-600 w-4 h-4 md:w-5 md:h-5" />
           </div>
-          <p className="text-orange-600 text-sm font-medium">Visitantes</p>
-          <p className="text-3xl font-bold text-orange-900 mt-1">{visitors}</p>
-          <p className="text-xs text-orange-700 mt-1">Novos interessados</p>
+          <p className="text-orange-600 text-xs md:text-sm font-medium">Visitantes</p>
+          <p className="text-xl md:text-3xl font-bold text-orange-900 mt-1">{visitors}</p>
+          <p className="text-[10px] md:text-xs text-orange-700 mt-1">Novos interessados</p>
         </div>
       </div>
 

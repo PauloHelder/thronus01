@@ -182,41 +182,41 @@ const Finance = () => {
             </div>
 
             {/* Dashboard Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
                 {/* Receitas */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-2 md:mb-4">
                         <div className="p-2 bg-green-100 rounded-lg">
-                            <TrendingUp className="text-green-600" size={24} />
+                            <TrendingUp className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
                         </div>
-                        <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">+12% este mês</span>
+                        <span className="text-[10px] md:text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">+12% este mês</span>
                     </div>
-                    <p className="text-sm text-slate-500">Receitas Totais</p>
-                    <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(totals.income)}</p>
+                    <p className="text-xs md:text-sm text-slate-500">Receitas Totais</p>
+                    <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">{formatCurrency(totals.income)}</p>
                 </div>
 
                 {/* Despesas */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-2 md:mb-4">
                         <div className="p-2 bg-red-100 rounded-lg">
-                            <TrendingDown className="text-red-600" size={24} />
+                            <TrendingDown className="text-red-600 w-5 h-5 md:w-6 md:h-6" />
                         </div>
-                        <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">+5% este mês</span>
+                        <span className="text-[10px] md:text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">+5% este mês</span>
                     </div>
-                    <p className="text-sm text-slate-500">Despesas Totais</p>
-                    <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(totals.expense)}</p>
+                    <p className="text-xs md:text-sm text-slate-500">Despesas Totais</p>
+                    <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">{formatCurrency(totals.expense)}</p>
                 </div>
 
                 {/* Saldo */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm col-span-2 md:col-span-1">
+                    <div className="flex items-center justify-between mb-2 md:mb-4">
                         <div className="p-2 bg-blue-100 rounded-lg">
-                            <DollarSign className="text-blue-600" size={24} />
+                            <DollarSign className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
                         </div>
-                        <span className="text-xs font-medium text-slate-500">Saldo Atual</span>
+                        <span className="text-[10px] md:text-xs font-medium text-slate-500">Saldo Atual</span>
                     </div>
-                    <p className="text-sm text-slate-500">Saldo em Caixa</p>
-                    <p className={`text-2xl font-bold mt-1 ${balance >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
+                    <p className="text-xs md:text-sm text-slate-500">Saldo em Caixa</p>
+                    <p className={`text-xl md:text-2xl font-bold mt-1 ${balance >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
                         {formatCurrency(balance)}
                     </p>
                 </div>
