@@ -95,7 +95,10 @@ const LinkChurchModal: React.FC<LinkChurchModalProps> = ({ isOpen, onClose }) =>
                 .eq('id', user.churchId)
                 .single();
 
-            if (fetchError) throw fetchError;
+            if (fetchError || !currentChurchResult) {
+                console.error('Error fetching current church:', fetchError);
+                throw new Error('Não foi possível carregar os dados da sua igreja. Tente recarregar a página.');
+            }
 
             const currentChurch = currentChurchResult as any;
             const currentSettings = currentChurch?.settings || {};
@@ -120,9 +123,16 @@ const LinkChurchModal: React.FC<LinkChurchModalProps> = ({ isOpen, onClose }) =>
             toast.success(`Vinculado com sucesso à ${parentChurch.name}!`);
             onClose();
             window.location.reload(); // Reload to reflect changes
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error linking church:', error);
-            toast.error('Erro ao realizar vinculação');
+
+            if (error.message?.includes('JWT') || error.message?.includes('Refresh Token') || error.status === 401) {
+                toast.error('Sessão expirada. Por favor, faça logout e login novamente.');
+            } else if (error.code === '42501') {
+                toast.error('Você não tem permissão para realizar esta alteração.');
+            } else {
+                toast.error(`Erro ao vincular: ${error.message || 'Erro desconhecido'}`);
+            }
         } finally {
             setIsLinking(false);
         }

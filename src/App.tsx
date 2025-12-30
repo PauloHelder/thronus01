@@ -40,6 +40,9 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Reports from './pages/Reports';
+import Network from './pages/Network';
+import BranchDetails from './pages/BranchDetails';
+
 
 const AppContent: React.FC = () => {
   const { isOpen } = useSidebar();
@@ -84,6 +87,8 @@ const AppContent: React.FC = () => {
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/network" element={<Network />} />
+            <Route path="/network/:id" element={<BranchDetails />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

@@ -136,22 +136,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         // Determinar qual avatar usar
         const finalAvatar = avatarUrl || getDefaultAvatar();
 
-        // Save member data
-        // IMPORTANTE: Só enviar 'id' se estiver editando um membro existente
-        if (member) {
-            // Editando membro existente
-            onSave({
-                ...formData,
-                id: member.id,
-                avatar: finalAvatar,
-            });
-        } else {
-            // Criando novo membro - NÃO enviar 'id'
-            onSave({
-                ...formData,
-                avatar: finalAvatar,
-            } as Omit<Member, 'id'>);
-        }
+        // Logic consolidated at the end of function to include autoInviteRole
 
         // Supabase Logic:
         // The member is saved via onSave (which calls useMembers hook -> Supabase).
