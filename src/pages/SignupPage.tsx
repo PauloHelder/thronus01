@@ -14,8 +14,7 @@ const CATEGORIAS = [
     'Congregação',
     'SubCongregação',
     'Ponto de Pregação',
-    'Ponto de oração',
-    'Grupo de oração'
+    'Ponto de Oração'
 ];
 
 const PROVINCIAS_ANGOLA = {

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Check, X, Calendar, CreditCard } from 'lucide-react';
 import { Plan, Subscription } from '../types';
-import { PLANS } from '../mocks/plans';
+import { usePlans } from '../hooks/usePlans';
 
 const ChurchSubscription: React.FC = () => {
+    const { plans, loading } = usePlans();
     const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
     const [duration, setDuration] = useState<1 | 3 | 6 | 12>(1);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -20,7 +21,7 @@ const ChurchSubscription: React.FC = () => {
         totalAmount: 0,
     };
 
-    const currentPlan = PLANS.find(p => p.id === currentSubscription?.planId);
+    const currentPlan = plans.find(p => p.id === currentSubscription?.planId);
 
     const calculateEndDate = (startDate: Date, months: number): string => {
         const endDate = new Date(startDate);
@@ -70,6 +71,10 @@ const ChurchSubscription: React.FC = () => {
         return currentSubscription?.planId === planId && currentSubscription?.status === 'active';
     };
 
+    if (loading) {
+        return <div className="p-8 text-center text-slate-500">Carregando planos...</div>;
+    }
+
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
             {/* Header */}
@@ -104,7 +109,7 @@ const ChurchSubscription: React.FC = () => {
 
             {/* Plans Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {PLANS.map((plan) => {
+                {plans.map((plan) => {
                     const isCurrent = isCurrentPlan(plan.id);
 
                     return (
@@ -129,7 +134,7 @@ const ChurchSubscription: React.FC = () => {
                                     <span className="text-4xl font-bold text-slate-800">
                                         {plan.price.toLocaleString('pt-BR')}
                                     </span>
-                                    <span className="text-slate-600">Kz/mês</span>
+                                    <span className="text-slate-600">Kz/{plan.billing_period === 'monthly' ? 'mês' : plan.billing_period}</span>
                                 </div>
                             </div>
 
@@ -191,8 +196,8 @@ const ChurchSubscription: React.FC = () => {
                                 onClick={() => handleSubscribe(plan)}
                                 disabled={isCurrent && plan.price === 0}
                                 className={`w-full py-3 rounded-lg font-medium transition-colors ${isCurrent
-                                        ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                                        : 'bg-white hover:bg-gray-50 text-slate-700 border border-slate-300'
+                                    ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                                    : 'bg-white hover:bg-gray-50 text-slate-700 border border-slate-300'
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 {isCurrent ? 'Estender Assinatura' : 'Assinar Plano'}
@@ -230,8 +235,8 @@ const ChurchSubscription: React.FC = () => {
                                         key={months}
                                         onClick={() => setDuration(months as 1 | 3 | 6 | 12)}
                                         className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${duration === months
-                                                ? 'bg-orange-500 text-white'
-                                                : 'bg-gray-100 text-slate-700 hover:bg-gray-200'
+                                            ? 'bg-orange-500 text-white'
+                                            : 'bg-gray-100 text-slate-700 hover:bg-gray-200'
                                             }`}
                                     >
                                         {months} {months === 1 ? 'mês' : 'meses'}

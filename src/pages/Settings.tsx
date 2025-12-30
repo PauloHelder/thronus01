@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Plus, Trash2, Wallet, Building, Users, BookOpen, ShieldCheck, Check, Calendar, Pencil } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, Plus, Trash2, Wallet, Building, Users, BookOpen, ShieldCheck, Check, Calendar, Pencil, Upload, Palette, Image as ImageIcon } from 'lucide-react';
 import { TransactionCategory, ChristianStage, TeachingCategory } from '../types';
 import { useServiceTypes } from '../hooks/useServiceTypes';
 import { MOCK_CATEGORIES } from '../mocks/finance';
@@ -9,6 +9,7 @@ import { useTeaching } from '../hooks/useTeaching';
 import AccountModal from '../components/modals/AccountModal';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 const MODULES = [
     { id: 'members', label: 'Membros' },
@@ -30,6 +31,7 @@ const ACTIONS = [
 
 const Settings: React.FC = () => {
     const { user } = useAuth();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Check permission - Only admins can access settings
     if (user?.role !== 'admin' && user?.role !== 'superuser') {
@@ -46,7 +48,7 @@ const Settings: React.FC = () => {
     const { accounts, addAccount, updateAccount, deleteAccount } = useFinance();
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState<any>(undefined);
-    const [activeTab, setActiveTab] = useState('financial');
+    const [activeTab, setActiveTab] = useState('general');
 
     const handleSaveAccount = async (data: any) => {
         if (editingAccount) {
@@ -106,6 +108,13 @@ const Settings: React.FC = () => {
         view_events: false
     });
 
+    // Branding Settings
+    const [logoUrl, setLogoUrl] = useState<string>('');
+    const [primaryColor, setPrimaryColor] = useState<string>('#f97316'); // Default orange-500
+    const [secondaryColor, setSecondaryColor] = useState<string>('#1e293b'); // Default slate-800
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [savingBranding, setSavingBranding] = useState(false);
+
     // Initial Load
     useEffect(() => {
         if (!user?.churchId) return;
@@ -114,30 +123,38 @@ const Settings: React.FC = () => {
             try {
                 const { data, error } = await supabase
                     .from('churches')
-                    .select('settings')
+                    .select('settings, logo_url, primary_color, secondary_color')
                     .eq('id', user.churchId)
                     .single();
 
-                if (data && (data as any).settings) {
-                    const settings = (data as any).settings;
+                if (data) {
+                    // Load branding
+                    if (data.logo_url) setLogoUrl(data.logo_url);
+                    if (data.primary_color) setPrimaryColor(data.primary_color);
+                    if (data.secondary_color) setSecondaryColor(data.secondary_color);
 
-                    if (settings.role_permissions) {
-                        setRolePermissions(settings.role_permissions);
-                    } else {
-                        // Default permissions
-                        setRolePermissions({
-                            'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'events_view', 'events_edit', 'departments_view', 'departments_edit'],
-                            'leader': ['members_view', 'members_edit', 'events_create', 'events_edit', 'departments_edit', 'departments_create'],
-                            'member': ['members_view', 'events_view', 'services_view']
-                        });
-                    }
+                    // Load JSON settings
+                    if ((data as any).settings) {
+                        const settings = (data as any).settings;
 
-                    if (settings.custom_system_roles) {
-                        setCustomSystemRoles(settings.custom_system_roles);
-                    }
+                        if (settings.role_permissions) {
+                            setRolePermissions(settings.role_permissions);
+                        } else {
+                            // Default permissions
+                            setRolePermissions({
+                                'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'events_view', 'events_edit', 'departments_view', 'departments_edit'],
+                                'leader': ['members_view', 'members_edit', 'events_create', 'events_edit', 'departments_edit', 'departments_create'],
+                                'member': ['members_view', 'events_view', 'services_view']
+                            });
+                        }
 
-                    if (settings.shared_permissions) {
-                        setSharedPermissions(settings.shared_permissions);
+                        if (settings.custom_system_roles) {
+                            setCustomSystemRoles(settings.custom_system_roles);
+                        }
+
+                        if (settings.shared_permissions) {
+                            setSharedPermissions(settings.shared_permissions);
+                        }
                     }
                 }
             } catch (err) {
@@ -148,7 +165,7 @@ const Settings: React.FC = () => {
         loadSettings();
     }, [user?.churchId]);
 
-    // Helper to save settings to DB
+    // Helper to save settings to DB (JSON column)
     const updateChurchSettings = async (key: string, value: any) => {
         if (!user?.churchId) return;
         try {
@@ -169,7 +186,7 @@ const Settings: React.FC = () => {
             if (error) throw error;
         } catch (err) {
             console.error(`Error saving ${key}:`, err);
-            alert('Erro ao salvar configurações.');
+            toast.error('Erro ao salvar configurações.');
         }
     };
 
@@ -239,6 +256,81 @@ const Settings: React.FC = () => {
         await updateChurchSettings('shared_permissions', updatedPermissions);
     };
 
+    // Branding Handlers
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (!file.type.startsWith('image/')) {
+                toast.error('Por favor, selecione apenas arquivos de imagem.');
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error('A imagem deve ter no máximo 2MB.');
+                return;
+            }
+
+            setLogoFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setLogoUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSaveBranding = async () => {
+        if (!user?.churchId) return;
+        setSavingBranding(true);
+
+        try {
+            let finalLogoUrl = logoUrl;
+
+            // Upload logo if changed
+            if (logoFile) {
+                const fileExt = logoFile.name.split('.').pop();
+                const fileName = `${user.churchId}/logo-${Date.now()}.${fileExt}`;
+                const { error: uploadError, data } = await supabase.storage
+                    .from('church-assets')
+                    .upload(fileName, logoFile, { upsert: true });
+
+                if (uploadError) {
+                    // If bucket doesn't exist or permission denied, fallback to dataURL or error
+                    console.error('Upload error:', uploadError);
+
+                    // Fallback: If we can't upload, we might need to store Base64 in DB (not recommended but works for small images)
+                    // OR assume the user has to create the bucket.
+                    // For now, let's warn.
+                    toast.error(`Erro ao fazer upload da imagem: ${uploadError.message}. Verifique se o bucket 'church-assets' existe.`);
+                    // We continue saving colors anyway
+                } else {
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('church-assets')
+                        .getPublicUrl(fileName);
+                    finalLogoUrl = publicUrl;
+                }
+            }
+
+            const { error } = await supabase
+                .from('churches')
+                .update({
+                    logo_url: finalLogoUrl,
+                    primary_color: primaryColor,
+                    secondary_color: secondaryColor,
+                    updated_at: new Date().toISOString()
+                } as any)
+                .eq('id', user.churchId);
+
+            if (error) throw error;
+            toast.success('Configurações de marca salvas com sucesso!');
+            setLogoFile(null);
+        } catch (err: any) {
+            console.error('Error saving branding:', err);
+            toast.error(`Erro ao salvar: ${err.message}`);
+        } finally {
+            setSavingBranding(false);
+        }
+    };
+
     const SHARED_PERMISSION_LABELS: Record<string, string> = {
         view_members: 'Ver Membros',
         view_service_stats: 'Ver Estatísticas de Culto',
@@ -253,13 +345,166 @@ const Settings: React.FC = () => {
             <h1 className="text-3xl font-bold text-slate-800">Configurações</h1>
 
             <div className="flex gap-2 overflow-x-auto pb-2 border-b border-gray-200 bg-white p-2 rounded-lg sticky top-0 z-10">
+                <button onClick={() => setActiveTab('general')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'general' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Geral</button>
                 <button onClick={() => setActiveTab('financial')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'financial' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Financeiro</button>
                 <button onClick={() => setActiveTab('teaching')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'teaching' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Ensino</button>
                 <button onClick={() => setActiveTab('roles')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'roles' || activeTab === 'permissions' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Permissões</button>
                 <button onClick={() => setActiveTab('links')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'links' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Vínculos</button>
             </div>
 
+            {activeTab === 'general' && (
+                <div className="space-y-6">
+                    <div className="bg-white rounded-xl border border-gray-200 p-6">
+                        <div className="mb-8">
+                            <h2 className="text-lg font-semibold text-slate-800">Identidade Visual</h2>
+                            <p className="text-sm text-slate-500">Personalize a aparência do sistema para sua igreja</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                            {/* Logo Upload */}
+                            <div>
+                                <h3 className="text-sm font-medium text-slate-700 mb-4 flex items-center gap-2">
+                                    <ImageIcon size={18} />
+                                    Logotipo da Igreja
+                                </h3>
+
+                                <div className="flex flex-col items-center p-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                                    <div className="relative mb-4">
+                                        {logoUrl ? (
+                                            <div className="relative w-32 h-32 rounded-lg overflow-hidden bg-white shadow-sm border border-gray-200 flex items-center justify-center">
+                                                <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                                            </div>
+                                        ) : (
+                                            <div className="w-32 h-32 rounded-lg bg-gray-200 flex items-center justify-center text-slate-400">
+                                                <ImageIcon size={48} />
+                                            </div>
+                                        )}
+
+                                        {logoUrl && (
+                                            <button
+                                                onClick={() => {
+                                                    setLogoUrl('');
+                                                    setLogoFile(null);
+                                                    if (fileInputRef.current) fileInputRef.current.value = '';
+                                                }}
+                                                className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md"
+                                                title="Remover logo"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleLogoChange}
+                                        className="hidden"
+                                    />
+
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-slate-700 font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+                                    >
+                                        <Upload size={16} />
+                                        {logoUrl ? 'Alterar Logo' : 'Carregar Logo'}
+                                    </button>
+
+                                    <p className="text-xs text-slate-500 mt-2 text-center">
+                                        Recomendado: PNG ou JPG com fundo transparente.<br />Máximo 2MB.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Colors */}
+                            <div>
+                                <h3 className="text-sm font-medium text-slate-700 mb-4 flex items-center gap-2">
+                                    <Palette size={18} />
+                                    Cores do Sistema
+                                </h3>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm text-slate-600 mb-2">Cor Primária (Destaques, Botões)</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                value={primaryColor}
+                                                onChange={(e) => setPrimaryColor(e.target.value)}
+                                                className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
+                                            />
+                                            <div className="flex-1">
+                                                <input
+                                                    type="text"
+                                                    value={primaryColor}
+                                                    onChange={(e) => setPrimaryColor(e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm uppercase"
+                                                    pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-slate-600 mb-2">Cor Secundária (Texto, Elementos Escuros)</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                value={secondaryColor}
+                                                onChange={(e) => setSecondaryColor(e.target.value)}
+                                                className="w-12 h-12 p-1 rounded cursor-pointer border border-gray-300"
+                                            />
+                                            <div className="flex-1">
+                                                <input
+                                                    type="text"
+                                                    value={secondaryColor}
+                                                    onChange={(e) => setSecondaryColor(e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm uppercase"
+                                                    pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 border-t border-gray-100">
+                                        <label className="block text-sm font-medium text-slate-700 mb-3">Pré-visualização</label>
+                                        <div className="p-4 rounded-lg bg-gray-50 border border-gray-200 flex flex-col gap-3">
+                                            <div className="h-10 rounded-lg flex items-center justify-center text-white font-medium" style={{ backgroundColor: primaryColor }}>
+                                                Botão Primário
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: primaryColor }}>Icon</div>
+                                                <span className="font-bold" style={{ color: secondaryColor }}>Título do Texto</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 flex justify-end pt-6 border-t border-gray-200">
+                            <button
+                                onClick={handleSaveBranding}
+                                disabled={savingBranding}
+                                className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {savingBranding ? (
+                                    <>Salvando...</>
+                                ) : (
+                                    <>
+                                        <Save size={18} />
+                                        Salvar Alterações
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'financial' && (
+
                 <div className="space-y-6">
                     {/* Accounts Section */}
                     <div className="bg-white rounded-xl border border-gray-200 p-6">

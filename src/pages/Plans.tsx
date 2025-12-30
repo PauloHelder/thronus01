@@ -1,16 +1,9 @@
 import React, { useState } from 'react';
-import { Check, X, Edit3, ToggleLeft, ToggleRight } from 'lucide-react';
-import { Plan } from '../types';
-import { PLANS } from '../mocks/plans';
+import { Check, X, ToggleLeft, ToggleRight } from 'lucide-react';
+import { usePlans } from '../hooks/usePlans';
 
 const Plans: React.FC = () => {
-    const [plans, setPlans] = useState<Plan[]>(PLANS);
-
-    const togglePlanStatus = (planId: string) => {
-        setPlans(prev => prev.map(p =>
-            p.id === planId ? { ...p, isActive: !p.isActive } : p
-        ));
-    };
+    const { plans, loading } = usePlans();
 
     const formatValue = (value: number | 'unlimited') => {
         return value === 'unlimited' ? 'Ilimitado' : value;
@@ -34,13 +27,17 @@ const Plans: React.FC = () => {
         }
     };
 
+    if (loading) {
+        return <div className="p-8 text-center">Carregando planos...</div>;
+    }
+
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800">Gestão de Planos</h1>
-                    <p className="text-slate-600 mt-1">Gerencie os planos de assinatura do sistema</p>
+                    <h1 className="text-3xl font-bold text-slate-800">Planos Disponíveis</h1>
+                    <p className="text-slate-600 mt-1">Visão geral dos planos do sistema</p>
                 </div>
             </div>
 
@@ -53,13 +50,13 @@ const Plans: React.FC = () => {
                 <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl border border-green-200">
                     <p className="text-green-600 text-sm font-medium">Planos Ativos</p>
                     <p className="text-3xl font-bold text-green-700 mt-1">
-                        {plans.filter(p => p.isActive).length}
+                        {plans.filter(p => p.is_active).length}
                     </p>
                 </div>
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200">
-                    <p className="text-purple-600 text-sm font-medium">Plano Premium</p>
+                    <p className="text-purple-600 text-sm font-medium">Plano Mais Caro</p>
                     <p className="text-3xl font-bold text-purple-700 mt-1">
-                        {plans.find(p => p.name === 'Premium')?.price.toLocaleString('pt-BR')} Kz
+                        {Math.max(...plans.map(p => p.price)).toLocaleString('pt-BR')} Kz
                     </p>
                 </div>
             </div>
@@ -73,12 +70,8 @@ const Plans: React.FC = () => {
                     >
                         {/* Status Badge */}
                         <div className="absolute top-4 right-4">
-                            <button
-                                onClick={() => togglePlanStatus(plan.id)}
-                                className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-colors"
-                                title={plan.isActive ? 'Desativar plano' : 'Ativar plano'}
-                            >
-                                {plan.isActive ? (
+                            <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium">
+                                {plan.is_active ? (
                                     <>
                                         <ToggleRight className="text-green-600" size={20} />
                                         <span className="text-green-700">Ativo</span>
@@ -89,7 +82,7 @@ const Plans: React.FC = () => {
                                         <span className="text-gray-500">Inativo</span>
                                     </>
                                 )}
-                            </button>
+                            </div>
                         </div>
 
                         {/* Plan Header */}
@@ -101,7 +94,7 @@ const Plans: React.FC = () => {
                                 <span className="text-4xl font-bold text-slate-800">
                                     {plan.price.toLocaleString('pt-BR')}
                                 </span>
-                                <span className="text-slate-600">Kz/mês</span>
+                                <span className="text-slate-600">Kz/{plan.billing_period === 'monthly' ? 'mês' : plan.billing_period}</span>
                             </div>
                         </div>
 
@@ -212,11 +205,6 @@ const Plans: React.FC = () => {
                                 )}
                             </div>
                         </div>
-
-                        {/* Edit Button */}
-                        <button className="w-full py-2 bg-white hover:bg-gray-50 text-slate-700 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors border border-slate-300">
-                            <Edit3 size={16} /> Editar Plano
-                        </button>
                     </div>
                 ))}
             </div>
@@ -224,7 +212,7 @@ const Plans: React.FC = () => {
             {/* Info Box */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
-                    <strong>Nota:</strong> Apenas superadministradores podem gerenciar os planos. As igrejas podem visualizar e assinar os planos através do perfil da igreja.
+                    <strong>Nota:</strong> Esta é uma visualização dos planos disponíveis no sistema. O gerenciamento é feito no painel Super Admin.
                 </p>
             </div>
         </div>

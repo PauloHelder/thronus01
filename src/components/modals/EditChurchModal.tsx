@@ -84,9 +84,11 @@ const EditChurchModal: React.FC<EditChurchModalProps> = ({ isOpen, onClose, chur
             if (churchError) throw churchError;
 
             // 2. Update or Create Subscription
-            // For simplicity, we'll upsert based on church_id if we assume one sub per church, 
-            // but normally we'd create a new one. 
-            // Let's check if we have a sub id.
+            const startDate = new Date(formData.start_date);
+            const endDate = new Date(formData.end_date);
+            // Calculate approximate duration in months
+            const durationMonths = Math.max(1, (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()));
+
             const activeSub = church.subscriptions?.[0];
 
             if (activeSub) {
@@ -96,6 +98,7 @@ const EditChurchModal: React.FC<EditChurchModalProps> = ({ isOpen, onClose, chur
                         plan_id: formData.plan_id,
                         start_date: formData.start_date,
                         end_date: formData.end_date,
+                        duration_months: durationMonths
                     })
                     .eq('id', activeSub.id);
 
@@ -109,6 +112,10 @@ const EditChurchModal: React.FC<EditChurchModalProps> = ({ isOpen, onClose, chur
                         plan_id: formData.plan_id,
                         start_date: formData.start_date,
                         end_date: formData.end_date,
+                        duration_months: durationMonths,
+                        price: 0, // Default price if required, or fetch from plan if needed. Assuming 0 or handled by DB default if not mentioned. 
+                        // But let's assume price might be needed if not default. The error didn't mention it.
+                        status: 'active'
                     });
 
                 if (subError) throw subError;

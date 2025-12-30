@@ -11,13 +11,73 @@ import {
     CheckCircle,
     ArrowRight,
     Menu,
-    X
+    X,
+    MessageCircle // Added
 } from 'lucide-react';
+import { usePlans } from '../hooks/usePlans';
 
 const LandingPage: React.FC = () => {
     const navigate = useNavigate();
     const { isAuthenticated, loading } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const { plans: fetchedPlans, loading: plansLoading } = usePlans();
+
+    const defaultPlans: any[] = [
+        {
+            id: 'free',
+            name: 'Free',
+            price: 0,
+            billing_period: 'monthly',
+            is_popular: false,
+            description: 'Perfeito para começar',
+            features: {
+                maxMembers: 50,
+                maxGroups: 3,
+                serviceStatistics: true,
+                maxDepartments: 2,
+                exportStatistics: false,
+                customBranding: false,
+                canLinkToSupervision: false
+            }
+        },
+        {
+            id: 'pro',
+            name: 'Profissional',
+            price: 15000,
+            billing_period: 'monthly',
+            is_popular: true,
+            description: 'Para igrejas em crescimento',
+            features: {
+                maxMembers: 500,
+                maxGroups: 20,
+                serviceStatistics: true,
+                maxDepartments: 10,
+                exportStatistics: true,
+                customBranding: true,
+                canLinkToSupervision: true
+            }
+        },
+        {
+            id: 'premium',
+            name: 'Premium',
+            price: 30000,
+            billing_period: 'monthly',
+            is_popular: false,
+            description: 'Para grandes igrejas',
+            features: {
+                maxMembers: 'unlimited',
+                maxGroups: 'unlimited',
+                serviceStatistics: true,
+                maxDepartments: 'unlimited',
+                exportStatistics: true,
+                customBranding: true,
+                canLinkToSupervision: true
+            }
+        }
+    ];
+
+    const plans = fetchedPlans.length > 0 ? fetchedPlans : defaultPlans;
+
 
     // Redirect to dashboard if already authenticated
     useEffect(() => {
@@ -65,26 +125,7 @@ const LandingPage: React.FC = () => {
         }
     ];
 
-    const testimonials = [
-        {
-            name: 'Pastor João Silva',
-            church: 'Comunidade da Graça',
-            text: 'O Tronus transformou a forma como gerimos a nossa igreja. A interface é intuitiva e a nossa equipa adora!',
-            avatar: 'https://i.pravatar.cc/150?u=john'
-        },
-        {
-            name: 'Sara Mendes',
-            church: 'Nova Vida Fellowship',
-            text: 'As funcionalidades de doações e relatórios tornaram a nossa gestão financeira muito mais fácil.',
-            avatar: 'https://i.pravatar.cc/150?u=sarah'
-        },
-        {
-            name: 'Miguel Chen',
-            church: 'Igreja Esperança da Cidade',
-            text: 'Vimos um aumento de 40% no engajamento dos membros desde a implementação do Tronus. Altamente recomendado!',
-            avatar: 'https://i.pravatar.cc/150?u=michael'
-        }
-    ];
+
 
     const scrollToSection = (id: string) => {
         const element = document.getElementById(id);
@@ -112,7 +153,7 @@ const LandingPage: React.FC = () => {
                         {/* Desktop Navigation */}
                         <div className="hidden md:flex items-center gap-8">
                             <button onClick={() => scrollToSection('features')} className="text-slate-600 hover:text-orange-500 transition-colors">Funcionalidades</button>
-                            <button onClick={() => scrollToSection('testimonials')} className="text-slate-600 hover:text-orange-500 transition-colors">Testemunhos</button>
+
                             <button onClick={() => scrollToSection('pricing')} className="text-slate-600 hover:text-orange-500 transition-colors">Planos</button>
                             <a href="/#/login" className="text-slate-600 hover:text-orange-500 transition-colors">Login</a>
                             <a href="/#/signup" className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors">
@@ -133,7 +174,7 @@ const LandingPage: React.FC = () => {
                     {mobileMenuOpen && (
                         <div className="md:hidden py-4 space-y-3 animate-in slide-in-from-top duration-200">
                             <button onClick={() => scrollToSection('features')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Funcionalidades</button>
-                            <button onClick={() => scrollToSection('testimonials')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Testemunhos</button>
+
                             <button onClick={() => scrollToSection('pricing')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Planos</button>
                             <a href="/#/login" className="block px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Login</a>
                             <a href="/#/signup" className="block px-4 py-2 bg-orange-500 text-white rounded-lg text-center font-medium">Começar Agora</a>
@@ -243,36 +284,7 @@ const LandingPage: React.FC = () => {
                 </div>
             </section>
 
-            {/* Testimonials Section */}
-            <section id="testimonials" className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-orange-50 to-orange-100">
-                <div className="max-w-7xl mx-auto">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-4">Amado por Igrejas em Todo o Mundo</h2>
-                        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                            Veja o que os líderes de igrejas estão a dizer sobre o Tronus
-                        </p>
-                    </div>
 
-                    <div className="grid md:grid-cols-3 gap-8">
-                        {testimonials.map((testimonial, index) => (
-                            <div
-                                key={index}
-                                className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom"
-                                style={{ animationDelay: `${index * 150}ms` }}
-                            >
-                                <div className="flex items-center gap-4 mb-4">
-                                    <img src={testimonial.avatar} alt={testimonial.name} className="w-14 h-14 rounded-full" />
-                                    <div>
-                                        <p className="font-semibold text-slate-800">{testimonial.name}</p>
-                                        <p className="text-sm text-slate-500">{testimonial.church}</p>
-                                    </div>
-                                </div>
-                                <p className="text-slate-600 italic">"{testimonial.text}"</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
 
             {/* Pricing Section */}
             <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
@@ -285,103 +297,105 @@ const LandingPage: React.FC = () => {
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                        {/* Free Plan */}
-                        <div className="p-8 bg-white rounded-xl border-2 border-gray-200 hover:border-orange-300 transition-all duration-300 hover:shadow-xl">
-                            <h3 className="text-2xl font-bold text-slate-800 mb-2">Free</h3>
-                            <p className="text-slate-600 mb-6">Perfeito para começar</p>
-                            <div className="mb-6">
-                                <span className="text-4xl font-bold text-slate-800">0</span>
-                                <span className="text-slate-500"> Kz/mês</span>
-                            </div>
-                            <ul className="space-y-3 mb-8">
-                                <li className="flex items-center gap-2 text-slate-600">
-                                    <CheckCircle className="text-green-500" size={20} />
-                                    Até 100 membros
-                                </li>
-                                <li className="flex items-center gap-2 text-slate-600">
-                                    <CheckCircle className="text-green-500" size={20} />
-                                    10 grupos
-                                </li>
-                                <li className="flex items-center gap-2 text-slate-600">
-                                    <CheckCircle className="text-green-500" size={20} />
-                                    Estatísticas de cultos
-                                </li>
-                                <li className="flex items-center gap-2 text-slate-600">
-                                    <CheckCircle className="text-green-500" size={20} />
-                                    5 departamentos
-                                </li>
-                            </ul>
-                            <a href="/#/signup" className="block w-full py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium text-center transition-colors">
-                                Começar Grátis
-                            </a>
-                        </div>
+                        {plans.map((plan) => {
+                            const isPopular = plan.is_popular;
+                            const isPremium = plan.name === 'Premium';
 
-                        {/* Professional Plan */}
-                        <div className="p-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-2xl transform scale-105 relative">
-                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-yellow-400 text-slate-800 rounded-full text-sm font-bold">
-                                POPULAR
-                            </div>
-                            <h3 className="text-2xl font-bold text-white mb-2">Profissional</h3>
-                            <p className="text-orange-100 mb-6">Para igrejas em crescimento</p>
-                            <div className="mb-6">
-                                <span className="text-4xl font-bold text-white">7.500</span>
-                                <span className="text-orange-100"> Kz/mês</span>
-                            </div>
-                            <ul className="space-y-3 mb-8">
-                                <li className="flex items-center gap-2 text-white">
-                                    <CheckCircle size={20} />
-                                    Até 500 membros
-                                </li>
-                                <li className="flex items-center gap-2 text-white">
-                                    <CheckCircle size={20} />
-                                    80 grupos
-                                </li>
-                                <li className="flex items-center gap-2 text-white">
-                                    <CheckCircle size={20} />
-                                    Exportar estatísticas
-                                </li>
-                                <li className="flex items-center gap-2 text-white">
-                                    <CheckCircle size={20} />
-                                    Personalizar marca
-                                </li>
-                                <li className="flex items-center gap-2 text-white">
-                                    <CheckCircle size={20} />
-                                    Vincular supervisão
-                                </li>
-                            </ul>
-                            <a href="/#/signup" className="block w-full py-3 bg-white hover:bg-gray-100 text-orange-600 rounded-lg font-medium text-center transition-colors">
-                                Começar Agora
-                            </a>
-                        </div>
+                            // Style configuration based on plan
+                            const containerClasses = isPopular
+                                ? "p-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-2xl transform scale-105 relative"
+                                : "p-8 bg-white rounded-xl border-2 border-gray-200 hover:border-orange-300 transition-all duration-300 hover:shadow-xl";
 
-                        {/* Premium Plan */}
-                        <div className="p-8 bg-white rounded-xl border-2 border-gray-200 hover:border-orange-300 transition-all duration-300 hover:shadow-xl">
-                            <h3 className="text-2xl font-bold text-slate-800 mb-2">Premium</h3>
-                            <p className="text-slate-600 mb-6">Para grandes igrejas</p>
-                            <div className="mb-6">
-                                <span className="text-4xl font-bold text-slate-800">9.000</span>
-                                <span className="text-slate-500"> Kz/mês</span>
-                            </div>
-                            <ul className="space-y-3 mb-8">
-                                <li className="flex items-center gap-2 text-slate-600">
-                                    <CheckCircle className="text-green-500" size={20} />
-                                    Membros ilimitados
-                                </li>
-                                <li className="flex items-center gap-2 text-slate-600">
-                                    <CheckCircle className="text-green-500" size={20} />
-                                    Treino e onboarding
-                                </li>
-                            </ul>
-                            <a href="/#/contact" className="block w-full py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium text-center transition-colors">
-                                Contactar Vendas
-                            </a>
-                        </div>
+                            const textClasses = isPopular ? "text-white" : "text-slate-800";
+                            const subTextClasses = isPopular ? "text-orange-100" : "text-slate-600";
+                            const checkColor = isPopular ? "text-white" : "text-green-500";
+                            const buttonClasses = isPopular
+                                ? "block w-full py-3 bg-white hover:bg-gray-100 text-orange-600 rounded-lg font-medium text-center transition-colors"
+                                : "block w-full py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium text-center transition-colors";
+
+                            const formatFeatureValue = (value: number | 'unlimited', suffix: string) => {
+                                if (value === 'unlimited') return `${suffix} ilimitados`;
+                                return `${value} ${suffix}`;
+                            };
+
+                            return (
+                                <div key={plan.id} className={containerClasses}>
+                                    {isPopular && (
+                                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-yellow-400 text-slate-800 rounded-full text-sm font-bold">
+                                            POPULAR
+                                        </div>
+                                    )}
+                                    <h3 className={`text-2xl font-bold mb-2 ${textClasses}`}>{plan.name}</h3>
+                                    <p className={`${subTextClasses} mb-6`}>
+                                        {plan.description || (plan.name === 'Free' ? 'Perfeito para começar' :
+                                            plan.name === 'Profissional' ? 'Para igrejas em crescimento' :
+                                                'Para grandes igrejas')}
+                                    </p>
+                                    <div className="mb-6">
+                                        <span className={`text-4xl font-bold ${textClasses}`}>
+                                            {plan.price.toLocaleString('pt-BR')}
+                                        </span>
+                                        <span className={subTextClasses}> Kz/{plan.billing_period === 'monthly' ? 'mês' : plan.billing_period}</span>
+                                    </div>
+                                    <ul className="space-y-3 mb-8">
+                                        <li className={`flex items-center gap-2 ${subTextClasses}`}>
+                                            <CheckCircle className={checkColor} size={20} />
+                                            {plan.features.maxMembers === 'unlimited' ? 'Membros ilimitados' : `Até ${plan.features.maxMembers} membros`}
+                                        </li>
+                                        <li className={`flex items-center gap-2 ${subTextClasses}`}>
+                                            <CheckCircle className={checkColor} size={20} />
+                                            {plan.features.maxGroups === 'unlimited' ? 'Grupos ilimitados' : `${plan.features.maxGroups} grupos`}
+                                        </li>
+                                        {plan.features.serviceStatistics && (
+                                            <li className={`flex items-center gap-2 ${subTextClasses}`}>
+                                                <CheckCircle className={checkColor} size={20} />
+                                                Estatísticas de cultos
+                                            </li>
+                                        )}
+                                        {plan.features.maxDepartments !== 'unlimited' && (
+                                            <li className={`flex items-center gap-2 ${subTextClasses}`}>
+                                                <CheckCircle className={checkColor} size={20} />
+                                                {plan.features.maxDepartments} departamentos
+                                            </li>
+                                        )}
+                                        {plan.features.exportStatistics && (
+                                            <li className={`flex items-center gap-2 ${subTextClasses}`}>
+                                                <CheckCircle className={checkColor} size={20} />
+                                                Exportar estatísticas
+                                            </li>
+                                        )}
+                                        {plan.features.customBranding && (
+                                            <li className={`flex items-center gap-2 ${subTextClasses}`}>
+                                                <CheckCircle className={checkColor} size={20} />
+                                                Personalizar marca
+                                            </li>
+                                        )}
+                                        {plan.features.canLinkToSupervision && (
+                                            <li className={`flex items-center gap-2 ${subTextClasses}`}>
+                                                <CheckCircle className={checkColor} size={20} />
+                                                Vincular supervisão
+                                            </li>
+                                        )}
+                                        {isPremium && (
+                                            <li className={`flex items-center gap-2 ${subTextClasses}`}>
+                                                <CheckCircle className={checkColor} size={20} />
+                                                Treino e onboarding
+                                            </li>
+                                        )}
+                                    </ul>
+                                    <a href={plan.name === 'Premium' ? "/#/contact" : "/#/signup"} className={buttonClasses}>
+                                        {plan.name === 'Free' ? 'Começar Grátis' :
+                                            plan.name === 'Premium' ? 'Contactar Vendas' : 'Começar Agora'}
+                                    </a>
+                                </div>
+                            );
+                        })}
                     </div >
                 </div >
             </section >
 
             {/* CTA Section */}
-            < section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-800 to-slate-900" >
+            <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-800 to-slate-900">
                 <div className="max-w-4xl mx-auto text-center">
                     <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Pronto para Transformar a sua Igreja?</h2>
                     <p className="text-lg text-slate-300 mb-8">
@@ -396,10 +410,10 @@ const LandingPage: React.FC = () => {
                         </a>
                     </div>
                 </div>
-            </section >
+            </section>
 
             {/* Footer */}
-            < footer className="bg-slate-900 text-slate-400 py-12 px-4 sm:px-6 lg:px-8" >
+            <footer className="bg-slate-900 text-slate-400 py-12 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid md:grid-cols-4 gap-8 mb-8">
                         <div>
@@ -439,8 +453,21 @@ const LandingPage: React.FC = () => {
                         <p>&copy; 2024 Tronus. Todos os direitos reservados.</p>
                     </div>
                 </div>
-            </footer >
-        </div >
+            </footer>
+            {/* WhatsApp Floating Button */}
+            <a
+                href="https://wa.link/cuggqu"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="fixed bottom-6 right-6 z-50 p-4 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 flex items-center justify-center group animate-in slide-in-from-bottom duration-1000 delay-500"
+                title="Fale conosco no WhatsApp"
+            >
+                <div className="absolute right-full mr-4 bg-white px-3 py-1 rounded-lg shadow-md text-slate-700 text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block pointer-events-none">
+                    Fale Conosco
+                </div>
+                <MessageCircle size={32} fill="white" className="text-green-500" />
+            </a>
+        </div>
     );
 };
 

@@ -22,8 +22,9 @@ export interface Member {
 
 export interface Plan {
   id: string;
-  name: 'Free' | 'Profissional' | 'Premium';
+  name: string;
   price: number;
+  billing_period: string;
   features: {
     canLinkToSupervision: boolean;
     canBeLinked: number | 'unlimited'; // número de igrejas que podem ser vinculadas
@@ -39,7 +40,9 @@ export interface Plan {
     maxClasses: number | 'unlimited';
     maxEvents: number;
   };
-  isActive: boolean;
+  is_active: boolean;
+  description?: string;
+  is_popular?: boolean;
 }
 
 export interface Subscription {

@@ -47,22 +47,9 @@ const AdminDashboard: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            // Fetch churches with subscriptions and plans
+            // Fetch churches with subscriptions and plans securely using RPC
             const { data: churchesData, error: churchesError } = await supabase
-                .from('churches')
-                .select(`
-                    *,
-                    subscriptions (
-                        id,
-                        plan_id,
-                        start_date,
-                        end_date,
-                        plans (
-                            name
-                        )
-                    )
-                `)
-                .order('created_at', { ascending: false });
+                .rpc('get_admin_dashboard_data');
 
             if (churchesError) throw churchesError;
 
@@ -312,9 +299,13 @@ const AdminDashboard: React.FC = () => {
                                 <thead>
                                     <tr className="bg-white border-b border-gray-100">
                                         <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Igreja</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Membros</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Grupos</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Discip.</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Depts</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Ensino</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Usuários</th>
                                         <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Plano</th>
-                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Início</th>
-                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Fim</th>
                                         <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Status</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Ações</th>
                                     </tr>
@@ -322,6 +313,9 @@ const AdminDashboard: React.FC = () => {
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredChurches.map(church => {
                                         const sub = church.subscriptions?.[0];
+                                        // Count helpers
+                                        const getCount = (prop: any) => prop?.[0]?.count || 0;
+
                                         return (
                                             <tr key={church.id} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4">
@@ -335,16 +329,33 @@ const AdminDashboard: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </td>
+                                                <td className="px-4 py-4 text-center text-sm text-slate-600 font-medium">
+                                                    {getCount(church.members)}
+                                                </td>
+                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
+                                                    {getCount(church.groups)}
+                                                </td>
+                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
+                                                    {getCount(church.discipleship_leaders)}
+                                                </td>
+                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
+                                                    {getCount(church.departments)}
+                                                </td>
+                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
+                                                    {getCount(church.teaching_classes)}
+                                                </td>
+                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
+                                                    {getCount(church.users)}
+                                                </td>
                                                 <td className="px-4 py-4">
-                                                    <span className="text-sm text-slate-600">
+                                                    <div className="text-sm text-slate-600">
                                                         {sub?.plans?.name || '-'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-4 text-sm text-slate-600">
-                                                    {sub?.start_date ? new Date(sub.start_date).toLocaleDateString('pt-BR') : '-'}
-                                                </td>
-                                                <td className="px-4 py-4 text-sm text-slate-600">
-                                                    {sub?.end_date ? new Date(sub.end_date).toLocaleDateString('pt-BR') : '-'}
+                                                    </div>
+                                                    {sub?.end_date && (
+                                                        <div className="text-xs text-slate-400">
+                                                            Vence: {new Date(sub.end_date).toLocaleDateString('pt-BR')}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     {getStatusBadge(church)}
@@ -372,7 +383,7 @@ const AdminDashboard: React.FC = () => {
                                     })}
                                     {filteredChurches.length === 0 && (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                                            <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
                                                 Nenhuma igreja encontrada.
                                             </td>
                                         </tr>
@@ -405,9 +416,16 @@ const AdminDashboard: React.FC = () => {
                                     <div className="p-6 border-b border-gray-100">
                                         <div className="flex justify-between items-start mb-4">
                                             <h3 className="text-xl font-bold text-slate-800">{plan.name}</h3>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${plan.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                                                {plan.is_active ? 'Ativo' : 'Inativo'}
-                                            </span>
+                                            <div className="flex gap-2">
+                                                {plan.is_popular && (
+                                                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                                        Popular
+                                                    </span>
+                                                )}
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${plan.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                                                    {plan.is_active ? 'Ativo' : 'Inativo'}
+                                                </span>
+                                            </div>
                                         </div>
                                         <div className="flex items-baseline gap-1">
                                             <span className="text-3xl font-bold text-slate-900">{formatCurrency(plan.price)}</span>

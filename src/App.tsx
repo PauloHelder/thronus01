@@ -38,7 +38,8 @@ import UserManagement from './pages/UserManagement';
 import InviteLanding from './pages/InviteLanding';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import AdminDashboard from './pages/admin/AdminDashboard'; // Import added
+import AdminDashboard from './pages/admin/AdminDashboard';
+import Reports from './pages/Reports';
 
 const AppContent: React.FC = () => {
   const { isOpen } = useSidebar();
@@ -71,6 +72,7 @@ const AppContent: React.FC = () => {
             <Route path="/discipleship/:id" element={<DiscipleshipDetail />} />
             <Route path="/teaching" element={<Teaching />} />
             <Route path="/teaching/:id" element={<TeachingDetail />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/church-profile" element={<ChurchProfile />} />
             <Route path="/subscription" element={<ChurchSubscription />} />
             <Route path="/my-churches" element={<MyChurches />} />

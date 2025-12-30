@@ -16,8 +16,7 @@ const CHURCH_HIERARCHY = [
     'Congregação',
     'SubCongregação',
     'Ponto de Pregação',
-    'Ponto de oração',
-    'Grupo de oração'
+    'Ponto de Oração'
 ];
 
 const LinkChurchModal: React.FC<LinkChurchModalProps> = ({ isOpen, onClose }) => {

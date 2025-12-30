@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useAuth } from '../contexts/AuthContext';
+// ... imports
 import {
   LayoutDashboard,
   Users,
@@ -17,7 +18,8 @@ import {
   Building,
   Calendar,
   Wallet,
-  Shield // Imported
+  Shield,
+  BarChart3 // Added
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
@@ -39,6 +41,7 @@ const Sidebar: React.FC = () => {
     if (path === '/departments') return hasPermission('departments_view');
     if (path === '/teaching') return hasPermission('teaching_view');
     if (path === '/events') return hasPermission('events_view');
+    if (path === '/reports') return true;
 
     // Default fallback
     return true;
@@ -62,7 +65,8 @@ const Sidebar: React.FC = () => {
       { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado" },
       { to: "/departments", icon: Network, label: "Departamentos" },
       { to: "/teaching", icon: GraduationCap, label: "Ensino" },
-      { to: "/events", icon: CalendarDays, label: "Eventos" }
+      { to: "/events", icon: CalendarDays, label: "Eventos" },
+      { to: "/reports", icon: BarChart3, label: "Relatórios" }
     );
 
     // Add user management and settings for admins
