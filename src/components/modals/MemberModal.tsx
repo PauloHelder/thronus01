@@ -21,21 +21,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         name: '',
         email: '',
         phone: '',
+        biNumber: '',
         status: 'Active',
     });
 
     const [avatarUrl, setAvatarUrl] = useState<string>('');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [userRole, setUserRole] = useState<string>('member');
-    const [customRoles, setCustomRoles] = useState<string[]>([]);
     const [churchRoles, setChurchRoles] = useState<string[]>([]);
     const [memberProvince, setMemberProvince] = useState('');
 
     useEffect(() => {
         // Load custom roles from localStorage
-        const storedCustomRoles = JSON.parse(localStorage.getItem('thronus_custom_roles') || '[]');
         const storedChurchRoles = JSON.parse(localStorage.getItem('thronus_church_roles') || '[]');
-        setCustomRoles(storedCustomRoles);
         setChurchRoles(storedChurchRoles);
 
         if (member) {
@@ -44,6 +41,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 email: member.email,
                 phone: member.phone,
                 status: member.status,
+                biNumber: member.biNumber || '',
                 gender: member.gender,
                 maritalStatus: member.maritalStatus,
                 birthDate: formatDateForInput(member.birthDate),
@@ -60,12 +58,12 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
             setMemberProvince(member.province || '');
             setAvatarUrl(member.avatar || '');
             setAvatarFile(null);
-            setUserRole('member');
         } else {
             setFormData({
                 name: '',
                 email: '',
                 phone: '',
+                biNumber: '',
                 status: 'Active',
                 gender: undefined,
                 maritalStatus: undefined,
@@ -83,7 +81,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
             setMemberProvince('');
             setAvatarUrl('');
             setAvatarFile(null);
-            setUserRole('member');
         }
     }, [member, isOpen]);
 
@@ -210,8 +207,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
             ...formData,
             id: member?.id, // undefined if new
             avatar: finalAvatar,
-            // @ts-ignore
-            autoInviteRole: (formData.email) ? (member ? (userRole || 'member') : userRole) : undefined
         });
 
         onClose();
@@ -292,7 +287,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                             <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-xs text-slate-400 font-normal">(Opcional - Necessário para acesso ao sistema)</span></label>
                             <input
                                 type="email"
-                                value={formData.email}
+                                value={formData.email || ''}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                                 placeholder="joao@exemplo.com"
@@ -302,10 +297,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                             <label className="block text-sm font-medium text-slate-700 mb-1">Telefone <span className="text-xs text-slate-400 font-normal">(Opcional)</span></label>
                             <input
                                 type="tel"
-                                value={formData.phone}
+                                value={formData.phone || ''}
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                                 placeholder="(555) 123-4567"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Nº de Bilhete (BI)</label>
+                            <input
+                                type="text"
+                                value={formData.biNumber || ''}
+                                onChange={(e) => setFormData({ ...formData, biNumber: e.target.value })}
+                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                placeholder="000000000LA000"
                             />
                         </div>
                     </div>
@@ -315,16 +320,16 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                             <label className="block text-sm font-medium text-slate-700 mb-1">Gênero</label>
                             <select
                                 value={formData.gender || ''}
-                                onChange={(e) => setFormData({ ...formData, gender: e.target.value as Member['gender'] })}
+                                onChange={(e) => setFormData({ ...formData, gender: e.target.value as any })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                             >
-                                <option value="">Selecione</option>
+                                <option value="" disabled>Selecione...</option>
                                 <option value="Male">Masculino</option>
                                 <option value="Female">Feminino</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Data de Nascimento</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Data de Nascimento <span className="text-xs text-slate-400 font-normal">(Opcional)</span></label>
                             <input
                                 type="date"
                                 value={formData.birthDate || ''}
@@ -336,10 +341,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Estado Civil</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Estado Civil <span className="text-xs text-slate-400 font-normal">(Opcional)</span></label>
                             <select
                                 value={formData.maritalStatus || ''}
-                                onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value as Member['maritalStatus'] })}
+                                onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value as any })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                             >
                                 <option value="">Selecione</option>
@@ -498,31 +503,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                         </div>
                     </div>
 
-                    {/* Acesso ao Sistema - Apenas Admin pode definir role, mas criação é automática se tiver email */}
-                    {user?.role === 'admin' && formData.email && (
-                        <div className="pt-4 border-t border-gray-100">
-                            <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                                <div className="mb-3">
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Nível de Acesso (Usuário será criado automaticamente)</label>
-                                    <select
-                                        value={userRole}
-                                        onChange={(e) => setUserRole(e.target.value)}
-                                        className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                    >
-                                        <option value="member">Membro (Apenas Visualizar)</option>
-                                        <option value="leader">Líder (Editar Departamento/Eventos)</option>
-                                        <option value="admin">Administrador (Acesso Total)</option>
-                                        {customRoles.map(role => (
-                                            <option key={role} value={role}>{role}</option>
-                                        ))}
-                                    </select>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Como um email foi fornecido, um usuário será criado para este membro. A senha padrão será "123456".
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">

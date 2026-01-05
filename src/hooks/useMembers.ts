@@ -29,7 +29,8 @@ export const useMembers = () => {
         province: data.province,
         country: data.country,
         municipality: data.municipality,
-        groupId: data.group_id
+        groupId: data.group_id,
+        biNumber: data.bi_number
     });
 
     // Helper to transform App data (camelCase) to DB data (snake_case)
@@ -50,9 +51,9 @@ export const useMembers = () => {
             delete dbData.baptismDate;
         }
         if (data.groupId !== undefined) { dbData.group_id = data.groupId; delete dbData.groupId; }
+        if (data.biNumber !== undefined) { dbData.bi_number = data.biNumber; delete dbData.biNumber; }
 
-        // Remove UI-only fields
-        delete dbData.autoInviteRole;
+
 
         return dbData;
     };
@@ -229,8 +230,9 @@ export const useMembers = () => {
 
             return true;
         } catch (err) {
-            console.error('Error updating member:', err);
-            setError('Erro ao atualizar membro');
+            console.error('Error updating member:', JSON.stringify(err, null, 2));
+            const msg = (err as any)?.message || 'Erro desconhecido';
+            setError(`Erro ao atualizar membro: ${msg}`);
             return false;
         }
     };
@@ -315,6 +317,7 @@ export const useMembers = () => {
                     name: m.name,
                     email: m.email || null,
                     phone: m.phone || null,
+                    bi_number: m.biNumber || null,
                     gender: mapGender(m.gender),
                     birth_date: parseDate(m.birthDate),
                     marital_status: mapMaritalStatus(m.maritalStatus),

@@ -92,6 +92,7 @@ const ImportMembersModal: React.FC<ImportMembersModalProps> = ({ isOpen, onClose
                         name: row['Nome'] || row['Name'] || row['nome'],
                         email: row['Email'] || row['email'],
                         phone: row['Telefone'] || row['Phone'] || row['telefone'],
+                        biNumber: row['BI'] || row['Nº BI'] || row['bi'] || row['bi_number'],
                         gender: row['Gênero'] || row['Gender'] || row['genero'],
                         birthDate: row['Data de Nascimento'] || row['Birth Date'] || row['nascimento'],
                         maritalStatus: row['Estado Civil'] || row['Marital Status'],
@@ -135,9 +136,9 @@ const ImportMembersModal: React.FC<ImportMembersModalProps> = ({ isOpen, onClose
 
     const downloadTemplate = () => {
         // Criar um CSV de exemplo
-        const csvContent = `Nome;Email;Telefone;Gênero;Data de Nascimento;Estado Civil;Endereço;Bairro;Distrito;Província;Batizado;Data de Batismo;Função na Igreja;Status
-João Silva;joao@example.com;(244) 900 000 001;Masculino;1990-01-15;Casado;Rua Principal 123;Centro;Luanda;Luanda;Sim;2020-05-15;Membro;Active
-Maria Santos;maria@example.com;(244) 900 000 002;Feminino;1985-03-20;Solteiro;Av. Central 456;Maianga;Luanda;Luanda;Não;;Visitante;Visitor`;
+        const csvContent = `Nome;Email;Telefone;BI;Gênero;Data de Nascimento;Estado Civil;Endereço;Bairro;Distrito;Província;Batizado;Data de Batismo;Função na Igreja;Status
+João Silva;joao@example.com;(244) 900 000 001;004455228LA034;Masculino;1990-01-15;Casado;Rua Principal 123;Centro;Luanda;Luanda;Sim;2020-05-15;Membro;Active
+Maria Santos;maria@example.com;(244) 900 000 002;;Feminino;1985-03-20;Solteiro;Av. Central 456;Maianga;Luanda;Luanda;Não;;Visitante;Visitor`;
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');

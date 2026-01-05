@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { Search, Shield, UserCog, Mail, Phone, Trash2, Plus, Copy, Check, Eye, EyeOff, ChevronDown, X } from 'lucide-react';
 import Modal from '../components/Modal';
+import { useMembers } from '../hooks/useMembers';
 
 interface SystemUser {
     id: string;
@@ -95,6 +96,92 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "Selecione..."
     );
 };
 
+// Simple Single Select with Search
+const SingleSearchableSelect = ({ options, value, onChange, placeholder = "Selecione..." }: {
+    options: { value: string; label: string }[];
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filteredOptions = options.filter(opt =>
+        opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const selectedOption = options.find(o => o.value === value);
+
+    return (
+        <div className="relative" ref={containerRef}>
+            <div
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none flex items-center justify-between cursor-pointer min-h-[42px]"
+                onClick={() => {
+                    setIsOpen(!isOpen);
+                    setSearchTerm(''); // Reset search on open
+                }}
+            >
+                <span className={selectedOption ? 'text-slate-800' : 'text-slate-500'}>
+                    {selectedOption ? selectedOption.label : placeholder}
+                </span>
+                <ChevronDown size={16} className="text-gray-400" />
+            </div>
+
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 flex flex-col">
+                    <div className="p-2 border-b border-gray-100 sticky top-0 bg-white rounded-t-lg">
+                        <div className="flex items-center gap-2 bg-gray-50 px-2 py-1.5 rounded-md border border-gray-200">
+                            <Search size={14} className="text-gray-400" />
+                            <input
+                                type="text"
+                                className="bg-transparent border-none outline-none text-sm w-full text-slate-700 placeholder:text-slate-400"
+                                placeholder="Pesquisar..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </div>
+                    </div>
+                    <div className="overflow-y-auto max-h-48">
+                        {filteredOptions.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-slate-400 text-center">
+                                Nenhum resultado encontrado
+                            </div>
+                        ) : (
+                            filteredOptions.map(option => (
+                                <div
+                                    key={option.value}
+                                    className={`px-4 py-2 hover:bg-orange-50 cursor-pointer flex items-center justify-between transition-colors ${option.value === value ? 'bg-orange-50 text-orange-700 font-medium' : 'text-slate-700'
+                                        }`}
+                                    onClick={() => {
+                                        onChange(option.value);
+                                        setIsOpen(false);
+                                    }}
+                                >
+                                    <span>{option.label}</span>
+                                    {option.value === value && <Check size={14} className="text-orange-600" />}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const UserManagement: React.FC = () => {
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<SystemUser[]>([]);
@@ -108,9 +195,19 @@ const UserManagement: React.FC = () => {
     const [customRoles, setCustomRoles] = useState<string[]>([]);
 
     useEffect(() => {
-        const storedRoles = localStorage.getItem('thronus_custom_system_roles');
-        if (storedRoles) setCustomRoles(JSON.parse(storedRoles));
-    }, []);
+        if (currentUser?.churchSettings?.custom_system_roles) {
+            setCustomRoles(currentUser.churchSettings.custom_system_roles);
+        } else {
+            setCustomRoles([]);
+        }
+    }, [currentUser]);
+
+    const { members } = useMembers();
+    const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+    const [linkToMember, setLinkToMember] = useState(true);
+
+    const availableMembers = members.filter(m => !users.some(u => u.email === m.email)); // Improved filtering based on email uniqueness
+
 
     const formatRoleName = (role: string) => {
         if (role === 'admin') return 'Administrador';
@@ -362,12 +459,14 @@ const UserManagement: React.FC = () => {
 
             // 3. Create Public User Entry + Member Entry via RPC
             // This function creates the user row and sets the 'role' column.
+            // @ts-ignore
             const { error: rpcError } = await supabase.rpc('admin_create_user_entry', {
                 p_user_id: userId,
                 p_email: newUserEmail,
                 p_role: primaryRole,
                 p_name: newUserName,
-                p_phone: newUserPhone || null
+                p_phone: newUserPhone || null,
+                p_member_id: (linkToMember && selectedMemberId) ? selectedMemberId : null
             });
 
             if (rpcError) throw rpcError;
@@ -574,6 +673,57 @@ const UserManagement: React.FC = () => {
                 title="Novo Usuário"
             >
                 <form onSubmit={handleCreateUser} className="space-y-4">
+                    {/* Toggle Mode */}
+                    <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
+                        <button
+                            type="button"
+                            onClick={() => setLinkToMember(true)}
+                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${linkToMember ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            Vincular a Membro
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setLinkToMember(false)}
+                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${!linkToMember ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            Criar Novo Perfil
+                        </button>
+                    </div>
+
+                    {linkToMember ? (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Selecione o Membro</label>
+                            <SingleSearchableSelect
+                                options={availableMembers.map(m => ({
+                                    value: m.id,
+                                    label: `${m.name} ${m.email ? `(${m.email})` : ''}`
+                                }))}
+                                value={selectedMemberId}
+                                onChange={(mId) => {
+                                    setSelectedMemberId(mId);
+                                    const member = members.find(m => m.id === mId);
+                                    if (member) {
+                                        setNewUserName(member.name);
+                                        setNewUserEmail(member.email || '');
+                                        setNewUserPhone(member.phone || '');
+                                    }
+                                }}
+                                placeholder="Selecione um membro..."
+                            />
+                            <p className="text-xs text-slate-500 mt-1">Isso criará um usuário vinculado ao registro de membro existente.</p>
+                        </div>
+                    ) : (
+                        <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 mb-4">
+                            <p className="text-sm text-orange-800 flex items-center gap-2">
+                                <UserCog size={16} />
+                                Um novo perfil de membro será criado automaticamente.
+                            </p>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
                         <input
@@ -581,6 +731,9 @@ const UserManagement: React.FC = () => {
                             required
                             value={newUserName}
                             onChange={(e) => setNewUserName(e.target.value)}
+                            // ReadOnly if linking to member to prevent mismatch? Or allow edit?
+                            // Allowing edit might be confusing if it doesn't update member.
+                            // Let's allow edit but it's mainly for the Auth User.
                             className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
                             placeholder="Nome Completo"
                         />

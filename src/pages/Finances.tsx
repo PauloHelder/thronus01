@@ -1,29 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Filter, Plus, TrendingUp, TrendingDown, DollarSign, Search, Calendar, X } from 'lucide-react';
+import { Download, Filter, Plus, TrendingUp, TrendingDown, DollarSign, Search, Calendar, X, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Transaction, TransactionCategory } from '../types';
+import { Transaction } from '../types'; // Keep for legacy types if needed, or replace with useFinance types
 import TransactionModal from '../components/modals/TransactionModal';
-import { MOCK_MEMBERS } from '../mocks/members';
-
-import { MOCK_CATEGORIES } from '../mocks/finance';
-
-const INITIAL_TRANSACTIONS: Transaction[] = [
-    { id: '1', type: 'Income', categoryId: '1', amount: 150000, date: '2024-01-28', source: 'Member', sourceId: '1', sourceName: 'Eleanor Pena', description: 'Dízimo mensal' },
-    { id: '2', type: 'Income', categoryId: '2', amount: 45000, date: '2024-01-28', source: 'Service', sourceId: '1', sourceName: 'Culto de Domingo', description: 'Oferta do culto' },
-    { id: '3', type: 'Expense', categoryId: '4', amount: 250000, date: '2024-01-25', source: 'Other', sourceName: 'Imobiliária Central', description: 'Aluguel do templo' },
-    { id: '4', type: 'Expense', categoryId: '5', amount: 35000, date: '2024-01-20', source: 'Other', sourceName: 'ENDE', description: 'Conta de luz' },
-    { id: '5', type: 'Income', categoryId: '3', amount: 500000, date: '2024-01-15', source: 'Member', sourceId: '2', sourceName: 'Jacob Jones', description: 'Doação para construção' },
-    { id: '6', type: 'Income', categoryId: '1', amount: 120000, date: '2024-01-10', source: 'Member', sourceId: '3', sourceName: 'Kristin Watson', description: 'Dízimo mensal' },
-    { id: '7', type: 'Expense', categoryId: '7', amount: 180000, date: '2024-01-05', source: 'Other', sourceName: 'Funcionários', description: 'Salários mensais' },
-];
+import { useFinance, FinancialTransaction } from '../hooks/useFinance';
 
 const Finances: React.FC = () => {
     const navigate = useNavigate();
-    const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+    const {
+        transactions,
+        categories,
+        accounts,
+        loading,
+        addTransaction,
+        updateTransaction,
+        deleteTransaction
+    } = useFinance();
+
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-    const [filterType, setFilterType] = useState<'All' | 'Income' | 'Expense'>('All');
+    const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | null>(null);
+    const [filterType, setFilterType] = useState<'All' | 'income' | 'expense'>('All');
     const [filterCategory, setFilterCategory] = useState<string>('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -31,51 +28,61 @@ const Finances: React.FC = () => {
     const [showFilters, setShowFilters] = useState(false);
 
     const handleViewDetails = (transactionId: string) => {
-        navigate(`/finances/${transactionId}`);
+        // navigate(`/finances/${transactionId}`);
+        // For now just edit
+        const tx = transactions.find(t => t.id === transactionId);
+        if (tx) {
+            setSelectedTransaction(tx);
+            setIsModalOpen(true);
+        }
     };
 
     // Cálculos do Dashboard
     const totalIncome = transactions
-        .filter(t => t.type === 'Income')
-        .reduce((acc, curr) => acc + curr.amount, 0);
+        .filter(t => t.type === 'income')
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
     const totalExpense = transactions
-        .filter(t => t.type === 'Expense')
-        .reduce((acc, curr) => acc + curr.amount, 0);
+        .filter(t => t.type === 'expense')
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
     const balance = totalIncome - totalExpense;
 
-    // Dados para o gráfico (simulado por mês ou dia)
+    // Dados para o gráfico (agrupado por semana se possível, ou fake por enquanto)
+    // TODO: Implementar agregação real
     const chartData = [
-        { name: 'Sem 1', income: 450000, expense: 200000 },
-        { name: 'Sem 2', income: 320000, expense: 150000 },
-        { name: 'Sem 3', income: 550000, expense: 280000 },
-        { name: 'Sem 4', income: 480000, expense: 180000 },
+        { name: 'Sem 1', income: totalIncome * 0.2, expense: totalExpense * 0.25 },
+        { name: 'Sem 2', income: totalIncome * 0.3, expense: totalExpense * 0.15 },
+        { name: 'Sem 3', income: totalIncome * 0.1, expense: totalExpense * 0.4 },
+        { name: 'Sem 4', income: totalIncome * 0.4, expense: totalExpense * 0.2 },
     ];
 
-    const handleSaveTransaction = (transactionData: Transaction | Omit<Transaction, 'id'>) => {
-        if ('id' in transactionData && transactions.some(t => t.id === transactionData.id)) {
-            setTransactions(prev => prev.map(t => t.id === transactionData.id ? transactionData as Transaction : t));
+    const handleSaveTransaction = async (transactionData: any) => {
+        // TransactionModal returns the data ready for insertion, but without ID if new
+        if (selectedTransaction) {
+            await updateTransaction(selectedTransaction.id, transactionData);
         } else {
-            setTransactions(prev => [transactionData as Transaction, ...prev]);
+            await addTransaction(transactionData);
         }
         setIsModalOpen(false);
         setSelectedTransaction(null);
+        return true;
     };
 
-    const handleEditTransaction = (transaction: Transaction) => {
+    const handleEditTransaction = (transaction: FinancialTransaction) => {
         setSelectedTransaction(transaction);
         setIsModalOpen(true);
     };
 
-    const handleDeleteTransaction = (id: string) => {
+    const handleDeleteTransaction = async (id: string) => {
         if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
-            setTransactions(prev => prev.filter(t => t.id !== id));
+            await deleteTransaction(id);
         }
     };
 
-    const getCategoryName = (id: string) => {
-        return MOCK_CATEGORIES.find(c => c.id === id)?.name || 'Desconhecido';
+    const getCategoryName = (id?: string) => {
+        if (!id) return 'Sem Categoria';
+        return categories.find(c => c.id === id)?.name || 'Desconhecido';
     };
 
     const formatCurrency = (value: number) => {
@@ -83,7 +90,10 @@ const Finances: React.FC = () => {
     };
 
     const formatDate = (dateStr: string) => {
+        if (!dateStr) return '-';
         const date = new Date(dateStr + 'T00:00:00');
+        // Handle invalid dates
+        if (isNaN(date.getTime())) return dateStr;
         return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
@@ -99,11 +109,15 @@ const Finances: React.FC = () => {
 
     const filteredTransactions = transactions.filter(t => {
         const matchesType = filterType === 'All' || t.type === filterType;
-        const matchesCategory = filterCategory === 'All' || t.categoryId === filterCategory;
+        const matchesCategory = filterCategory === 'All' || t.category_id === filterCategory;
+        const searchLower = searchTerm.toLowerCase();
+
+        const categoryName = getCategoryName(t.category_id).toLowerCase();
+        const description = t.description?.toLowerCase() || '';
+
         const matchesSearch =
-            t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            t.sourceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            getCategoryName(t.categoryId).toLowerCase().includes(searchTerm.toLowerCase());
+            description.includes(searchLower) ||
+            categoryName.includes(searchLower);
 
         // Filtro de data
         const transactionDate = new Date(t.date);
@@ -112,6 +126,14 @@ const Finances: React.FC = () => {
 
         return matchesType && matchesCategory && matchesSearch && matchesStartDate && matchesEndDate;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    if (loading && transactions.length === 0) {
+        return (
+            <div className="flex items-center justify-center min-h-[50vh]">
+                <Loader2 className="animate-spin text-orange-500" size={48} />
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -246,8 +268,8 @@ const Finances: React.FC = () => {
                                         className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
                                     >
                                         <option value="All">Todas</option>
-                                        <option value="Income">Receitas</option>
-                                        <option value="Expense">Despesas</option>
+                                        <option value="income">Receitas</option>
+                                        <option value="expense">Despesas</option>
                                     </select>
                                 </div>
 
@@ -259,7 +281,7 @@ const Finances: React.FC = () => {
                                         className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
                                     >
                                         <option value="All">Todas</option>
-                                        {MOCK_CATEGORIES.map(cat => (
+                                        {categories.map(cat => (
                                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                                         ))}
                                     </select>
@@ -322,27 +344,25 @@ const Finances: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="font-medium text-slate-800">{tx.sourceName || tx.description}</div>
-                                        {tx.description && tx.sourceName && (
-                                            <div className="text-xs text-slate-500 mt-0.5">{tx.description}</div>
-                                        )}
+                                        <div className="font-medium text-slate-800">{tx.description}</div>
+                                        {/* Show source if needed, though description usually covers it with new logic */}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${tx.type === 'Income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${tx.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                             }`}>
-                                            {getCategoryName(tx.categoryId)}
+                                            {getCategoryName(tx.category_id)}
                                         </span>
                                     </td>
-                                    <td className={`px-6 py-4 text-right font-bold ${tx.type === 'Income' ? 'text-green-600' : 'text-red-600'
+                                    <td className={`px-6 py-4 text-right font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'
                                         }`}>
-                                        {tx.type === 'Income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <button
                                             onClick={() => handleViewDetails(tx.id)}
                                             className="text-orange-600 hover:text-orange-800 text-sm font-medium mr-3"
                                         >
-                                            Ver Detalhes
+                                            Detalhes
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleEditTransaction(tx); }}
@@ -385,10 +405,10 @@ const Finances: React.FC = () => {
                         </span>
                         <div className="flex gap-6">
                             <span className="text-green-600 font-medium">
-                                Receitas: {formatCurrency(filteredTransactions.filter(t => t.type === 'Income').reduce((acc, t) => acc + t.amount, 0))}
+                                Receitas: {formatCurrency(filteredTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0))}
                             </span>
                             <span className="text-red-600 font-medium">
-                                Despesas: {formatCurrency(filteredTransactions.filter(t => t.type === 'Expense').reduce((acc, t) => acc + t.amount, 0))}
+                                Despesas: {formatCurrency(filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0))}
                             </span>
                         </div>
                     </div>
@@ -399,9 +419,9 @@ const Finances: React.FC = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveTransaction}
-                transaction={selectedTransaction}
-                categories={MOCK_CATEGORIES}
-                members={MOCK_MEMBERS}
+                transaction={selectedTransaction || undefined}
+                categories={categories}
+                accounts={accounts}
             />
         </div>
     );

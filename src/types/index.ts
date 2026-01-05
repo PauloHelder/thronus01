@@ -18,6 +18,7 @@ export interface Member {
   country?: string;
   municipality?: string;
   groupId?: string;
+  biNumber?: string;
 }
 
 export interface Plan {

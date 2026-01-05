@@ -45,7 +45,7 @@ const Settings: React.FC = () => {
     }
 
     const { serviceTypes, loading: loadingTypes, createServiceType, updateServiceType, deleteServiceType } = useServiceTypes();
-    const { accounts, addAccount, updateAccount, deleteAccount } = useFinance();
+    const { accounts, addAccount, updateAccount, deleteAccount, categories, addCategory, deleteCategory } = useFinance();
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState<any>(undefined);
     const [activeTab, setActiveTab] = useState('general');
@@ -72,9 +72,9 @@ const Settings: React.FC = () => {
         setIsAccountModalOpen(true);
     };
 
-    const [categories, setCategories] = useState<TransactionCategory[]>(MOCK_CATEGORIES);
+    // Categorias via useFinance
     const [newCategoryName, setNewCategoryName] = useState('');
-    const [newCategoryType, setNewCategoryType] = useState<'Income' | 'Expense'>('Income');
+    const [newCategoryType, setNewCategoryType] = useState<'income' | 'expense'>('income');
 
     // Teaching settings
     const {
@@ -127,6 +127,8 @@ const Settings: React.FC = () => {
                     .eq('id', user.churchId)
                     .single();
 
+                if (error) throw error;
+
                 if (data) {
                     // Load branding
                     if (data.logo_url) setLogoUrl(data.logo_url);
@@ -134,31 +136,41 @@ const Settings: React.FC = () => {
                     if (data.secondary_color) setSecondaryColor(data.secondary_color);
 
                     // Load JSON settings
-                    if ((data as any).settings) {
-                        const settings = (data as any).settings;
+                    const settings = (data as any).settings || {};
 
-                        if (settings.role_permissions) {
-                            setRolePermissions(settings.role_permissions);
-                        } else {
-                            // Default permissions
-                            setRolePermissions({
-                                'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'events_view', 'events_edit', 'departments_view', 'departments_edit'],
-                                'leader': ['members_view', 'members_edit', 'events_create', 'events_edit', 'departments_edit', 'departments_create'],
-                                'member': ['members_view', 'events_view', 'services_view']
-                            });
-                        }
+                    if (settings.role_permissions) {
+                        setRolePermissions(settings.role_permissions);
+                    } else {
+                        // Default permissions
+                        setRolePermissions({
+                            'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'groups_create', 'groups_edit', 'groups_delete', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'events_delete', 'departments_view', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit'],
+                            'leader': ['members_view', 'members_edit', 'groups_view', 'groups_create', 'groups_edit', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit'],
+                            'member': ['members_view', 'groups_view', 'discipleship_view', 'events_view', 'services_view', 'teaching_view']
+                        });
+                    }
 
-                        if (settings.custom_system_roles) {
-                            setCustomSystemRoles(settings.custom_system_roles);
-                        }
+                    if (settings.custom_system_roles && Array.isArray(settings.custom_system_roles)) {
+                        setCustomSystemRoles(settings.custom_system_roles);
+                    }
 
-                        if (settings.shared_permissions) {
-                            setSharedPermissions(settings.shared_permissions);
-                        }
+                    if (settings.shared_permissions) {
+                        setSharedPermissions(settings.shared_permissions);
                     }
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Error loading settings:", err);
+                toast.error(`Erro ao carregar configurações: ${err.message || 'Erro desconhecido'}`);
+
+                // Fallback to AuthContext data
+                if (user?.churchSettings) {
+                    const settings = user.churchSettings;
+                    if (settings.custom_system_roles && Array.isArray(settings.custom_system_roles)) {
+                        setCustomSystemRoles(settings.custom_system_roles);
+                    }
+                    if (settings.role_permissions) {
+                        setRolePermissions(settings.role_permissions);
+                    }
+                }
             }
         };
 
@@ -574,17 +586,17 @@ const Settings: React.FC = () => {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
                                 <select
                                     value={newCategoryType}
-                                    onChange={(e) => setNewCategoryType(e.target.value as 'Income' | 'Expense')}
+                                    onChange={(e) => setNewCategoryType(e.target.value as 'income' | 'expense')}
                                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                                 >
-                                    <option value="Income">Receita</option>
-                                    <option value="Expense">Despesa</option>
+                                    <option value="income">Receita</option>
+                                    <option value="expense">Despesa</option>
                                 </select>
                             </div>
                             <button
-                                onClick={() => {
+                                onClick={async () => {
                                     if (newCategoryName) {
-                                        setCategories([...categories, { id: Date.now().toString(), name: newCategoryName, type: newCategoryType }]);
+                                        await addCategory({ name: newCategoryName, type: newCategoryType, is_system: false });
                                         setNewCategoryName('');
                                     }
                                 }}
@@ -598,11 +610,11 @@ const Settings: React.FC = () => {
                             <div>
                                 <h3 className="text-sm font-semibold text-green-600 mb-3 uppercase tracking-wider">Receitas</h3>
                                 <div className="space-y-2">
-                                    {categories.filter(c => c.type === 'Income').map(category => (
+                                    {categories.filter(c => c.type === 'income').map(category => (
                                         <div key={category.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 group">
                                             <span className="text-slate-700">{category.name}</span>
                                             <button
-                                                onClick={() => setCategories(categories.filter(c => c.id !== category.id))}
+                                                onClick={() => deleteCategory(category.id)}
                                                 className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <Trash2 size={16} />
@@ -614,11 +626,11 @@ const Settings: React.FC = () => {
                             <div>
                                 <h3 className="text-sm font-semibold text-red-600 mb-3 uppercase tracking-wider">Despesas</h3>
                                 <div className="space-y-2">
-                                    {categories.filter(c => c.type === 'Expense').map(category => (
+                                    {categories.filter(c => c.type === 'expense').map(category => (
                                         <div key={category.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100 group">
                                             <span className="text-slate-700">{category.name}</span>
                                             <button
-                                                onClick={() => setCategories(categories.filter(c => c.id !== category.id))}
+                                                onClick={() => deleteCategory(category.id)}
                                                 className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <Trash2 size={16} />

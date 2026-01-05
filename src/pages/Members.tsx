@@ -61,32 +61,7 @@ const Members: React.FC = () => {
         await addMember(memberData);
       }
 
-      // Handle Auto Invite (For both Create and Update)
-      if (memberData.email && memberData.autoInviteRole) {
-        // Call RPC
-        const { error: inviteError } = await supabase.rpc('create_user_invite', {
-          p_email: memberData.email,
-          p_role: memberData.autoInviteRole
-        });
-
-        if (inviteError) {
-          // Ignore if "already exists" to avoid spamming user with errors for existing members
-          if (!inviteError.message.includes('permission') && !inviteError.message.includes('User not in')) {
-            // Check common known errors
-            if (inviteError.message.includes('já existe') || inviteError.message.includes('já pertence')) {
-              // Do nothing, or maybe show a toast?
-              console.log('Invite not sent (duplicate or existing user):', inviteError.message);
-            } else {
-              console.error('Error auto-inviting:', inviteError);
-              toast.warning('Membro salvo, mas erro ao criar convite: ' + inviteError.message);
-            }
-          }
-        } else {
-          toast.success('Membro salvo e convite gerado com sucesso!');
-        }
-      } else {
-        toast.success('Membro salvo com sucesso!');
-      }
+      toast.success('Membro salvo com sucesso!');
 
       setIsModalOpen(false);
     } catch (err) {
@@ -113,6 +88,7 @@ const Members: React.FC = () => {
         'Nome': m.name,
         'Email': m.email,
         'Telefone': m.phone,
+        'BI': m.biNumber || '',
         'Gênero': m.gender === 'Male' ? 'Masculino' : m.gender === 'Female' ? 'Feminino' : m.gender,
         'Status': m.status === 'Active' ? 'Ativo' : m.status === 'Inactive' ? 'Inativo' : 'Visitante',
         'Função': m.churchRole,
@@ -147,8 +123,11 @@ const Members: React.FC = () => {
 
   // Filtros
   const filteredMembers = members.filter(member => {
-    const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const name = member.name ? member.name.toLowerCase() : '';
+    const email = member.email ? member.email.toLowerCase() : '';
+
+    const matchesSearch = name.includes(searchLower) || email.includes(searchLower);
     const matchesStatus = filterStatus === 'all' || member.status === filterStatus;
     const matchesGender = filterGender === 'all' || member.gender === filterGender;
     const matchesBaptized = filterBaptized === 'all' ||
@@ -439,6 +418,7 @@ const Members: React.FC = () => {
               <tr className="bg-gray-50 border-b border-gray-200 text-xs font-bold text-slate-500 uppercase">
                 <th className="px-6 py-4">Nome</th>
                 <th className="px-6 py-4">Contato</th>
+                <th className="px-6 py-4">BI</th>
                 <th className="px-6 py-4">Gênero</th>
                 <th className="px-6 py-4">Função</th>
                 <th className="px-6 py-4 text-center">Batizado</th>
@@ -463,6 +443,7 @@ const Members: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">{member.phone}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{member.biNumber || '-'}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{member.gender || '-'}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{member.churchRole || '-'}</td>
                   <td className="px-6 py-4 text-center">
