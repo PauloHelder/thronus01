@@ -122,10 +122,13 @@ const SignupPage: React.FC = () => {
             setError('Por favor, selecione uma denominação');
             return false;
         }
+
+        /* NIF is optional now
         if (!formData.nif.trim()) {
             setError('Por favor, insira o NIF');
             return false;
         }
+        */
         if (!formData.categoria) {
             setError('Por favor, selecione uma categoria');
             return false;
@@ -327,7 +330,7 @@ const SignupPage: React.FC = () => {
                                 {/* NIF */}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        NIF *
+                                        NIF (Opcional)
                                     </label>
                                     <div className="relative">
                                         <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -336,7 +339,6 @@ const SignupPage: React.FC = () => {
                                             value={formData.nif}
                                             onChange={(e) => updateFormData('nif', e.target.value)}
                                             placeholder="Número de Identificação Fiscal"
-                                            required
                                             className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                                         />
                                     </div>

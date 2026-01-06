@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Building, Mail, Phone, MapPin, Users, Calendar, Edit2, Save, X, Link2, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -48,96 +49,75 @@ const ChurchProfile: React.FC = () => {
 
     useEffect(() => {
         const fetchChurchData = async () => {
-            if (id) {
-                const church = MOCK_CHURCHES.find(c => c.id === id);
+            const targetId = id || user?.churchId;
+            if (!targetId) return;
+
+            try {
+                const { data: churchData, error } = await supabase
+                    .from('churches')
+                    .select('*')
+                    .eq('id', targetId)
+                    .single();
+
+                if (error) throw error;
+
+                const church = churchData as any;
+
                 if (church) {
+                    const settings = church.settings || {};
                     setFormData({
                         churchName: church.name,
-                        sigla: 'N/A',
-                        denominacao: church.denomination,
-                        nif: 'N/A',
-                        endereco: church.address,
-                        provincia: '',
-                        municipio: '',
-                        bairro: 'N/A',
-                        distrito: '',
-                        pais: 'Angola',
-                        categoria: 'Sede',
-                        email: church.email,
-                        telefone: church.phone,
-                        nomePastor: church.pastorName,
-                        codigoVinculacao: 'N/A',
-                        foundedDate: church.joinedAt,
-                        memberCount: church.memberCount,
-                        description: 'Descrição não disponível.'
+                        sigla: settings.sigla || '',
+                        denominacao: settings.denominacao || '',
+                        nif: settings.nif || '',
+                        endereco: settings.endereco || '',
+                        provincia: settings.provincia || '',
+                        municipio: settings.municipio || '',
+                        bairro: settings.bairro || '',
+                        distrito: settings.distrito || '',
+                        pais: settings.pais || 'Angola',
+                        categoria: settings.categoria || 'Sede',
+                        email: settings.email || church.email || '',
+                        telefone: settings.telefone || church.phone || '',
+                        nomePastor: settings.nomePastor || '',
+                        codigoVinculacao: church.slug || 'N/A',
+                        foundedDate: church.created_at || new Date().toISOString().split('T')[0],
+                        memberCount: settings.memberCount || 0,
+                        description: settings.description || ''
                     });
-                    setChurchProvince('');
-                }
-            } else if (user?.churchId) {
-                try {
-                    const { data: churchData, error } = await supabase
-                        .from('churches')
-                        .select('*')
-                        .eq('id', user.churchId)
-                        .single();
 
-                    if (error) throw error;
+                    // Set shared permissions if they exist
+                    if (settings.shared_permissions) {
+                        setSharedPermissions(settings.shared_permissions);
+                    }
 
-                    const church = churchData as any;
+                    // Fetch parent church info if linked
+                    if (church.parent_id) {
+                        const { data: parentData } = await supabase
+                            .from('churches')
+                            .select('id, name, settings')
+                            .eq('id', church.parent_id)
+                            .single();
 
-                    if (church) {
-                        const settings = church.settings || {};
-                        setFormData({
-                            churchName: church.name,
-                            sigla: settings.sigla || '',
-                            denominacao: settings.denominacao || '',
-                            nif: settings.nif || '',
-                            endereco: settings.endereco || '',
-                            provincia: settings.provincia || '',
-                            municipio: settings.municipio || '',
-                            bairro: settings.bairro || '',
-                            distrito: settings.distrito || '',
-                            pais: settings.pais || 'Angola',
-                            categoria: settings.categoria || 'Sede',
-                            email: settings.email || user.email,
-                            telefone: settings.telefone || user.phone || '',
-                            nomePastor: settings.nomePastor || user.fullName,
-                            codigoVinculacao: church.slug || 'N/A',
-                            foundedDate: church.created_at || new Date().toISOString().split('T')[0],
-                            memberCount: settings.memberCount || 0,
-                            description: settings.description || ''
-                        });
-
-                        // Set shared permissions if they exist
-                        if (settings.shared_permissions) {
-                            setSharedPermissions(settings.shared_permissions);
-                        }
-
-                        // Fetch parent church info if linked
-                        if (church.parent_id) {
-                            const { data: parentData } = await supabase
-                                .from('churches')
-                                .select('id, name, settings')
-                                .eq('id', church.parent_id)
-                                .single();
-
-                            if (parentData) {
-                                const pData = parentData as any;
-                                setParentInfo({
-                                    id: pData.id,
-                                    name: pData.name,
-                                    category: pData.settings?.categoria || 'Sede'
-                                });
-                            }
-                        }
-
-                        if (settings.provincia) {
-                            setChurchProvince(settings.provincia);
+                        if (parentData) {
+                            const pData = parentData as any;
+                            setParentInfo({
+                                id: pData.id,
+                                name: pData.name,
+                                category: pData.settings?.categoria || 'Sede'
+                            });
                         }
                     }
-                } catch (error) {
-                    console.error('Error fetching church data:', error);
-                    // Fallback
+
+                    if (settings.provincia) {
+                        setChurchProvince(settings.provincia);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching church data:', error);
+
+                // If checking own profile, fallback to context
+                if (!id && user) {
                     setFormData(prev => ({
                         ...prev,
                         churchName: user.churchName,
@@ -157,10 +137,54 @@ const ChurchProfile: React.FC = () => {
         setFormData({ ...formData, provincia: newProvince, municipio: '' });
     };
 
-    const handleSave = () => {
-        // Aqui você salvaria os dados no backend
-        setIsEditing(false);
-        // Mostrar notificação de sucesso
+    const handleSave = async () => {
+        if (!user?.churchId) return;
+
+        try {
+            // Fetch current settings to preserve other keys
+            const { data: currentData } = await supabase
+                .from('churches')
+                .select('settings')
+                .eq('id', user.churchId)
+                .single();
+
+            const currentSettings = currentData?.settings || {};
+
+            const updatedSettings = {
+                ...currentSettings,
+                sigla: formData.sigla,
+                denominacao: formData.denominacao,
+                nif: formData.nif,
+                endereco: formData.endereco,
+                provincia: formData.provincia,
+                municipio: formData.municipio,
+                bairro: formData.bairro,
+                distrito: formData.distrito,
+                pais: formData.pais,
+                categoria: formData.categoria,
+                email: formData.email,
+                telefone: formData.telefone,
+                nomePastor: formData.nomePastor,
+                memberCount: formData.memberCount,
+                description: formData.description
+            };
+
+            const { error } = await supabase
+                .from('churches')
+                .update({
+                    name: formData.churchName,
+                    settings: updatedSettings
+                })
+                .eq('id', user.churchId);
+
+            if (error) throw error;
+
+            toast.success('Perfil da igreja atualizado com sucesso!');
+            setIsEditing(false);
+        } catch (error) {
+            console.error('Error updating church profile:', error);
+            toast.error('Erro ao atualizar perfil.');
+        }
     };
 
     const handleCancel = () => {
