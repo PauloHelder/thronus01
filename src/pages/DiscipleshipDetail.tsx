@@ -6,6 +6,7 @@ import { useDiscipleship } from '../hooks/useDiscipleship';
 import { useMembers } from '../hooks/useMembers';
 import AddDiscipleModal from '../components/modals/AddDiscipleModal';
 import AddDiscipleshipMeetingModal from '../components/modals/AddDiscipleshipMeetingModal';
+import { toast } from 'sonner';
 
 const DiscipleshipDetail: React.FC = () => {
     const { id } = useParams();
@@ -30,6 +31,7 @@ const DiscipleshipDetail: React.FC = () => {
 
     useEffect(() => {
         if (hookError) {
+            toast.error(hookError);
             setLocalError(hookError);
         }
     }, [hookError]);
@@ -45,6 +47,7 @@ const DiscipleshipDetail: React.FC = () => {
         setLocalError(null);
         const success = await addDisciple(leader.id, memberId);
         if (success) {
+            toast.success('Discípulo adicionado com sucesso!');
             setIsAddDiscipleModalOpen(false);
         }
     };
@@ -53,7 +56,8 @@ const DiscipleshipDetail: React.FC = () => {
         if (!leader) return;
         if (window.confirm('Tem certeza que deseja remover este discípulo?')) {
             setLocalError(null);
-            await removeDisciple(leader.id, discipleId);
+            const success = await removeDisciple(leader.id, discipleId);
+            if (success) toast.success('Discípulo removido com sucesso!');
         }
     };
 
@@ -71,6 +75,7 @@ const DiscipleshipDetail: React.FC = () => {
         }
 
         if (success) {
+            toast.success('Encontro salvo com sucesso!');
             setEditingMeeting(null);
             setIsMeetingModalOpen(false);
         }
@@ -83,7 +88,8 @@ const DiscipleshipDetail: React.FC = () => {
 
     const handleDeleteMeeting = async (meetingId: string) => {
         if (window.confirm('Tem certeza que deseja excluir este encontro?')) {
-            await deleteMeeting(meetingId);
+            const success = await deleteMeeting(meetingId);
+            if (success) toast.success('Encontro excluído com sucesso!');
         }
     };
 

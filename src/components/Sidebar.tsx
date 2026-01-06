@@ -41,6 +41,7 @@ const Sidebar: React.FC = () => {
     if (path === '/departments') return hasPermission('departments_view');
     if (path === '/teaching') return hasPermission('teaching_view');
     if (path === '/events') return hasPermission('events_view');
+    if (path === '/network') return hasPermission('branches_view');
     if (path === '/reports') return true;
 
     // Default fallback

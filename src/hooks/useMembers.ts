@@ -30,7 +30,10 @@ export const useMembers = () => {
         country: data.country,
         municipality: data.municipality,
         groupId: data.group_id,
-        biNumber: data.bi_number
+        biNumber: data.bi_number,
+        occupation: data.occupation,
+        notes: data.notes,
+        joinDate: data.join_date
     });
 
     // Helper to transform App data (camelCase) to DB data (snake_case)
@@ -52,8 +55,10 @@ export const useMembers = () => {
         }
         if (data.groupId !== undefined) { dbData.group_id = data.groupId; delete dbData.groupId; }
         if (data.biNumber !== undefined) { dbData.bi_number = data.biNumber; delete dbData.biNumber; }
-
-
+        if (data.joinDate !== undefined) {
+            dbData.join_date = data.joinDate === '' ? null : data.joinDate;
+            delete dbData.joinDate;
+        }
 
         return dbData;
     };

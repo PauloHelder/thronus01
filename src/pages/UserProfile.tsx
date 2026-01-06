@@ -1,27 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Calendar, Building, Shield, Camera, Save, Edit2, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 const UserProfile: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [memberId, setMemberId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'preferences'>('personal');
 
     // Estado do formulário
     const [formData, setFormData] = useState({
-        fullName: user?.fullName || 'João Silva',
-        email: user?.email || 'joao@email.com',
-        phone: user?.phone || '+244 900 000 000',
-        address: 'Rua Principal, 123, Luanda',
-        birthDate: '1990-05-15',
+        fullName: '',
+        email: '',
+        phone: '',
+        address: '',
+        birthDate: '',
         gender: 'Masculino',
-        role: user?.role || 'user',
-        churchName: user?.churchName || 'Igreja Demo',
-        department: 'Louvor e Adoração',
-        joinDate: '2020-01-15',
-        bio: 'Membro ativo da igreja, comprometido com o serviço e crescimento espiritual.',
+        role: '',
+        churchName: '',
+        department: '',
+        joinDate: '',
+        bio: '',
+        notes: '',
+        occupation: ''
     });
 
     const [passwordData, setPasswordData] = useState({
@@ -39,25 +45,127 @@ const UserProfile: React.FC = () => {
         theme: 'light'
     });
 
-    const handleSave = () => {
-        // Aqui salvaria os dados no backend
-        setIsEditing(false);
-        alert('Perfil atualizado com sucesso!');
+    useEffect(() => {
+        if (user) {
+            fetchProfile();
+        }
+    }, [user]);
+
+    const fetchProfile = async () => {
+        try {
+            setLoading(true);
+            // 1. Get member_id from users table
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('member_id, email, role')
+                .eq('id', user!.id)
+                .single();
+
+            if (userError) throw userError;
+
+            const userRecord = userData as any;
+
+            if (userRecord?.member_id) {
+                setMemberId(userRecord.member_id);
+
+                // 2. Get member details
+                const { data: memberData, error: memberError } = await supabase
+                    .from('members')
+                    .select('*')
+                    .eq('id', userRecord.member_id)
+                    .single();
+
+                if (memberError) throw memberError;
+
+                // Fetch Departments
+                const { data: deptData } = await supabase
+                    .from('department_members')
+                    .select('department:departments(name)')
+                    .eq('member_id', userRecord.member_id);
+
+                const deptName = deptData ? deptData.map((d: any) => d.department?.name).join(', ') : '';
+
+                if (memberData) {
+                    setFormData({
+                        fullName: memberData.name || '',
+                        email: userRecord.email || '', // Email comes from users/auth usually
+                        phone: memberData.phone || '',
+                        address: memberData.address || '',
+                        birthDate: memberData.birth_date || '',
+                        gender: memberData.gender || 'Masculino',
+                        role: user?.role || 'user',
+                        churchName: user?.churchName || '',
+                        department: deptName,
+                        joinDate: memberData.join_date || '',
+                        bio: memberData.notes || '', // Mapping notes to bio for now
+                        notes: memberData.notes || '',
+                        occupation: memberData.occupation || ''
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching profile:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!memberId) return;
+
+        try {
+            const updates = {
+                name: formData.fullName,
+                phone: formData.phone,
+                address: formData.address,
+                birth_date: formData.birthDate || null,
+                gender: formData.gender,
+                join_date: formData.joinDate || null,
+                notes: formData.bio,
+                occupation: formData.occupation
+                // email update is skipped for now as it requires auth update
+            };
+
+            const { error } = await supabase
+                .from('members')
+                .update(updates)
+                .eq('id', memberId);
+
+            if (error) throw error;
+
+            setIsEditing(false);
+            toast.success('Perfil atualizado com sucesso!');
+            fetchProfile(); // Reload data
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            toast.error('Erro ao atualizar perfil.');
+        }
     };
 
     const handleCancel = () => {
         setIsEditing(false);
-        // Resetar formData para os valores originais
+        fetchProfile(); // Reset to saved data
     };
 
-    const handlePasswordChange = () => {
+    const handlePasswordChange = async () => {
         if (passwordData.newPassword !== passwordData.confirmPassword) {
-            alert('As senhas não coincidem!');
+            toast.error('As senhas não coincidem!');
             return;
         }
-        // Aqui mudaria a senha no backend
-        alert('Senha alterada com sucesso!');
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+        try {
+            const { error } = await supabase.auth.updateUser({
+                password: passwordData.newPassword
+            });
+
+            if (error) throw error;
+
+            toast.success('Senha alterada com sucesso!');
+            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (error: any) {
+            console.error('Error changing password:', error);
+            toast.error('Erro ao alterar senha: ' + error.message);
+        }
     };
 
     const getRoleBadge = (role: string) => {
@@ -158,8 +266,8 @@ const UserProfile: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('personal')}
                             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'personal'
-                                    ? 'border-orange-500 text-orange-600'
-                                    : 'border-transparent text-slate-600 hover:text-slate-800 hover:border-gray-300'
+                                ? 'border-orange-500 text-orange-600'
+                                : 'border-transparent text-slate-600 hover:text-slate-800 hover:border-gray-300'
                                 }`}
                         >
                             Informações Pessoais
@@ -167,8 +275,8 @@ const UserProfile: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('security')}
                             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'security'
-                                    ? 'border-orange-500 text-orange-600'
-                                    : 'border-transparent text-slate-600 hover:text-slate-800 hover:border-gray-300'
+                                ? 'border-orange-500 text-orange-600'
+                                : 'border-transparent text-slate-600 hover:text-slate-800 hover:border-gray-300'
                                 }`}
                         >
                             Segurança
@@ -176,8 +284,8 @@ const UserProfile: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('preferences')}
                             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'preferences'
-                                    ? 'border-orange-500 text-orange-600'
-                                    : 'border-transparent text-slate-600 hover:text-slate-800 hover:border-gray-300'
+                                ? 'border-orange-500 text-orange-600'
+                                : 'border-transparent text-slate-600 hover:text-slate-800 hover:border-gray-300'
                                 }`}
                         >
                             Preferências
@@ -286,6 +394,58 @@ const UserProfile: React.FC = () => {
                                                 </select>
                                             ) : (
                                                 <p className="text-slate-800">{formData.gender}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                                Profissão
+                                            </label>
+                                            {isEditing ? (
+                                                <div className="space-y-2">
+                                                    <select
+                                                        value={[
+                                                            'Professor', 'Engenheiro', 'Médico', 'Advogado', 'Administrador',
+                                                            'Contabilista', 'T.I', 'Enfermeiro', 'Arquiteto', 'Vendedor'
+                                                        ].includes(formData.occupation) ? formData.occupation : 'Outra'}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val === 'Outra') {
+                                                                setFormData({ ...formData, occupation: '' });
+                                                            } else {
+                                                                setFormData({ ...formData, occupation: val });
+                                                            }
+                                                        }}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                    >
+                                                        <option value="">Selecione...</option>
+                                                        <option value="Professor">Professor</option>
+                                                        <option value="Engenheiro">Engenheiro</option>
+                                                        <option value="Médico">Médico</option>
+                                                        <option value="Advogado">Advogado</option>
+                                                        <option value="Administrador">Administrador</option>
+                                                        <option value="Contabilista">Contabilista</option>
+                                                        <option value="T.I">T.I</option>
+                                                        <option value="Enfermeiro">Enfermeiro</option>
+                                                        <option value="Arquiteto">Arquiteto</option>
+                                                        <option value="Vendedor">Vendedor</option>
+                                                        <option value="Outra">Outra</option>
+                                                    </select>
+                                                    {(![
+                                                        'Professor', 'Engenheiro', 'Médico', 'Advogado', 'Administrador',
+                                                        'Contabilista', 'T.I', 'Enfermeiro', 'Arquiteto', 'Vendedor', ''
+                                                    ].includes(formData.occupation) || formData.occupation === '') && (
+                                                            <input
+                                                                type="text"
+                                                                value={formData.occupation}
+                                                                onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+                                                                placeholder="Digite sua profissão"
+                                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent mt-2"
+                                                            />
+                                                        )}
+                                                </div>
+                                            ) : (
+                                                <p className="text-slate-800">{formData.occupation}</p>
                                             )}
                                         </div>
 

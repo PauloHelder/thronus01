@@ -19,28 +19,32 @@ import {
 import MemberModal from '../components/modals/MemberModal';
 import { Member } from '../types';
 import { useMembers } from '../hooks/useMembers';
-
 import { formatDateForInput } from '../utils/dateUtils';
+import { useGroups } from '../hooks/useGroups';
+import { useServices } from '../hooks/useServices';
+import { useTeaching } from '../hooks/useTeaching';
+import { supabase } from '../lib/supabase';
 
 // Estendendo a interface Member para incluir campos extras usados nesta página
-// Em uma implementação real completa, esses dados viriam de tabelas relacionadas
 interface ExtendedMember extends Member {
     role: string;
-    joinDate: string;
-    birthDate: string;
-    address: string;
-    group: string;
+    groupName: string;
     attendance: number;
-    lastAttendance: string;
-    baptized: boolean;
-    occupation: string;
-    notes: string;
+    lastAttendance: string | null;
 }
 
 const MemberDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { members, loading: membersLoading, updateMember, deleteMember, refetch } = useMembers();
+    const { groups } = useGroups();
+    const { services } = useServices();
+    const { classes } = useTeaching();
+
+    // Local state for fetched relationships
+    const [memberDepartments, setMemberDepartments] = useState<string[]>([]);
+    const [memberClasses, setMemberClasses] = useState<string[]>([]);
+    const [memberGroups, setMemberGroups] = useState<string[]>([]);
 
     const [member, setMember] = useState<ExtendedMember | null>(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -52,25 +56,138 @@ const MemberDetail: React.FC = () => {
             const foundMember = members.find(m => m.id === id);
 
             if (foundMember) {
-                // Transformar o membro do Supabase no formato estendido esperado pela UI
-                // Preenchendo dados faltantes com valores padrão ou mocks por enquanto
-                setMember({
-                    ...foundMember,
-                    role: foundMember.churchRole || 'Membro',
-                    joinDate: new Date().toISOString(), // Data de cadastro não está no tipo Member, usando atual
-                    birthDate: formatDateForInput(foundMember.birthDate) || new Date().toISOString().split('T')[0],
-                    address: foundMember.address || 'Endereço não informado',
-                    group: 'Sem grupo', // Viria de relacionamento com grupos
-                    attendance: 0, // Viria de estatísticas
-                    lastAttendance: new Date().toISOString(), // Viria de estatísticas
-                    baptized: foundMember.isBaptized || false,
-                    occupation: 'Não informada',
-                    notes: 'Sem observações'
+                // Encontrar nome do grupo
+                const foundGroup = groups.find(g => g.id === foundMember.groupId);
+
+                // Fetch Departments and Calculate Group Attendance
+                const fetchRelationships = async () => {
+                    let lastDate: string | null = null;
+                    let deptNames: string[] = [];
+                    let grpNames: string[] = [];
+                    let clsNames: string[] = [];
+                    let calculatedAttendance = 0;
+
+                    // Departments
+                    // Departments (Members + Leaders)
+                    const { data: deptMembershipData } = await supabase
+                        .from('department_members')
+                        .select('department:departments(name)')
+                        .eq('member_id', id);
+
+                    const { data: deptLeadershipData } = await supabase
+                        .from('departments')
+                        .select('name')
+                        .or(`leader_id.eq.${id},co_leader_id.eq.${id}`);
+
+                    if (deptMembershipData) {
+                        deptNames = deptMembershipData.map((d: any) => d.department?.name).filter(Boolean);
+                    }
+
+                    if (deptLeadershipData) {
+                        const leaderDeptNames = deptLeadershipData.map((d: any) => d.name).filter(Boolean);
+                        // Combine and remove duplicates
+                        deptNames = Array.from(new Set([...deptNames, ...leaderDeptNames]));
+                    }
+
+                    // Groups Information
+                    const { data: groupData } = await supabase
+                        .from('group_members')
+                        .select('group:groups(name)')
+                        .eq('member_id', id)
+                        .is('left_at', null);
+
+                    if (groupData) {
+                        grpNames = groupData.map((g: any) => g.group?.name).filter(Boolean);
+                    }
+
+                    // Classes
+                    const { data: classData } = await supabase
+                        .from('teaching_class_students')
+                        .select('class:teaching_classes(name)')
+                        .eq('member_id', id);
+
+                    if (classData) {
+                        clsNames = classData.map((c: any) => c.class?.name).filter(Boolean);
+                    }
+
+                    // --- Last Attendance & Attendance Percentage Logic (Group Based) ---
+
+                    // 1. Get Last Attendance Date (Any group)
+                    const { data: attendanceData } = await supabase
+                        .from('group_meeting_attendance')
+                        .select('meeting:group_meetings(date)')
+                        .eq('member_id', id)
+                        .eq('present', true);
+
+                    if (attendanceData && attendanceData.length > 0) {
+                        const dates = attendanceData
+                            .map((a: any) => a.meeting?.date)
+                            .filter(Boolean)
+                            .map(d => new Date(d).getTime());
+
+                        if (dates.length > 0) {
+                            const maxDate = new Date(Math.max(...dates));
+                            lastDate = maxDate.toISOString();
+                        }
+                    }
+
+                    // 2. Calculate Percentage (Specific to current group if exists)
+                    if (foundMember.groupId) {
+                        const sixMonthsAgo = new Date();
+                        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+                        // Get all meetings for this group in last 6 months
+                        const { data: groupMeetings } = await supabase
+                            .from('group_meetings')
+                            .select('id')
+                            .eq('group_id', foundMember.groupId)
+                            .gte('date', sixMonthsAgo.toISOString());
+
+                        const totalMeetings = groupMeetings?.length || 0;
+
+                        if (totalMeetings > 0) {
+                            const meetingIds = groupMeetings!.map(m => m.id);
+
+                            // Count how many of these the member attended
+                            const { count } = await supabase
+                                .from('group_meeting_attendance')
+                                .select('*', { count: 'exact', head: true })
+                                .eq('member_id', id)
+                                .eq('present', true)
+                                .in('meeting_id', meetingIds);
+
+                            const attendedCount = count || 0;
+                            calculatedAttendance = Math.round((attendedCount / totalMeetings) * 100);
+                        }
+                    }
+
+                    return { lastDate, deptNames, grpNames, clsNames, calculatedAttendance };
+                };
+
+                fetchRelationships().then(({ lastDate, deptNames, grpNames, clsNames, calculatedAttendance }) => {
+                    setMemberDepartments(deptNames);
+                    setMemberGroups(grpNames);
+                    setMemberClasses(clsNames);
+
+                    setMember({
+                        ...(foundMember as ExtendedMember),
+                        role: foundMember.churchRole || 'Membro',
+                        joinDate: foundMember.joinDate || new Date().toISOString(),
+                        birthDate: foundMember.birthDate ? formatDateForInput(foundMember.birthDate) : new Date().toISOString().split('T')[0],
+                        address: foundMember.address || 'Endereço não informado',
+                        groupName: grpNames.length > 0 ? grpNames.join(', ') : 'Sem grupo',
+                        attendance: calculatedAttendance,
+                        lastAttendance: lastDate,
+                        occupation: foundMember.occupation || 'Não informada',
+                        notes: foundMember.notes || 'Sem observações',
+                    });
+                    setLoading(false);
                 });
+            } else {
+                setLoading(false);
             }
-            setLoading(false);
         }
-    }, [members, membersLoading, id]);
+    }, [members, membersLoading, id, groups, services, classes]);
 
     const handleEdit = () => {
         setIsEditModalOpen(true);
@@ -144,13 +261,13 @@ const MemberDetail: React.FC = () => {
         {
             icon: Calendar,
             label: 'Última Presença',
-            value: new Date(member.lastAttendance).toLocaleDateString('pt-BR'),
+            value: member.lastAttendance ? new Date(member.lastAttendance).toLocaleDateString('pt-BR') : 'N/A',
             color: 'bg-blue-500'
         },
         {
             icon: Users,
-            label: 'Grupo',
-            value: member.group,
+            label: 'Grupos',
+            value: memberGroups.length > 0 ? memberGroups.length : 'Nenhum',
             color: 'bg-purple-500'
         },
         {
@@ -258,7 +375,7 @@ const MemberDetail: React.FC = () => {
                             <div className="flex justify-between items-center">
                                 <span className="text-slate-600">Batizado</span>
                                 <span className="font-bold text-slate-800">
-                                    {member.baptized ? 'Sim' : 'Não'}
+                                    {member.isBaptized ? 'Sim' : 'Não'}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
@@ -336,7 +453,7 @@ const MemberDetail: React.FC = () => {
                                     Batizado
                                 </label>
                                 <p className="text-slate-800 font-medium">
-                                    {member.baptized ? 'Sim' : 'Não'}
+                                    {member.isBaptized ? 'Sim' : 'Não'}
                                 </p>
                             </div>
                         </div>
@@ -349,17 +466,62 @@ const MemberDetail: React.FC = () => {
                             Envolvimento Ministerial
                         </h3>
                         <div className="space-y-4">
+                            {/* Grupos */}
                             <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
                                 <div className="flex items-center gap-3 mb-2">
                                     <Users className="text-orange-600" size={20} />
-                                    <h4 className="font-semibold text-slate-800">Grupo Atual</h4>
+                                    <h4 className="font-semibold text-slate-800">Grupos / Células</h4>
                                 </div>
-                                <p className="text-slate-600">{member.group}</p>
+                                {memberGroups.length > 0 ? (
+                                    <ul className="list-disc list-inside text-slate-600">
+                                        {memberGroups.map((group, i) => (
+                                            <li key={i}>{group}</li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-slate-500 italic">Nenhum grupo vinculado</p>
+                                )}
                             </div>
+
+                            {/* Departamentos */}
                             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                 <div className="flex items-center gap-3 mb-2">
                                     <BookOpen className="text-blue-600" size={20} />
-                                    <h4 className="font-semibold text-slate-800">Função</h4>
+                                    <h4 className="font-semibold text-slate-800">Departamentos</h4>
+                                </div>
+                                {memberDepartments.length > 0 ? (
+                                    <ul className="list-disc list-inside text-slate-600">
+                                        {memberDepartments.map((dept, i) => (
+                                            <li key={i}>{dept}</li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-slate-500 italic">Nenhum departamento vinculado</p>
+                                )}
+                            </div>
+
+                            {/* Turmas */}
+                            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <BookOpen className="text-green-600" size={20} />
+                                    <h4 className="font-semibold text-slate-800">Turmas de Ensino</h4>
+                                </div>
+                                {memberClasses.length > 0 ? (
+                                    <ul className="list-disc list-inside text-slate-600">
+                                        {memberClasses.map((cls, i) => (
+                                            <li key={i}>{cls}</li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-slate-500 italic">Nenhuma turma vinculada</p>
+                                )}
+                            </div>
+
+                            {/* Função Geral */}
+                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <User className="text-gray-600" size={20} />
+                                    <h4 className="font-semibold text-slate-800">Função Eclesiástica</h4>
                                 </div>
                                 <p className="text-slate-600">{member.role}</p>
                             </div>

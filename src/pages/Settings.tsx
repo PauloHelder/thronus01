@@ -20,6 +20,7 @@ const MODULES = [
     { id: 'events', label: 'Eventos' },
     { id: 'departments', label: 'Departamentos' },
     { id: 'discipleship', label: 'Discipulado' },
+    { id: 'branches', label: 'Minhas Igrejas' },
 ];
 
 const ACTIONS = [

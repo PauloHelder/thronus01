@@ -23,6 +23,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         phone: '',
         biNumber: '',
         status: 'Active',
+        occupation: '',
+        notes: '',
+        joinDate: '',
     });
 
     const [avatarUrl, setAvatarUrl] = useState<string>('');
@@ -54,6 +57,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 province: member.province || '',
                 country: member.country || 'Angola',
                 municipality: member.municipality || '',
+                occupation: member.occupation || '',
+                notes: member.notes || '',
+                joinDate: formatDateForInput(member.joinDate) || '',
             });
             setMemberProvince(member.province || '');
             setAvatarUrl(member.avatar || '');
@@ -77,6 +83,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 province: '',
                 country: 'Angola',
                 municipality: '',
+                occupation: '',
+                notes: '',
+                joinDate: '',
             });
             setMemberProvince('');
             setAvatarUrl('');
@@ -370,42 +379,51 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
 
                     {/* Informações Eclesiásticas */}
                     <div className="pt-4 border-t border-gray-100">
-                        <h4 className="text-sm font-semibold text-slate-800 mb-3">Informações Eclesiásticas</h4>
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Função</label>
-                                    <select
-                                        value={formData.churchRole || ''}
-                                        onChange={(e) => setFormData({ ...formData, churchRole: e.target.value })}
-                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                    >
-                                        <option value="">Selecione</option>
-                                        <option value="Membro">Membro</option>
-                                        <option value="Diácono">Diácono</option>
-                                        <option value="Presbítero">Presbítero</option>
-                                        <option value="Pastor">Pastor</option>
-                                        <option value="Líder de Célula">Líder de Célula</option>
-                                        <option value="Líder de Louvor">Líder de Louvor</option>
-                                        <option value="Professor">Professor</option>
-                                        <option value="Tesoureiro">Tesoureiro</option>
-                                        <option value="Secretário">Secretário</option>
-                                        {churchRoles.map(role => (
-                                            <option key={role} value={role}>{role}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Batizado?</label>
-                                    <select
-                                        value={formData.isBaptized ? 'yes' : 'no'}
-                                        onChange={(e) => setFormData({ ...formData, isBaptized: e.target.value === 'yes' })}
-                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                    >
-                                        <option value="no">Não</option>
-                                        <option value="yes">Sim</option>
-                                    </select>
-                                </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Função</label>
+                                <select
+                                    value={formData.churchRole || ''}
+                                    onChange={(e) => setFormData({ ...formData, churchRole: e.target.value })}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                >
+                                    <option value="">Selecione</option>
+                                    <option value="Membro">Membro</option>
+                                    <option value="Diácono">Diácono</option>
+                                    <option value="Presbítero">Presbítero</option>
+                                    <option value="Pastor">Pastor</option>
+                                    <option value="Líder de Célula">Líder de Célula</option>
+                                    <option value="Líder de Louvor">Líder de Louvor</option>
+                                    <option value="Professor">Professor</option>
+                                    <option value="Tesoureiro">Tesoureiro</option>
+                                    <option value="Secretário">Secretário</option>
+                                    {churchRoles.map(role => (
+                                        <option key={role} value={role}>{role}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Data de Entrada</label>
+                                <input
+                                    type="date"
+                                    value={formData.joinDate || ''}
+                                    onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Batizado?</label>
+                                <select
+                                    value={formData.isBaptized ? 'yes' : 'no'}
+                                    onChange={(e) => setFormData({ ...formData, isBaptized: e.target.value === 'yes' })}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                >
+                                    <option value="no">Não</option>
+                                    <option value="yes">Sim</option>
+                                </select>
                             </div>
                             {formData.isBaptized && (
                                 <div>
@@ -418,6 +436,66 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                     />
                                 </div>
                             )}
+                        </div>
+                    </div>
+
+                    {/* Informações Profissionais e Observações */}
+                    <div className="pt-4 border-t border-gray-100">
+                        <h4 className="text-sm font-semibold text-slate-800 mb-3">Outras Informações</h4>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Profissão</label>
+                                <select
+                                    value={[
+                                        'Professor', 'Engenheiro', 'Médico', 'Advogado', 'Administrador',
+                                        'Contabilista', 'T.I', 'Enfermeiro', 'Arquiteto', 'Vendedor'
+                                    ].includes(formData.occupation) ? formData.occupation : 'Outra'}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === 'Outra') {
+                                            setFormData({ ...formData, occupation: '' });
+                                        } else {
+                                            setFormData({ ...formData, occupation: val });
+                                        }
+                                    }}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                >
+                                    <option value="">Selecione...</option>
+                                    <option value="Professor">Professor</option>
+                                    <option value="Engenheiro">Engenheiro</option>
+                                    <option value="Médico">Médico</option>
+                                    <option value="Advogado">Advogado</option>
+                                    <option value="Administrador">Administrador</option>
+                                    <option value="Contabilista">Contabilista</option>
+                                    <option value="T.I">T.I</option>
+                                    <option value="Enfermeiro">Enfermeiro</option>
+                                    <option value="Arquiteto">Arquiteto</option>
+                                    <option value="Vendedor">Vendedor</option>
+                                    <option value="Outra">Outra</option>
+                                </select>
+                                {(![
+                                    'Professor', 'Engenheiro', 'Médico', 'Advogado', 'Administrador',
+                                    'Contabilista', 'T.I', 'Enfermeiro', 'Arquiteto', 'Vendedor', ''
+                                ].includes(formData.occupation) || formData.occupation === '') && (
+                                        <input
+                                            type="text"
+                                            value={formData.occupation}
+                                            onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+                                            placeholder="Digite a profissão"
+                                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all mt-2"
+                                        />
+                                    )}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+                                <textarea
+                                    value={formData.notes || ''}
+                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                    rows={3}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                    placeholder="Informações adicionais sobre o membro..."
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -522,7 +600,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                     </button>
                 </div>
             </form>
-        </Modal>
+        </Modal >
     );
 };
 

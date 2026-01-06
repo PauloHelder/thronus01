@@ -19,6 +19,9 @@ export interface Member {
   municipality?: string;
   groupId?: string;
   biNumber?: string;
+  occupation?: string;
+  notes?: string;
+  joinDate?: string;
 }
 
 export interface Plan {

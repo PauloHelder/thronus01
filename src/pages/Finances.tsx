@@ -5,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Transaction } from '../types'; // Keep for legacy types if needed, or replace with useFinance types
 import TransactionModal from '../components/modals/TransactionModal';
 import { useFinance, FinancialTransaction } from '../hooks/useFinance';
+import { toast } from 'sonner';
 
 const Finances: React.FC = () => {
     const navigate = useNavigate();
@@ -64,6 +65,7 @@ const Finances: React.FC = () => {
         } else {
             await addTransaction(transactionData);
         }
+        toast.success('Transação salva com sucesso!');
         setIsModalOpen(false);
         setSelectedTransaction(null);
         return true;
@@ -77,6 +79,7 @@ const Finances: React.FC = () => {
     const handleDeleteTransaction = async (id: string) => {
         if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
             await deleteTransaction(id);
+            toast.success('Transação excluída com sucesso!');
         }
     };
 

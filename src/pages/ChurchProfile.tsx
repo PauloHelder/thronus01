@@ -176,7 +176,7 @@ const ChurchProfile: React.FC = () => {
                     <h1 className="text-3xl font-bold text-slate-800 mb-2">Perfil da Igreja</h1>
                     <p className="text-slate-600">Gerencie as informações da sua igreja</p>
                 </div>
-                {!isEditing && !isReadOnly ? (
+                {!isEditing && !isReadOnly && user?.role === 'admin' ? (
                     <button
                         onClick={() => setIsEditing(true)}
                         className="mt-4 md:mt-0 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"

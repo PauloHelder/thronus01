@@ -343,6 +343,22 @@ export const useDiscipleship = () => {
         }
     };
 
+    const deleteLeader = async (leaderId: string) => {
+        try {
+            const { error } = await supabase
+                .from('discipleship_leaders' as any)
+                .delete()
+                .eq('id', leaderId);
+
+            if (error) throw error;
+            await fetchLeaders();
+            return true;
+        } catch (err: any) {
+            setError(err.message);
+            return false;
+        }
+    };
+
     useEffect(() => {
         fetchLeaders();
     }, [fetchLeaders]);
@@ -359,6 +375,7 @@ export const useDiscipleship = () => {
         removeDisciple,
         addMeeting,
         updateMeeting,
-        deleteMeeting
+        deleteMeeting,
+        deleteLeader
     };
 };

@@ -1,28 +1,46 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Users, Calendar, TrendingUp } from 'lucide-react';
+import { Search, Plus, Users, Calendar, TrendingUp, Trash2 } from 'lucide-react';
 import { useDiscipleship } from '../hooks/useDiscipleship';
 import { useMembers } from '../hooks/useMembers';
 import AddDiscipleshipLeaderModal from '../components/modals/AddDiscipleshipLeaderModal';
+import { toast } from 'sonner';
 
 import { useAuth } from '../contexts/AuthContext';
 
 const Discipleship: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const { leaders, loading, addLeader } = useDiscipleship();
+  const { leaders, loading, addLeader, deleteLeader } = useDiscipleship();
   const { members } = useMembers();
 
   const [isAddLeaderModalOpen, setIsAddLeaderModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleAddLeader = async (memberId: string, startDate: string) => {
-    await addLeader(memberId, startDate);
-    setIsAddLeaderModalOpen(false);
+    const success = await addLeader(memberId, startDate);
+    if (success) {
+      toast.success('Líder adicionado com sucesso!');
+      setIsAddLeaderModalOpen(false);
+    } else {
+      toast.error('Erro ao adicionar líder.');
+    }
   };
 
   const handleViewDetails = (leaderId: string) => {
     navigate(`/discipleship/${leaderId}`);
+  };
+
+  const handleDeleteLeader = async (e: React.MouseEvent, leaderId: string) => {
+    e.stopPropagation();
+    if (window.confirm('Tem certeza que deseja remover este líder? Todos os dados associados serão perdidos.')) {
+      const success = await deleteLeader(leaderId);
+      if (success) {
+        toast.success('Líder removido com sucesso!');
+      } else {
+        toast.error('Erro ao remover líder.');
+      }
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -134,9 +152,18 @@ const Discipleship: React.FC = () => {
                 className="w-16 h-16 rounded-full border-2 border-orange-100 object-cover"
               />
               <div className="flex-1">
-                <h3 className="font-bold text-slate-800 group-hover:text-orange-600 transition-colors line-clamp-1">
-                  {leader.member.name}
-                </h3>
+                <div className="flex justify-between items-start">
+                  <h3 className="font-bold text-slate-800 group-hover:text-orange-600 transition-colors line-clamp-1">
+                    {leader.member.name}
+                  </h3>
+                  <button
+                    onClick={(e) => handleDeleteLeader(e, leader.id)}
+                    className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
+                    title="Remover Líder"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
                 <p className="text-sm text-slate-600 line-clamp-1">{leader.member.email}</p>
                 <p className="text-xs text-slate-500 mt-1">
                   Líder desde {formatDate(leader.start_date)}
