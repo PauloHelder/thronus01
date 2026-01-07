@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Users, Calendar } from 'lucide-react';
 import { Department } from '../types';
@@ -20,13 +21,22 @@ const Departments: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const handleSaveDepartment = async (departmentData: Omit<Department, 'id'> | Department) => {
+        let success = false;
         if ('id' in departmentData) {
             // Editar
-            await updateDepartment(departmentData.id, departmentData);
+            success = await updateDepartment(departmentData.id, departmentData);
+            if (success) toast.success('Departamento atualizado com sucesso!');
         } else {
             // Novo
-            await addDepartment(departmentData);
+            success = await addDepartment(departmentData);
+            if (success) toast.success('Departamento criado com sucesso!');
         }
+
+        if (!success) {
+            toast.error('Erro ao salvar departamento. Verifique suas permissões.');
+            return;
+        }
+
         setEditingDepartment(null);
         setIsDepartmentModalOpen(false);
     };

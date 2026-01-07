@@ -57,8 +57,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
         const leader = members.find(m => m.id === leaderId);
         const coLeader = coLeaderId ? members.find(m => m.id === coLeaderId) : undefined;
 
-        onSave({
-            id: department?.id || crypto.randomUUID(),
+        const departmentData: any = {
             name,
             icon,
             description,
@@ -68,7 +67,13 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             coLeader,
             members: department?.members || [],
             schedules: department?.schedules || []
-        });
+        };
+
+        if (department?.id) {
+            departmentData.id = department.id;
+        }
+
+        onSave(departmentData);
         onClose();
     };
 
@@ -104,8 +109,8 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                                 type="button"
                                 onClick={() => setIcon(iconOption.name)}
                                 className={`p-3 rounded-lg text-2xl transition-all ${icon === iconOption.name
-                                        ? 'bg-orange-500 ring-2 ring-orange-600 scale-110'
-                                        : 'bg-white hover:bg-gray-100 border border-gray-200'
+                                    ? 'bg-orange-500 ring-2 ring-orange-600 scale-110'
+                                    : 'bg-white hover:bg-gray-100 border border-gray-200'
                                     }`}
                                 title={iconOption.label}
                             >
