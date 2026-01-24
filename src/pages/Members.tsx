@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, Pencil, Trash2, Users, TrendingUp, UserCheck, UserX, Calendar, Download, Upload, Loader2 } from 'lucide-react';
+import { Search, Filter, Plus, Pencil, Trash2, Users, TrendingUp, UserCheck, UserX, Calendar, Download, Upload, Loader2, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Member } from '../types';
 import MemberModal from '../components/modals/MemberModal';
@@ -76,6 +76,16 @@ const Members: React.FC = () => {
       toast.success(`${importedData.length} membros importados com sucesso!`);
       setIsImportModalOpen(false);
     }
+  };
+
+  const handleCopyLink = () => {
+    if (!user?.churchSlug) {
+      toast.error('Erro ao gerar link: Slug da igreja não encontrado.');
+      return;
+    }
+    const link = `${window.location.origin}/#/join/${user.churchSlug}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Link copiado para a área de transferência!');
   };
 
   const handleExport = async () => {
@@ -209,6 +219,15 @@ const Members: React.FC = () => {
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium flex items-center gap-2 transition-colors">
             <Download size={18} />
             Exportar
+          </button>
+
+          <button
+            onClick={handleCopyLink}
+            className="px-4 py-2 bg-white border border-gray-200 text-slate-700 hover:bg-gray-50 rounded-lg font-medium flex items-center gap-2 transition-colors"
+            title="Copiar Link de Cadastro Público"
+          >
+            <Link size={18} />
+            Link
           </button>
 
           {hasPermission('members_create') && (

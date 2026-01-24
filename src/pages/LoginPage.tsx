@@ -183,7 +183,7 @@ const LoginPage: React.FC = () => {
                                         type="text"
                                         value={emailOrPhone}
                                         onChange={(e) => handleInputChange(e.target.value)}
-                                        placeholder="voce@igreja.com ou (11) 99999-9999"
+                                        placeholder="igreja@email.com"
                                         required
                                         disabled={loading}
                                         className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"

@@ -81,7 +81,7 @@ const SignupPage: React.FC = () => {
         telefone: '',
         nomePastor: '',
         codigoVinculacao: '',
-        vincularIgreja: '',
+
         // Credenciais
         password: '',
         confirmPassword: '',
@@ -594,23 +594,7 @@ const SignupPage: React.FC = () => {
                                     <p className="text-xs text-slate-500 mt-1">Código para vincular membros</p>
                                 </div>
 
-                                {/* Vincular Igreja (Opcional) */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        Vincular a Igreja (Opcional)
-                                    </label>
-                                    <div className="relative">
-                                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                                        <input
-                                            type="text"
-                                            value={formData.vincularIgreja}
-                                            onChange={(e) => updateFormData('vincularIgreja', e.target.value.toUpperCase())}
-                                            placeholder="Código da igreja mãe"
-                                            maxLength={6}
-                                            className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all uppercase font-mono"
-                                        />
-                                    </div>
-                                </div>
+
 
                                 {/* Senha */}
                                 <div>

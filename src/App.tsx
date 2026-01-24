@@ -42,6 +42,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import Reports from './pages/Reports';
 import Network from './pages/Network';
 import BranchDetails from './pages/BranchDetails';
+import MemberRegistration from './pages/MemberRegistration';
 
 
 const AppContent: React.FC = () => {
@@ -130,6 +131,8 @@ const App: React.FC = () => {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/join/:slug" element={<MemberRegistration />} />
           <Route path="/accept-invite" element={<InviteLanding />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />

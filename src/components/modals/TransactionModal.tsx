@@ -51,9 +51,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 // Fetch Members
                 const { data: membersData } = await supabase
                     .from('members')
-                    .select('id, full_name')
-                    .order('full_name');
-                if (membersData) setMembers(membersData.map(m => ({ id: m.id, name: m.full_name })));
+                    .select('id, name')
+                    .order('name');
+                if (membersData) setMembers(membersData.map((m: any) => ({ id: m.id, name: m.name })));
 
                 // Fetch Services (Last 10)
                 // Join with service_types to get the name
@@ -198,8 +198,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             type="button"
                             onClick={() => setActiveTab('income')}
                             className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === 'income'
-                                    ? 'bg-white text-green-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-white text-green-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             Receita
@@ -208,8 +208,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             type="button"
                             onClick={() => setActiveTab('expense')}
                             className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === 'expense'
-                                    ? 'bg-white text-red-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-white text-red-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             Despesa

@@ -9,6 +9,7 @@ export interface User {
     fullName: string;
     churchName: string;
     churchId: string;
+    churchSlug: string;
     phone?: string;
     role: UserRole; // Primary role
     roles: string[]; // All roles
@@ -101,10 +102,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     .single();
 
                 if (userData) {
-                    // Buscar dados da igreja (incluindo settings)
                     const { data: churchData } = await supabase
                         .from('churches')
-                        .select('name, settings')
+                        .select('name, slug, settings')
                         .eq('id', (userData as any).church_id)
                         .single();
 
@@ -146,6 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         fullName: (userData as any).member?.name || 'Usuário',
                         churchName: (churchData && (churchData as any).name) || 'Igreja',
                         churchId: (userData as any).church_id,
+                        churchSlug: (churchData && (churchData as any).slug) || '',
                         phone: (userData as any).member?.phone,
                         role: primaryRole,
                         roles: roles,
