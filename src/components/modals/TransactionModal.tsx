@@ -43,6 +43,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [memberSearchTerm, setMemberSearchTerm] = useState('');
+    const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
 
     // Fetch data
     useEffect(() => {
@@ -337,16 +339,50 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             )}
 
                             {formData.source_type === 'member' && (
-                                <select
-                                    value={formData.source_id}
-                                    onChange={e => setFormData({ ...formData, source_id: e.target.value })}
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-700"
-                                >
-                                    <option value="">Selecione o Membro...</option>
-                                    {members.map(m => (
-                                        <option key={m.id} value={m.id}>{m.name}</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Pesquisar membro..."
+                                        value={isMemberDropdownOpen ? memberSearchTerm : (members.find(m => m.id === formData.source_id)?.name || '')}
+                                        onFocus={() => setIsMemberDropdownOpen(true)}
+                                        onChange={(e) => {
+                                            setMemberSearchTerm(e.target.value);
+                                            setIsMemberDropdownOpen(true);
+                                        }}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-700"
+                                    />
+                                    {isMemberDropdownOpen && (
+                                        <div className="absolute z-[60] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                                            {members
+                                                .filter(m => m.name.toLowerCase().includes(memberSearchTerm.toLowerCase()))
+                                                .map(m => (
+                                                    <button
+                                                        key={m.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFormData({ ...formData, source_id: m.id });
+                                                            setMemberSearchTerm(m.name);
+                                                            setIsMemberDropdownOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-2.5 hover:bg-orange-50 text-sm text-gray-700 border-b border-gray-50 last:border-0"
+                                                    >
+                                                        {m.name}
+                                                    </button>
+                                                ))}
+                                            {members.filter(m => m.name.toLowerCase().includes(memberSearchTerm.toLowerCase())).length === 0 && (
+                                                <div className="px-4 py-3 text-sm text-gray-400 text-center">
+                                                    Nenhum membro encontrado
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {isMemberDropdownOpen && (
+                                        <div
+                                            className="fixed inset-0 z-[55]"
+                                            onClick={() => setIsMemberDropdownOpen(false)}
+                                        />
+                                    )}
+                                </div>
                             )}
 
                             {formData.source_type === 'other' && (

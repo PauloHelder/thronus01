@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, Pencil, Trash2, Users, TrendingUp, UserCheck, UserX, Calendar, Download, Upload, Loader2, Link } from 'lucide-react';
+import { Search, Filter, Plus, Pencil, Trash2, Users, TrendingUp, UserCheck, UserX, Calendar, Download, Upload, Loader2, Link, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Member } from '../types';
 import MemberModal from '../components/modals/MemberModal';
 import ImportMembersModal from '../components/modals/ImportMembersModal';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMembers } from '../hooks/useMembers';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 const Members: React.FC = () => {
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
-  const { members, loading, error, addMember, updateMember, deleteMember, importMembers } = useMembers();
+  const { members, loading, error, deleteMember, importMembers, addMember, updateMember } = useMembers();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterGender, setFilterGender] = useState<string>('all');
@@ -22,6 +21,10 @@ const Members: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | undefined>(undefined);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -52,17 +55,13 @@ const Members: React.FC = () => {
   };
 
   const handleSaveMember = async (memberData: any) => {
-    // memberData includes autoInviteRole if set in Modal
-
     try {
       if (memberData.id) {
         await updateMember(memberData.id, memberData);
       } else {
         await addMember(memberData);
       }
-
       toast.success('Membro salvo com sucesso!');
-
       setIsModalOpen(false);
     } catch (err) {
       console.error("Error saving member:", err);
@@ -90,10 +89,7 @@ const Members: React.FC = () => {
 
   const handleExport = async () => {
     try {
-      // Dynamic import to avoid bundle bloat
       const XLSX = await import('xlsx');
-
-      // Map current filtered members to export format
       const exportData = filteredMembers.map(m => ({
         'Nome': m.name,
         'Email': m.email,
@@ -115,16 +111,10 @@ const Members: React.FC = () => {
         'Província': m.province
       }));
 
-      // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(exportData);
-
-      // Add worksheet to workbook
       XLSX.utils.book_append_sheet(wb, ws, "Membros");
-
-      // Save file
       XLSX.writeFile(wb, "membros_exportados.xlsx");
-
     } catch (error) {
       console.error('Error exporting members:', error);
       toast.error('Erro ao exportar membros. Tente novamente.');
@@ -148,16 +138,25 @@ const Members: React.FC = () => {
     return matchesSearch && matchesStatus && matchesGender && matchesBaptized && matchesRole;
   });
 
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedMembers = filteredMembers.slice(startIndex, startIndex + itemsPerPage);
+
+  // Reset page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, filterGender, filterBaptized, filterRole]);
+
   // Estatísticas
   const totalMembers = members.length;
   const activeMembers = members.filter(m => m.status === 'Active').length;
   const inactiveMembers = members.filter(m => m.status === 'Inactive').length;
   const visitors = members.filter(m => m.status === 'Visitor').length;
   const baptizedMembers = members.filter(m => m.isBaptized).length;
-  const maleMembers = members.filter(m => m.gender === 'Masculino').length;
-  const femaleMembers = members.filter(m => m.gender === 'Feminino').length;
+  const maleMembers = members.filter(m => m.gender === 'Male').length;
+  const femaleMembers = members.filter(m => m.gender === 'Female').length;
 
-  // Dados para gráficos
   const statusData = [
     { name: 'Ativos', value: activeMembers, color: '#10b981' },
     { name: 'Inativos', value: inactiveMembers, color: '#ef4444' },
@@ -180,7 +179,6 @@ const Members: React.FC = () => {
     return acc;
   }, [] as { name: string; count: number }[]);
 
-  // Loading state
   if (loading) {
     return (
       <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex items-center justify-center min-h-screen">
@@ -192,7 +190,6 @@ const Members: React.FC = () => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex items-center justify-center min-h-screen">
@@ -303,55 +300,30 @@ const Members: React.FC = () => {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Status Distribution */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Distribuição por Status</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie
-                data={statusData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={70}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
+              <Pie data={statusData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={70} dataKey="value">
+                {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
               </Pie>
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Gender Distribution */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Distribuição por Gênero</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie
-                data={genderData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={70}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {genderData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
+              <Pie data={genderData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={70} dataKey="value">
+                {genderData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
               </Pie>
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Roles Distribution */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Distribuição por Função</h3>
           <ResponsiveContainer width="100%" height={200}>
@@ -375,51 +347,25 @@ const Members: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Pesquisar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
-            />
+            <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500" />
           </div>
-
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
-          >
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
             <option value="all">Todos Status</option>
             <option value="Active">Ativos</option>
             <option value="Inactive">Inativos</option>
             <option value="Visitor">Visitantes</option>
           </select>
-
-          <select
-            value={filterGender}
-            onChange={(e) => setFilterGender(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
-          >
+          <select value={filterGender} onChange={(e) => setFilterGender(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
             <option value="all">Todos Gêneros</option>
-            <option value="Masculino">Masculino</option>
-            <option value="Feminino">Feminino</option>
+            <option value="Male">Masculino</option>
+            <option value="Female">Feminino</option>
           </select>
-
-          <select
-            value={filterBaptized}
-            onChange={(e) => setFilterBaptized(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
-          >
+          <select value={filterBaptized} onChange={(e) => setFilterBaptized(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
             <option value="all">Batismo</option>
             <option value="yes">Batizados</option>
             <option value="no">Não Batizados</option>
           </select>
-
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500"
-          >
+          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
             <option value="all">Todas Funções</option>
             <option value="Membro">Membro</option>
             <option value="Líder">Líder</option>
@@ -446,31 +392,23 @@ const Members: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredMembers.map((member) => (
-                <tr
-                  key={member.id}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/members/${member.id}`)}
-                >
+              {paginatedMembers.map((member) => (
+                <tr key={member.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/members/${member.id}`)}>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <img src={member.avatar} alt="" className="w-10 h-10 rounded-full" />
+                      <img src={member.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'} alt="" className="w-10 h-10 rounded-full object-cover" />
                       <div>
                         <p className="font-medium text-slate-800">{member.name}</p>
                         <p className="text-xs text-slate-500">{member.email}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{member.phone}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{member.phone || '-'}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{member.biNumber || '-'}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{member.gender || '-'}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{member.gender === 'Male' ? 'Masc' : member.gender === 'Female' ? 'Fem' : '-'}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{member.churchRole || '-'}</td>
                   <td className="px-6 py-4 text-center">
-                    {member.isBaptized ? (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Sim</span>
-                    ) : (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Não</span>
-                    )}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.isBaptized ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{member.isBaptized ? 'Sim' : 'Não'}</span>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
@@ -479,20 +417,8 @@ const Members: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={(e) => handleEditMember(member, e)}
-                        className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                        title="Editar"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteMember(member.id, e)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <button onClick={(e) => handleEditMember(member, e)} className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors" title="Editar"><Pencil size={16} /></button>
+                      <button onClick={(e) => handleDeleteMember(member.id, e)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -509,12 +435,36 @@ const Members: React.FC = () => {
           </div>
         )}
 
-        {/* Pagination Info */}
+        {/* Pagination Info & Controls */}
         {filteredMembers.length > 0 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-600">
-              Mostrando <span className="font-medium">{filteredMembers.length}</span> de <span className="font-medium">{totalMembers}</span> membros
+              Mostrando <span className="font-medium">{startIndex + 1}</span> a <span className="font-medium">{Math.min(startIndex + itemsPerPage, filteredMembers.length)}</span> de <span className="font-medium">{filteredMembers.length}</span> membros
             </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(curr => Math.max(curr - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Página Anterior"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <span className="text-sm font-medium text-slate-700">
+                Página {currentPage} de {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage(curr => Math.min(curr + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Próxima Página"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         )}
       </div>

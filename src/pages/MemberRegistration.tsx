@@ -191,7 +191,7 @@ const MemberRegistration: React.FC = () => {
                                     value={formData.phone}
                                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
                                     className="focus:ring-orange-500 focus:border-orange-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-lg py-3"
-                                    placeholder="+244"
+                                    placeholder="999 999 999"
                                 />
                             </div>
                         </div>
