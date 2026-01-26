@@ -224,7 +224,7 @@ const Members: React.FC = () => {
             title="Copiar Link de Cadastro Público"
           >
             <Link size={18} />
-            Link
+            Link de Cadastro
           </button>
 
           {hasPermission('members_create') && (

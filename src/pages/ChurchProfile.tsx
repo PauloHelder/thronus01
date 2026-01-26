@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building, Mail, Phone, MapPin, Users, Calendar, Edit2, Save, X, Link2, Check } from 'lucide-react';
+import { Building, Mail, Phone, MapPin, Users, Calendar, Edit2, Save, X, Link2, Check, Copy, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -600,6 +600,32 @@ const ChurchProfile: React.FC = () => {
                                 <code className="text-xl font-bold text-orange-600 tracking-wider font-mono select-all">
                                     {formData.codigoVinculacao}
                                 </code>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                            <h4 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                <UserCheck size={18} className="text-green-500" />
+                                Link de Cadastro de Membros
+                            </h4>
+                            <p className="text-sm text-slate-600 mb-3">Link para membros se cadastrarem sozinhos nesta igreja.</p>
+                            <div className="flex gap-2">
+                                <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-hidden">
+                                    <p className="text-xs text-slate-500 truncate font-mono">
+                                        {`${window.location.origin}/#/join/${formData.codigoVinculacao}`}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const link = `${window.location.origin}/#/join/${formData.codigoVinculacao}`;
+                                        navigator.clipboard.writeText(link);
+                                        toast.success('Link de cadastro copiado!');
+                                    }}
+                                    className="p-3 bg-white border border-slate-200 text-slate-600 hover:text-orange-600 hover:border-orange-200 rounded-lg transition-all"
+                                    title="Copiar Link"
+                                >
+                                    <Copy size={20} />
+                                </button>
                             </div>
                         </div>
                     </div>
