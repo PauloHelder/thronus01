@@ -21,9 +21,11 @@ import AccountModal from '../components/modals/AccountModal';
 import CategoryModal from '../components/modals/CategoryModal';
 import TransactionDetailsModal from '../components/modals/TransactionDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
+import { toast } from 'sonner';
 
 const Finance = () => {
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
 
     // Permission check
     const canView = hasPermission('finances_view');
@@ -56,6 +58,7 @@ const Finance = () => {
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [viewingTransaction, setViewingTransaction] = useState<FinancialTransaction | undefined>(undefined);
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
     // If no permission, return Access Denied immediately
     if (!canView) {
@@ -104,8 +107,10 @@ const Finance = () => {
         return transactions.filter(t => {
             const matchesType = filterType === 'All' || t.type === filterType;
             const matchesCategory = filterCategory === 'All' || t.category_id === filterCategory;
-            const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                t.category?.name.toLowerCase().includes(searchTerm.toLowerCase());
+            const searchLower = searchTerm.toLowerCase();
+            const matchesSearch =
+                (t.description?.toLowerCase() || '').includes(searchLower) ||
+                (t.category?.name?.toLowerCase() || '').includes(searchLower);
 
             const transactionDate = new Date(t.date);
             const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
@@ -148,6 +153,45 @@ const Finance = () => {
         setEndDate('');
     };
 
+    const handleExport = (format: 'pdf' | 'excel') => {
+        const summary = {
+            totalIncome: filteredTransactions
+                .filter(t => t.type === 'income')
+                .reduce((acc, t) => acc + Number(t.amount), 0),
+            totalExpense: filteredTransactions
+                .filter(t => t.type === 'expense')
+                .reduce((acc, t) => acc + Number(t.amount), 0),
+            balance: 0
+        };
+        summary.balance = summary.totalIncome - summary.totalExpense;
+
+        const exportParams = {
+            transactions: filteredTransactions,
+            categories,
+            churchName: user?.churchName || 'Minha Igreja',
+            summary,
+            filters: {
+                type: filterType,
+                category: filterCategory === 'All' ? 'Todas' : (categories.find(c => c.id === filterCategory)?.name || 'Desconhecido'),
+                startDate,
+                endDate
+            }
+        };
+
+        try {
+            if (format === 'pdf') {
+                exportToPDF(exportParams);
+            } else {
+                exportToExcel(exportParams);
+            }
+            toast.success(`Exportação ${format.toUpperCase()} iniciada!`);
+            setIsExportMenuOpen(false);
+        } catch (error) {
+            console.error('Export error:', error);
+            toast.error('Erro ao exportar arquivo.');
+        }
+    };
+
     const hasActiveFilters = filterType !== 'All' || filterCategory !== 'All' || searchTerm !== '' || startDate !== '' || endDate !== '';
 
     if (loading) {
@@ -167,10 +211,38 @@ const Finance = () => {
                     <p className="text-slate-600 mt-1">Gestão financeira, dízimos, ofertas e despesas</p>
                 </div>
                 <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors font-medium">
-                        <Download size={18} />
-                        Exportar
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                            className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors font-medium shadow-sm"
+                        >
+                            <Download size={18} />
+                            Exportar
+                        </button>
+
+                        {isExportMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <button
+                                    onClick={() => handleExport('pdf')}
+                                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-orange-50 hover:text-orange-600 flex items-center gap-3 transition-colors"
+                                >
+                                    <div className="p-1.5 bg-red-50 text-red-600 rounded">
+                                        <Download size={14} />
+                                    </div>
+                                    Extrato em PDF
+                                </button>
+                                <button
+                                    onClick={() => handleExport('excel')}
+                                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-orange-50 hover:text-orange-600 flex items-center gap-3 transition-colors"
+                                >
+                                    <div className="p-1.5 bg-green-50 text-green-600 rounded">
+                                        <Download size={14} />
+                                    </div>
+                                    Planilha Excel
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <button
                         onClick={() => handleOpenTransactionModal()}
                         className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"

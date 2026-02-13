@@ -29,10 +29,9 @@ const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
             // Filter by search term
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
-                return (
-                    member.name.toLowerCase().includes(searchLower) ||
-                    member.email.toLowerCase().includes(searchLower)
-                );
+                const nameMatch = member.name ? member.name.toLowerCase().includes(searchLower) : false;
+                const emailMatch = member.email ? member.email.toLowerCase().includes(searchLower) : false;
+                return nameMatch || emailMatch;
             }
 
             return true;

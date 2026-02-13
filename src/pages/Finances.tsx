@@ -5,10 +5,13 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Transaction } from '../types'; // Keep for legacy types if needed, or replace with useFinance types
 import TransactionModal from '../components/modals/TransactionModal';
 import { useFinance, FinancialTransaction } from '../hooks/useFinance';
+import { useAuth } from '../contexts/AuthContext';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import { toast } from 'sonner';
 
 const Finances: React.FC = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const {
         transactions,
         categories,
@@ -18,6 +21,8 @@ const Finances: React.FC = () => {
         updateTransaction,
         deleteTransaction
     } = useFinance();
+
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | null>(null);
@@ -130,6 +135,45 @@ const Finances: React.FC = () => {
         return matchesType && matchesCategory && matchesSearch && matchesStartDate && matchesEndDate;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+    const handleExport = (format: 'pdf' | 'excel') => {
+        const summary = {
+            totalIncome: filteredTransactions
+                .filter(t => t.type === 'income')
+                .reduce((acc, t) => acc + t.amount, 0),
+            totalExpense: filteredTransactions
+                .filter(t => t.type === 'expense')
+                .reduce((acc, t) => acc + t.amount, 0),
+            balance: 0
+        };
+        summary.balance = summary.totalIncome - summary.totalExpense;
+
+        const exportParams = {
+            transactions: filteredTransactions,
+            categories,
+            churchName: user?.churchName || 'Minha Igreja',
+            summary,
+            filters: {
+                type: filterType,
+                category: filterCategory === 'All' ? 'Todas' : getCategoryName(filterCategory),
+                startDate,
+                endDate
+            }
+        };
+
+        try {
+            if (format === 'pdf') {
+                exportToPDF(exportParams);
+            } else {
+                exportToExcel(exportParams);
+            }
+            toast.success(`Exportação ${format.toUpperCase()} iniciada!`);
+            setIsExportMenuOpen(false);
+        } catch (error) {
+            console.error('Export error:', error);
+            toast.error('Erro ao exportar arquivo.');
+        }
+    };
+
     if (loading && transactions.length === 0) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -146,11 +190,39 @@ const Finances: React.FC = () => {
                     <h1 className="text-3xl font-bold text-slate-800">Finanças</h1>
                     <p className="text-slate-600 mt-1">Gestão financeira, dízimos, ofertas e despesas</p>
                 </div>
-                <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors">
-                        <Download size={18} />
-                        Exportar
-                    </button>
+                <div className="flex gap-2 relative">
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                            className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors shadow-sm"
+                        >
+                            <Download size={18} />
+                            Exportar
+                        </button>
+
+                        {isExportMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <button
+                                    onClick={() => handleExport('pdf')}
+                                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-orange-50 hover:text-orange-600 flex items-center gap-3 transition-colors"
+                                >
+                                    <div className="p-1.5 bg-red-50 text-red-600 rounded">
+                                        <Download size={14} />
+                                    </div>
+                                    Estrato em PDF
+                                </button>
+                                <button
+                                    onClick={() => handleExport('excel')}
+                                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-orange-50 hover:text-orange-600 flex items-center gap-3 transition-colors"
+                                >
+                                    <div className="p-1.5 bg-green-50 text-green-600 rounded">
+                                        <Download size={14} />
+                                    </div>
+                                    Planilha Excel
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <button
                         onClick={() => { setSelectedTransaction(null); setIsModalOpen(true); }}
                         className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"

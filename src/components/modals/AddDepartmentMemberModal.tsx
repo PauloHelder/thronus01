@@ -46,10 +46,13 @@ const AddDepartmentMemberModal: React.FC<AddDepartmentMemberModalProps> = ({
         onClose();
     };
 
-    const filteredMembers = availableMembers.filter(m =>
-        m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredMembers = availableMembers.filter(m => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+            (m.name?.toLowerCase() || '').includes(searchLower) ||
+            (m.email?.toLowerCase() || '').includes(searchLower)
+        );
+    });
 
     return (
         <Modal
@@ -90,8 +93,8 @@ const AddDepartmentMemberModal: React.FC<AddDepartmentMemberModalProps> = ({
                                     <label
                                         key={member.id}
                                         className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${selectedMemberIds.includes(member.id)
-                                                ? 'bg-orange-50 border-l-4 border-orange-500'
-                                                : 'hover:bg-white'
+                                            ? 'bg-orange-50 border-l-4 border-orange-500'
+                                            : 'hover:bg-white'
                                             }`}
                                     >
                                         <input
