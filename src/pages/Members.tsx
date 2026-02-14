@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Filter, Plus, Pencil, Trash2, Users, TrendingUp, UserCheck, UserX, Calendar, Download, Upload, Loader2, Link, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Member } from '../types';
 import MemberModal from '../components/modals/MemberModal';
 import ImportMembersModal from '../components/modals/ImportMembersModal';
@@ -13,14 +13,18 @@ const Members: React.FC = () => {
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
   const { members, loading, error, deleteMember, importMembers, addMember, updateMember } = useMembers();
+  const [searchParams] = useSearchParams();
+  const isBirthdayFilter = searchParams.get('filter') === 'aniversariantes';
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterGender, setFilterGender] = useState<string>('all');
   const [filterBaptized, setFilterBaptized] = useState<string>('all');
   const [filterRole, setFilterRole] = useState<string>('all');
+  const [filterMaritalStatus, setFilterMaritalStatus] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | undefined>(undefined);
+  const [birthdayMonth, setBirthdayMonth] = useState<string>(new Date().getMonth().toString());
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,8 +138,15 @@ const Members: React.FC = () => {
       (filterBaptized === 'yes' && member.isBaptized) ||
       (filterBaptized === 'no' && !member.isBaptized);
     const matchesRole = filterRole === 'all' || member.churchRole === filterRole;
+    const matchesMaritalStatus = filterMaritalStatus === 'all' || member.maritalStatus === filterMaritalStatus;
 
-    return matchesSearch && matchesStatus && matchesGender && matchesBaptized && matchesRole;
+    const matchesBirthday = !isBirthdayFilter || (() => {
+      if (!member.birthDate) return false;
+      const bDate = new Date(member.birthDate);
+      return bDate.getMonth() === parseInt(birthdayMonth);
+    })();
+
+    return matchesSearch && matchesStatus && matchesGender && matchesBaptized && matchesRole && matchesMaritalStatus && matchesBirthday;
   });
 
   // Pagination Logic
@@ -298,53 +309,13 @@ const Members: React.FC = () => {
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Distribuição por Status</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={statusData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={70} dataKey="value">
-                {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Distribuição por Gênero</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={genderData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={70} dataKey="value">
-                {genderData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Distribuição por Função</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={roleData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#f97316" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
       {/* Filters */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <Filter size={18} className="text-slate-600" />
           <h3 className="font-semibold text-slate-800">Filtros</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500" />
@@ -360,18 +331,50 @@ const Members: React.FC = () => {
             <option value="Male">Masculino</option>
             <option value="Female">Feminino</option>
           </select>
-          <select value={filterBaptized} onChange={(e) => setFilterBaptized(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
-            <option value="all">Batismo</option>
-            <option value="yes">Batizados</option>
-            <option value="no">Não Batizados</option>
+          {!isBirthdayFilter && (
+            <select value={filterBaptized} onChange={(e) => setFilterBaptized(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
+              <option value="all">Batismo</option>
+              <option value="yes">Batizados</option>
+              <option value="no">Não Batizados</option>
+            </select>
+          )}
+          <select value={filterMaritalStatus} onChange={(e) => setFilterMaritalStatus(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="all">Estado Civil</option>
+            <option value="Single">Solteiro(a)</option>
+            <option value="Married">Casado(a)</option>
+            <option value="Divorced">Divorciado(a)</option>
+            <option value="Widowed">Viúvo(a)</option>
           </select>
-          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
-            <option value="all">Todas Funções</option>
-            <option value="Membro">Membro</option>
-            <option value="Líder">Líder</option>
-            <option value="Diácono">Diácono</option>
-            <option value="Visitante">Visitante</option>
-          </select>
+          {!isBirthdayFilter && (
+            <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500">
+              <option value="all">Todas Funções</option>
+              <option value="Membro">Membro</option>
+              <option value="Líder">Líder</option>
+              <option value="Diácono">Diácono</option>
+              <option value="Visitante">Visitante</option>
+            </select>
+          )}
+
+          {isBirthdayFilter && (
+            <select
+              value={birthdayMonth}
+              onChange={(e) => setBirthdayMonth(e.target.value)}
+              className="px-3 py-2 bg-orange-50 border border-orange-200 text-orange-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500 font-medium"
+            >
+              <option value="0">Janeiro</option>
+              <option value="1">Fevereiro</option>
+              <option value="2">Março</option>
+              <option value="3">Abril</option>
+              <option value="4">Maio</option>
+              <option value="5">Junho</option>
+              <option value="6">Julho</option>
+              <option value="7">Agosto</option>
+              <option value="8">Setembro</option>
+              <option value="9">Outubro</option>
+              <option value="10">Novembro</option>
+              <option value="11">Dezembro</option>
+            </select>
+          )}
         </div>
       </div>
 

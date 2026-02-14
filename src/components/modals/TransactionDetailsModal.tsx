@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Calendar, Hash, FileText, Printer, Building2, CheckCircle2 } from 'lucide-react';
 import { FinancialTransaction } from '../../hooks/useFinance';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface TransactionDetailsModalProps {
     isOpen: boolean;
@@ -13,6 +14,8 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({
     onClose,
     transaction
 }) => {
+    const { user } = useAuth();
+
     if (!isOpen || !transaction) return null;
 
     const isIncome = transaction.type === 'income';
@@ -54,11 +57,15 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({
                     {/* Invoice Header */}
                     <div className="flex justify-between items-start border-b border-gray-200 pb-8 mb-8">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-white">
-                                <Building2 size={24} />
+                            <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-white overflow-hidden">
+                                {user?.churchSettings?.logo_url ? (
+                                    <img src={user.churchSettings.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                                ) : (
+                                    <Building2 size={24} />
+                                )}
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-800">Tronus Church</h1>
+                                <h1 className="text-xl font-bold text-slate-800">{user?.churchName || 'Minha Igreja'}</h1>
                                 <p className="text-sm text-slate-500">Gestão Financeira</p>
                             </div>
                         </div>

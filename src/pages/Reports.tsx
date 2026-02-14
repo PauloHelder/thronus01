@@ -67,6 +67,15 @@ const Reports: React.FC = () => {
     const [genderFilter, setGenderFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<string>('Active');
     const [maritalFilter, setMaritalFilter] = useState<string>('all');
+    const [occupationFilter, setOccupationFilter] = useState<string>('all');
+    const [birthMonthFilter, setBirthMonthFilter] = useState<string>('all');
+
+    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    const uniqueOccupations = useMemo(() => {
+        const occupations = new Set(members.map(m => m.occupation).filter(Boolean));
+        return Array.from(occupations).sort() as string[];
+    }, [members]);
 
     // --- Filtered Data ---
     const filteredMembers = useMemo(() => {
@@ -79,9 +88,16 @@ const Reports: React.FC = () => {
                 matchesMarital = m.maritalStatus === maritalFilter;
             }
 
-            return matchesGender && matchesStatus && matchesMarital;
+            const matchesOccupation = occupationFilter === 'all' || m.occupation === occupationFilter;
+
+            const matchesBirthMonth = birthMonthFilter === 'all' || (() => {
+                if (!m.birthDate) return false;
+                return new Date(m.birthDate).getMonth() === parseInt(birthMonthFilter);
+            })();
+
+            return matchesGender && matchesStatus && matchesMarital && matchesOccupation && matchesBirthMonth;
         });
-    }, [members, genderFilter, statusFilter, maritalFilter]);
+    }, [members, genderFilter, statusFilter, maritalFilter, occupationFilter, birthMonthFilter]);
 
     // --- Statistics Calculations ---
     const stats = useMemo(() => {
@@ -164,13 +180,29 @@ const Reports: React.FC = () => {
             }));
 
         return {
-            totalMembers,
-            totalGroups,
-            totalDepartments,
             totalInDiscipleship,
             ageData,
             maritalData,
-            maritalCount
+            maritalCount,
+            statusData: [
+                { name: 'Ativos', value: filteredMembers.filter(m => m.status === 'Active').length, color: '#10b981' },
+                { name: 'Inativos', value: filteredMembers.filter(m => m.status === 'Inactive').length, color: '#ef4444' },
+                { name: 'Visitantes', value: filteredMembers.filter(m => m.status === 'Visitor').length, color: '#f59e0b' }
+            ],
+            genderData: [
+                { name: 'Masculino', value: filteredMembers.filter(m => m.gender === 'Male').length, color: '#3b82f6' },
+                { name: 'Feminino', value: filteredMembers.filter(m => m.gender === 'Female').length, color: '#ec4899' }
+            ],
+            roleData: filteredMembers.reduce((acc, member) => {
+                const role = member.churchRole || 'Não definido';
+                const existing = acc.find(item => item.name === role);
+                if (existing) {
+                    existing.count += 1;
+                } else {
+                    acc.push({ name: role, count: 1 });
+                }
+                return acc;
+            }, [] as { name: string; count: number }[])
         };
     }, [filteredMembers, groups, departments, leaders]);
 
@@ -317,6 +349,30 @@ const Reports: React.FC = () => {
                         <option value="Divorced">Divorciados</option>
                         <option value="Widowed">Viúvos</option>
                     </select>
+
+                    {/* Occupation Filter */}
+                    <select
+                        value={occupationFilter}
+                        onChange={(e) => setOccupationFilter(e.target.value)}
+                        className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                        <option value="all">Todas as Profissões</option>
+                        {uniqueOccupations.map(occ => (
+                            <option key={occ} value={occ}>{occ}</option>
+                        ))}
+                    </select>
+
+                    {/* Birth Month Filter */}
+                    <select
+                        value={birthMonthFilter}
+                        onChange={(e) => setBirthMonthFilter(e.target.value)}
+                        className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                        <option value="all">Mês de Nascimento</option>
+                        {months.map((m, i) => (
+                            <option key={i} value={i}>{m}</option>
+                        ))}
+                    </select>
                 </div>
             </div>
 
@@ -379,7 +435,77 @@ const Reports: React.FC = () => {
                 </div>
             </div>
 
-            {/* Charts Section */}
+            {/* Members Distribution Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm break-inside-avoid">
+                    <h3 className="font-semibold text-slate-800 mb-4 text-center">Distribuição por Status</h3>
+                    <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={stats.statusData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
+                                    {stats.statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    {/* Status Legend */}
+                    <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-slate-600">
+                        {stats.statusData.map((item, idx) => (
+                            <div key={idx} className="flex justify-between border-b border-gray-100 py-1">
+                                <span className="truncate mr-2">{item.name}:</span>
+                                <span className="font-semibold">{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm break-inside-avoid">
+                    <h3 className="font-semibold text-slate-800 mb-4 text-center">Distribuição por Gênero</h3>
+                    <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={stats.genderData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
+                                    {stats.genderData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    {/* Gender Legend */}
+                    <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-slate-600">
+                        {stats.genderData.map((item, idx) => (
+                            <div key={idx} className="flex justify-between border-b border-gray-100 py-1">
+                                <span className="truncate mr-2">{item.name}:</span>
+                                <span className="font-semibold">{item.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm break-inside-avoid">
+                    <h3 className="font-semibold text-slate-800 mb-4 text-center">Distribuição por Função</h3>
+                    <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.roleData}>
+                                <XAxis dataKey="name" hide />
+                                <Tooltip />
+                                <Bar dataKey="count" fill="#F97316" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                    {/* Role Legend */}
+                    <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-slate-600 max-h-40 overflow-y-auto custom-scrollbar">
+                        {stats.roleData.map((item, idx) => (
+                            <div key={idx} className="flex justify-between border-b border-gray-100 py-1">
+                                <span className="truncate mr-2">{item.name}:</span>
+                                <span className="font-semibold">{item.count}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Age Distribution */}
@@ -404,6 +530,15 @@ const Reports: React.FC = () => {
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
+                    </div>
+                    {/* Age Legend */}
+                    <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-slate-600">
+                        {stats.ageData.map((item, idx) => (
+                            <div key={idx} className="flex justify-between border-b border-gray-100 py-1">
+                                <span className="truncate mr-2">{item.name}:</span>
+                                <span className="font-semibold">{item.value}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
 

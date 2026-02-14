@@ -45,6 +45,24 @@ export interface FinancialTransaction {
     account?: { name: string };
 }
 
+export interface FinancialRequest {
+    id: string;
+    church_id: string;
+    department_id: string;
+    title: string;
+    description?: string;
+    amount: number;
+    status: 'pending' | 'approved' | 'rejected' | 'paid';
+    requested_by: string;
+    approved_by?: string;
+    category_id?: string;
+    notes?: string;
+    created_at: string;
+    // Joined fields
+    department?: { name: string };
+    category?: { name: string; color: string };
+}
+
 export interface TransactionFilter {
     startDate?: string;
     endDate?: string;
@@ -65,6 +83,7 @@ export const useFinance = () => {
     const [accounts, setAccounts] = useState<FinancialAccount[]>([]);
     const [categories, setCategories] = useState<FinancialCategory[]>([]);
     const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
+    const [requests, setRequests] = useState<FinancialRequest[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -77,7 +96,7 @@ export const useFinance = () => {
         if (!user?.churchId) return;
         try {
             const { data, error } = await supabase
-                .from('financial_accounts')
+                .from('financial_accounts' as any)
                 .select('*')
                 .eq('church_id', user.churchId)
                 .is('deleted_at', null)
@@ -95,7 +114,7 @@ export const useFinance = () => {
         if (!user?.churchId) return;
         try {
             const { data, error } = await supabase
-                .from('financial_categories')
+                .from('financial_categories' as any)
                 .select('*')
                 .eq('church_id', user.churchId)
                 .is('deleted_at', null)
@@ -114,7 +133,7 @@ export const useFinance = () => {
         try {
             setLoading(true);
             let query = supabase
-                .from('financial_transactions')
+                .from('financial_transactions' as any)
                 .select(`
                     *,
                     category:financial_categories(name, color),
@@ -146,24 +165,53 @@ export const useFinance = () => {
         }
     }, [user?.churchId]);
 
+    const fetchRequests = useCallback(async (departmentId?: string) => {
+        if (!user?.churchId) return;
+        try {
+            setLoading(true);
+            let query = supabase
+                .from('financial_requests' as any)
+                .select(`
+                    *,
+                    department:departments(name),
+                    category:financial_categories(name, color)
+                `)
+                .eq('church_id', user.churchId)
+                .is('deleted_at', null)
+                .order('created_at', { ascending: false });
+
+            if (departmentId) {
+                query = query.eq('department_id', departmentId);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            setRequests(data || []);
+        } catch (err: any) {
+            console.error('Error fetching requests:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.churchId]);
+
     // ==========================================
     // CRUD: TRANSACTIONS
     // ==========================================
 
-    const addTransaction = async (transaction: Omit<FinancialTransaction, 'id' | 'church_id'>) => {
+    const addTransaction = async (transaction: Omit<FinancialTransaction, 'id' | 'church_id' | 'created_at'>) => {
         if (!user?.churchId) return false;
         try {
-            const { error } = await supabase
-                .from('financial_transactions')
+            const { error } = await (supabase
+                .from('financial_transactions' as any)
                 .insert({
                     ...transaction,
                     church_id: user.churchId,
                     created_by: user.id
-                });
+                }) as any);
 
             if (error) throw error;
-            await fetchTransactions(); // Refresh list
-            // TODO: Update account balance logic could be here or via database trigger
+            await Promise.all([fetchTransactions(), fetchAccounts()]); // Refresh lists
             return true;
         } catch (err: any) {
             console.error('Error adding transaction:', err);
@@ -174,13 +222,13 @@ export const useFinance = () => {
 
     const updateTransaction = async (id: string, updates: Partial<FinancialTransaction>) => {
         try {
-            const { error } = await supabase
-                .from('financial_transactions')
+            const { error } = await (supabase
+                .from('financial_transactions' as any)
                 .update(updates)
-                .eq('id', id);
+                .eq('id', id) as any);
 
             if (error) throw error;
-            await fetchTransactions();
+            await Promise.all([fetchTransactions(), fetchAccounts()]);
             return true;
         } catch (err: any) {
             console.error('Error updating transaction:', err);
@@ -191,16 +239,125 @@ export const useFinance = () => {
 
     const deleteTransaction = async (id: string) => {
         try {
-            const { error } = await supabase
-                .from('financial_transactions')
+            const { error } = await (supabase
+                .from('financial_transactions' as any)
                 .update({ deleted_at: new Date().toISOString() })
-                .eq('id', id);
+                .eq('id', id) as any);
 
             if (error) throw error;
             setTransactions(prev => prev.filter(t => t.id !== id));
+            await fetchAccounts();
             return true;
         } catch (err: any) {
             console.error('Error deleting transaction:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    // ==========================================
+    // CRUD: REQUESTS
+    // ==========================================
+
+    const addRequest = async (request: Omit<FinancialRequest, 'id' | 'church_id' | 'created_at' | 'status'>) => {
+        if (!user?.churchId) return false;
+        try {
+            const { error } = await (supabase
+                .from('financial_requests' as any)
+                .insert({
+                    ...request,
+                    church_id: user.churchId,
+                    requested_by: user.id,
+                    status: 'pending'
+                }) as any);
+
+            if (error) throw error;
+            await fetchRequests(request.department_id);
+            return true;
+        } catch (err: any) {
+            console.error('Error adding request:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    const updateRequest = async (id: string, updates: Partial<FinancialRequest>) => {
+        try {
+            const { error } = await (supabase
+                .from('financial_requests' as any)
+                .update(updates)
+                .eq('id', id) as any);
+
+            if (error) throw error;
+            await fetchRequests();
+            return true;
+        } catch (err: any) {
+            console.error('Error updating request:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    const payRequest = async (requestId: string, accountId: string) => {
+        if (!user?.churchId) return false;
+        try {
+            // 1. Buscar detalhes da requisição
+            const { data: request, error: reqError } = await (supabase
+                .from('financial_requests' as any)
+                .select('*')
+                .eq('id', requestId)
+                .single() as any);
+
+            if (reqError) throw reqError;
+            if (!request) throw new Error('Requisição não encontrada');
+
+            // 2. Criar a transação financeira (despesa)
+            const { error: txError } = await (supabase
+                .from('financial_transactions' as any)
+                .insert({
+                    church_id: user.churchId,
+                    description: `Pgmto: ${request.title}`,
+                    amount: request.amount,
+                    type: 'expense',
+                    date: new Date().toISOString().split('T')[0],
+                    category_id: request.category_id,
+                    account_id: accountId,
+                    status: 'paid',
+                    created_by: user.id,
+                    notes: `Pagamento automático da requisição #${request.id.slice(0, 8)}`
+                }) as any);
+
+            if (txError) throw txError;
+
+            // 3. Atualizar status da requisição
+            const { error: updError } = await (supabase
+                .from('financial_requests' as any)
+                .update({ status: 'paid' })
+                .eq('id', requestId) as any);
+
+            if (updError) throw updError;
+
+            await Promise.all([fetchRequests(), fetchTransactions(), fetchAccounts()]);
+            return true;
+        } catch (err: any) {
+            console.error('Error paying request:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    const deleteRequest = async (id: string) => {
+        try {
+            const { error } = await (supabase
+                .from('financial_requests' as any)
+                .update({ deleted_at: new Date().toISOString() })
+                .eq('id', id) as any);
+
+            if (error) throw error;
+            setRequests(prev => prev.filter(r => r.id !== id));
+            return true;
+        } catch (err: any) {
+            console.error('Error deleting request:', err);
             setError(err.message);
             return false;
         }
@@ -213,9 +370,9 @@ export const useFinance = () => {
     const addAccount = async (account: Omit<FinancialAccount, 'id' | 'church_id'>) => {
         if (!user?.churchId) return false;
         try {
-            const { error } = await supabase
-                .from('financial_accounts')
-                .insert({ ...account, church_id: user.churchId });
+            const { error } = await (supabase
+                .from('financial_accounts' as any)
+                .insert({ ...account, church_id: user.churchId }) as any);
 
             if (error) throw error;
             await fetchAccounts();
@@ -228,10 +385,10 @@ export const useFinance = () => {
 
     const updateAccount = async (id: string, updates: Partial<FinancialAccount>) => {
         try {
-            const { error } = await supabase
-                .from('financial_accounts')
+            const { error } = await (supabase
+                .from('financial_accounts' as any)
                 .update(updates)
-                .eq('id', id);
+                .eq('id', id) as any);
 
             if (error) throw error;
             await fetchAccounts();
@@ -244,10 +401,10 @@ export const useFinance = () => {
 
     const deleteAccount = async (id: string) => {
         try {
-            const { error } = await supabase
-                .from('financial_accounts')
+            const { error } = await (supabase
+                .from('financial_accounts' as any)
                 .update({ deleted_at: new Date().toISOString() })
-                .eq('id', id);
+                .eq('id', id) as any);
 
             if (error) throw error;
             setAccounts(prev => prev.filter(a => a.id !== id));
@@ -265,9 +422,9 @@ export const useFinance = () => {
     const addCategory = async (category: Omit<FinancialCategory, 'id' | 'church_id'>) => {
         if (!user?.churchId) return false;
         try {
-            const { error } = await supabase
-                .from('financial_categories')
-                .insert({ ...category, church_id: user.churchId });
+            const { error } = await (supabase
+                .from('financial_categories' as any)
+                .insert({ ...category, church_id: user.churchId }) as any);
 
             if (error) throw error;
             await fetchCategories();
@@ -280,10 +437,10 @@ export const useFinance = () => {
 
     const updateCategory = async (id: string, updates: Partial<FinancialCategory>) => {
         try {
-            const { error } = await supabase
-                .from('financial_categories')
+            const { error } = await (supabase
+                .from('financial_categories' as any)
                 .update(updates)
-                .eq('id', id);
+                .eq('id', id) as any);
 
             if (error) throw error;
             await fetchCategories();
@@ -296,10 +453,10 @@ export const useFinance = () => {
 
     const deleteCategory = async (id: string) => {
         try {
-            const { error } = await supabase
-                .from('financial_categories')
+            const { error } = await (supabase
+                .from('financial_categories' as any)
                 .update({ deleted_at: new Date().toISOString() })
-                .eq('id', id);
+                .eq('id', id) as any);
 
             if (error) throw error;
             setCategories(prev => prev.filter(c => c.id !== id));
@@ -319,16 +476,18 @@ export const useFinance = () => {
             Promise.all([
                 fetchAccounts(),
                 fetchCategories(),
-                fetchTransactions()
+                fetchTransactions(),
+                fetchRequests()
             ]).finally(() => setLoading(false));
         }
-    }, [user?.churchId, fetchAccounts, fetchCategories, fetchTransactions]);
+    }, [user?.churchId, fetchAccounts, fetchCategories, fetchTransactions, fetchRequests]);
 
     return {
         // Data
         accounts,
         categories,
         transactions,
+        requests,
         loading,
         error,
 
@@ -337,6 +496,13 @@ export const useFinance = () => {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+
+        // Actions - Requests
+        fetchRequests,
+        addRequest,
+        payRequest,
+        updateRequest,
+        deleteRequest,
 
         // Actions - Accounts
         addAccount,

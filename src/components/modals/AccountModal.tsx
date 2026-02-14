@@ -53,11 +53,22 @@ const AccountModal: React.FC<AccountModalProps> = ({
                 throw new Error('O nome da conta é obrigatório.');
             }
 
-            const success = await onSave({
+            const newInitial = parseFloat(formData.initial_balance);
+            let payload: any = {
                 ...formData,
-                initial_balance: parseFloat(formData.initial_balance),
-                current_balance: parseFloat(formData.initial_balance) // Inicialmente igual ao saldo inicial
-            });
+                initial_balance: newInitial
+            };
+
+            if (account) {
+                // Ajustar o saldo atual proporcionalmente à mudança no saldo inicial
+                const diff = newInitial - account.initial_balance;
+                payload.current_balance = account.current_balance + diff;
+            } else {
+                // Para nova conta, saldo inicial = saldo atual
+                payload.current_balance = newInitial;
+            }
+
+            const success = await onSave(payload);
 
             if (success) {
                 onClose();
@@ -171,17 +182,16 @@ const AccountModal: React.FC<AccountModalProps> = ({
                                 type="number"
                                 step="0.01"
                                 required
-                                disabled={!!account}
                                 value={formData.initial_balance}
                                 onChange={e => setFormData({ ...formData, initial_balance: e.target.value })}
-                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-transparent outline-none disabled:bg-gray-50 disabled:text-gray-500 transition-all"
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-transparent outline-none transition-all"
                                 placeholder="0,00"
                             />
                         </div>
                         {account && (
                             <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
-                                <span className="w-1 h-1 rounded-full bg-gray-400"></span>
-                                O saldo inicial não pode ser alterado após a criação.
+                                <span className="w-1 h-1 rounded-full bg-blue-400"></span>
+                                Ao alterar o saldo inicial, o saldo atual será ajustado proporcionalmente.
                             </p>
                         )}
                     </div>

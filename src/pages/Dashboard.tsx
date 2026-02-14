@@ -16,6 +16,8 @@ interface DashboardStats {
   upcomingEvents: number;
   activeClasses: number;
   totalStudents: number;
+  genderData?: any[];
+  roleData?: any[];
 }
 
 interface RecentActivity {
@@ -46,6 +48,10 @@ const Dashboard: React.FC = () => {
   const [classesData, setClassesData] = useState<any[]>([]);
   const [memberGrowth, setMemberGrowth] = useState<any[]>([]);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [membersList, setMembersList] = useState<any[]>([]);
+  const [birthdayMonth, setBirthdayMonth] = useState<string>(new Date().getMonth().toString());
+
+  const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   useEffect(() => {
     loadDashboardData();
@@ -63,7 +69,7 @@ const Dashboard: React.FC = () => {
         eventsResult,
         classesResult,
       ] = await Promise.all([
-        supabase.from('members').select('id, status, created_at').is('deleted_at', null),
+        supabase.from('members').select('id, name, status, created_at, birth_date, avatar_url').is('deleted_at', null),
         supabase.from('groups').select('id, status').is('deleted_at', null),
         supabase.from('departments').select('id'),
         supabase.from('events').select('id, title, date, start_time, type').gte('date', new Date().toISOString().split('T')[0]).order('date', { ascending: true }).limit(5),
@@ -118,9 +124,34 @@ const Dashboard: React.FC = () => {
       const growthData = calculateMemberGrowth(membersResult.data || []);
       setMemberGrowth(growthData);
 
+      // Calcular distribuições adicionais
+      const members = membersResult.data || [];
+      const genderCounts = { Male: 0, Female: 0 };
+      const roleCounts: Record<string, number> = {};
+
+      members.forEach((m: any) => {
+        if (m.gender === 'Male') genderCounts.Male++;
+        else if (m.gender === 'Female') genderCounts.Female++;
+
+        const role = m.church_role || 'Membro';
+        roleCounts[role] = (roleCounts[role] || 0) + 1;
+      });
+
+      setStats(prev => ({
+        ...prev,
+        genderData: [
+          { name: 'Masculino', value: genderCounts.Male, color: '#3b82f6' },
+          { name: 'Feminino', value: genderCounts.Female, color: '#ec4899' }
+        ],
+        roleData: Object.entries(roleCounts).map(([name, count]) => ({ name, count }))
+      }));
+
       // Atividades recentes
       const activities = await loadRecentActivities();
       setRecentActivities(activities);
+
+      // Store members for birthday filtering
+      setMembersList(membersResult.data || []);
 
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -405,7 +436,64 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+        {/* Birthdays Widget */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 flex flex-col h-[400px]">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-pink-500" />
+              Aniversariantes
+            </h3>
+            <select
+              value={birthdayMonth}
+              onChange={(e) => setBirthdayMonth(e.target.value)}
+              className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-pink-500"
+            >
+              {months.map((m, i) => (
+                <option key={i} value={i}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+            {membersList.filter(m => {
+              if (!m.birth_date) return false;
+              const bDate = new Date(m.birth_date);
+              return bDate.getMonth() === parseInt(birthdayMonth);
+            }).sort((a, b) => new Date(a.birth_date).getDate() - new Date(b.birth_date).getDate()).length > 0 ? (
+              membersList
+                .filter(m => {
+                  if (!m.birth_date) return false;
+                  const bDate = new Date(m.birth_date);
+                  return bDate.getMonth() === parseInt(birthdayMonth);
+                })
+                .sort((a, b) => new Date(a.birth_date).getDate() - new Date(b.birth_date).getDate())
+                .map(m => (
+                  <div key={m.id} className="flex items-center gap-3 p-2 hover:bg-pink-50 rounded-lg transition-colors border border-transparent hover:border-pink-100">
+                    <img
+                      src={m.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'}
+                      alt={m.name}
+                      className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                    />
+                    <div>
+                      <p className="font-medium text-slate-800 text-sm line-clamp-1">{m.name}</p>
+                      <p className="text-xs text-pink-600 font-bold flex items-center gap-1">
+                        <span className="bg-pink-100 px-1.5 py-0.5 rounded text-[10px]">
+                          Dia {new Date(m.birth_date).getDate()}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                ))
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                <Calendar className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-sm">Sem aniversariantes</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Upcoming Events */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
@@ -448,41 +536,39 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Member Status */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 overflow-hidden">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
             <Activity className="w-5 h-5 text-blue-500" />
-            Status dos Membros
+            Distribuição de Membros
           </h3>
-          <div className="flex items-center justify-center">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-2">
-            {pieData.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-slate-600">{item.name}</span>
-                </div>
-                <span className="font-semibold text-slate-800">{item.value}</span>
+          <div className="space-y-8">
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase mb-4">Por Status</p>
+              <div className="flex items-center justify-center h-32">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={2} dataKey="value">
+                      {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase mb-4">Por Gênero</p>
+              <div className="flex items-center justify-center h-32">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={stats.genderData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={2} dataKey="value">
+                      {stats.genderData?.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         </div>
 

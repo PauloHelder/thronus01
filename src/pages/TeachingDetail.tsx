@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil, BookOpen, Clock, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil, BookOpen, Clock, CheckCircle, LayoutDashboard, Info, GraduationCap } from 'lucide-react';
 import { TeachingClass, TeachingLesson } from '../types';
 import AddStudentModal from '../components/modals/AddStudentModal';
 import AddLessonModal from '../components/modals/AddLessonModal';
@@ -13,6 +13,7 @@ const TeachingDetail: React.FC = () => {
     const { fetchClassDetails, addStudentToClass, removeStudentFromClass, addLesson, updateLesson, deleteLesson } = useTeaching();
     const { members } = useMembers();
 
+    const [activeTab, setActiveTab] = useState<'geral' | 'alunos' | 'aulas'>('geral');
     const [teachingClass, setTeachingClass] = useState<TeachingClass | null>(null);
     const [loading, setLoading] = useState(true);
     const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
@@ -183,168 +184,267 @@ const TeachingDetail: React.FC = () => {
                 </div>
             </div>
 
-            <div className="p-4 lg:p-6 space-y-6">
-                {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
-                        <p className="text-blue-600 text-sm font-medium mb-1">Total de Alunos</p>
-                        <p className="text-3xl font-bold text-blue-700">{teachingClass.students.length}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
-                        <p className="text-green-600 text-sm font-medium mb-1">Aulas Ministradas</p>
-                        <p className="text-3xl font-bold text-green-700">{totalLessons}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
-                        <p className="text-purple-600 text-sm font-medium mb-1">Taxa de Presença</p>
-                        <p className="text-3xl font-bold text-purple-700">{attendanceRate}%</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
-                        <p className="text-orange-600 text-sm font-medium mb-1">Início</p>
-                        <p className="text-lg font-bold text-orange-700">{formatDate(teachingClass.startDate)}</p>
-                    </div>
+            {/* Content Tabs Navigation */}
+            <div className="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 lg:px-6">
+                <div className="flex overflow-x-auto no-scrollbar gap-8">
+                    {[
+                        { id: 'geral', label: 'Geral', icon: <LayoutDashboard size={18} /> },
+                        { id: 'alunos', label: 'Alunos', icon: <Users size={18} /> },
+                        { id: 'aulas', label: 'Aulas', icon: <GraduationCap size={18} /> },
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex items-center gap-2 py-4 border-b-2 transition-all font-medium text-sm whitespace-nowrap ${activeTab === tab.id
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+                                }`}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
+            </div>
 
-                {/* Teacher */}
-                {teachingClass.teacher && (
-                    <div className="bg-white rounded-lg border border-gray-200 p-6">
-                        <h2 className="text-lg font-semibold text-slate-800 mb-4">Professor</h2>
-                        <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                            <img src={teachingClass.teacher.avatar} alt="" className="w-16 h-16 rounded-full" />
-                            <div>
-                                <p className="font-semibold text-slate-800 text-lg">{teachingClass.teacher.name}</p>
-                                <p className="text-sm text-slate-600">{teachingClass.teacher.email}</p>
-                                <p className="text-sm text-slate-600">{teachingClass.teacher.phone}</p>
+            <div className="p-4 lg:p-6 space-y-6">
+                {activeTab === 'geral' && (
+                    <>
+                        {/* Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200 shadow-sm">
+                                <p className="text-blue-600 text-sm font-medium mb-1">Total de Alunos</p>
+                                <p className="text-3xl font-bold text-blue-700">{teachingClass.students.length}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200 shadow-sm">
+                                <p className="text-green-600 text-sm font-medium mb-1">Aulas Ministradas</p>
+                                <p className="text-3xl font-bold text-green-700">{totalLessons}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200 shadow-sm">
+                                <p className="text-purple-600 text-sm font-medium mb-1">Taxa de Presença</p>
+                                <p className="text-3xl font-bold text-purple-700">{attendanceRate}%</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200 shadow-sm">
+                                <p className="text-orange-600 text-sm font-medium mb-1">Início</p>
+                                <p className="text-lg font-bold text-orange-700">{formatDate(teachingClass.startDate)}</p>
                             </div>
                         </div>
+
+                        {/* Teacher */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                            <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                <Info size={18} className="text-orange-500" />
+                                Instrutor da Turma
+                            </h2>
+                            {teachingClass.teacher ? (
+                                <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-xl border border-orange-200 hover:shadow-md transition-shadow">
+                                    <img src={teachingClass.teacher.avatar} alt="" className="w-16 h-16 rounded-full border-2 border-white shadow-sm" />
+                                    <div>
+                                        <p className="font-bold text-slate-800 text-lg uppercase tracking-tight">{teachingClass.teacher.name}</p>
+                                        <p className="text-sm text-slate-600">{teachingClass.teacher.email}</p>
+                                        <p className="text-xs font-bold text-orange-600 uppercase mt-1">Professor(a)</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-6 bg-gray-50 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-gray-400 italic">
+                                    Nenhum professor atribuído a esta turma.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Detalhes da Turma */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                            <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                <BookOpen size={18} className="text-orange-500" />
+                                Configurações e Local
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                            <Calendar size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-400 uppercase">Horário</p>
+                                            <p className="text-sm font-bold text-slate-800">{teachingClass.dayOfWeek} às {teachingClass.time}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                                            <BookOpen size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-400 uppercase">Fase / Módulo</p>
+                                            <p className="text-sm font-bold text-slate-800">{teachingClass.stage}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-green-50 rounded-lg text-green-600">
+                                            <GraduationCap size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-400 uppercase">Categoria</p>
+                                            <p className="text-sm font-bold text-slate-800">{teachingClass.category}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
+                                            <Clock size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-400 uppercase">Sala / Local</p>
+                                            <p className="text-sm font-bold text-slate-800">{teachingClass.room || 'Não definida'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                                    <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border shadow-sm mb-2 ${getStatusColor(teachingClass.status)}`}>
+                                        {teachingClass.status}
+                                    </span>
+                                    <p className="text-[10px] text-slate-500 font-medium">Situação cadastral da turma no sistema.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === 'alunos' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-800">Alunos Matriculados</h2>
+                                <p className="text-sm text-slate-500">Gestão de estudantes desta turma</p>
+                            </div>
+                            <button
+                                onClick={() => setIsAddStudentModalOpen(true)}
+                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                            >
+                                <UserPlus size={16} /> Adicionar Alunos
+                            </button>
+                        </div>
+
+                        {teachingClass.students.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {teachingClass.students.map(student => (
+                                    <div key={student.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-white hover:shadow-md transition-all border border-gray-100">
+                                        <img src={student.avatar} alt="" className="w-10 h-10 rounded-full border border-gray-200 shadow-sm" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-slate-800 truncate">{student.name}</p>
+                                            <p className="text-[10px] text-slate-500 uppercase font-semibold truncate">{student.email || 'Sem email'}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleRemoveStudent(student.id)}
+                                            className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                                            title="Remover"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-slate-400 border-2 border-dashed border-gray-100 rounded-xl">
+                                <Users size={48} className="mx-auto mb-2 opacity-20" />
+                                <p>Nenhum aluno matriculado nesta turma ainda.</p>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* Students List */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-slate-800">Alunos da Turma</h2>
-                        <button
-                            onClick={() => setIsAddStudentModalOpen(true)}
-                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                        >
-                            <UserPlus size={16} /> Adicionar Alunos
-                        </button>
-                    </div>
-
-                    {teachingClass.students.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {teachingClass.students.map(student => (
-                                <div key={student.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                    <img src={student.avatar} alt="" className="w-12 h-12 rounded-full" />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-slate-800">{student.name}</p>
-                                        <p className="text-sm text-slate-600">{student.email}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => handleRemoveStudent(student.id)}
-                                        className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                        Remover
-                                    </button>
-                                </div>
-                            ))}
+                {activeTab === 'aulas' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-800">Cronograma de Aulas</h2>
+                                <p className="text-sm text-slate-500">Histórico de lições e frequência escolar</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setEditingLesson(null);
+                                    setIsLessonModalOpen(true);
+                                }}
+                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                            >
+                                <Plus size={16} /> Nova Aula
+                            </button>
                         </div>
-                    ) : (
-                        <div className="text-center py-8 text-slate-500">
-                            <Users size={48} className="mx-auto mb-2 text-gray-300" />
-                            <p>Nenhum aluno cadastrado ainda</p>
-                        </div>
-                    )}
-                </div>
 
-                {/* Lessons List */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-slate-800">Aulas</h2>
-                        <button
-                            onClick={() => {
-                                setEditingLesson(null);
-                                setIsLessonModalOpen(true);
-                            }}
-                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                        >
-                            <Plus size={16} /> Nova Aula
-                        </button>
-                    </div>
-
-                    {teachingClass.lessons && teachingClass.lessons.length > 0 ? (
-                        <div className="space-y-3">
-                            {teachingClass.lessons
-                                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                .map(lesson => (
-                                    <div key={lesson.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                        <div className="flex items-start justify-between mb-2">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <Calendar size={16} className="text-slate-600" />
-                                                    <span className="font-medium text-slate-800">{formatDate(lesson.date)}</span>
-                                                </div>
-                                                <h3 className="text-lg font-semibold text-slate-800 mb-1">{lesson.title}</h3>
-                                                {lesson.notes && (
-                                                    <p className="text-sm text-slate-600">{lesson.notes}</p>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handleEditLesson(lesson)}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                                    title="Editar"
-                                                >
-                                                    <Pencil size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteLesson(lesson.id)}
-                                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                                                    title="Excluir"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-200">
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <CheckCircle size={14} className="text-green-600" />
-                                                <span className="text-slate-600">
-                                                    {lesson.attendance.length} de {teachingClass.students.length} presentes
-                                                </span>
-                                            </div>
-                                            {lesson.attendance.length > 0 && (
-                                                <div className="flex -space-x-2">
-                                                    {lesson.attendance.slice(0, 5).map(studentId => {
-                                                        const student = teachingClass.students.find(s => s.id === studentId);
-                                                        return student ? (
-                                                            <img
-                                                                key={studentId}
-                                                                src={student.avatar}
-                                                                alt={student.name}
-                                                                title={student.name}
-                                                                className="w-6 h-6 rounded-full border-2 border-white"
-                                                            />
-                                                        ) : null;
-                                                    })}
-                                                    {lesson.attendance.length > 5 && (
-                                                        <div className="w-6 h-6 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-semibold text-slate-600">
-                                                            +{lesson.attendance.length - 5}
+                        {teachingClass.lessons && teachingClass.lessons.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-4">
+                                {teachingClass.lessons
+                                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                    .map(lesson => (
+                                        <div key={lesson.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-200 hover:shadow-md transition-all">
+                                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 shadow-sm">
+                                                            <Calendar size={18} />
                                                         </div>
+                                                        <span className="font-black text-slate-800">{formatDate(lesson.date)}</span>
+                                                    </div>
+                                                    <h3 className="text-lg font-bold text-slate-800 mb-1 uppercase tracking-tight">{lesson.title}</h3>
+                                                    {lesson.notes && (
+                                                        <p className="text-sm text-slate-600 italic bg-white p-3 rounded-xl border border-gray-100 mt-2">
+                                                            "{lesson.notes}"
+                                                        </p>
                                                     )}
                                                 </div>
-                                            )}
+                                                <div className="flex items-center gap-3">
+                                                    <div className="text-right mr-2">
+                                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border bg-green-50 text-green-700 border-green-200 shadow-sm`}>
+                                                            <CheckCircle size={12} />
+                                                            {lesson.attendance.length} / {teachingClass.students.length} presentes
+                                                        </span>
+                                                        <div className="flex -space-x-2 mt-2 justify-end">
+                                                            {lesson.attendance.slice(0, 5).map(studentId => {
+                                                                const student = teachingClass.students.find(s => s.id === studentId);
+                                                                return student ? (
+                                                                    <img
+                                                                        key={studentId}
+                                                                        src={student.avatar}
+                                                                        alt={student.name}
+                                                                        title={student.name}
+                                                                        className="w-7 h-7 rounded-full border-2 border-white shadow-sm"
+                                                                    />
+                                                                ) : null;
+                                                            })}
+                                                            {lesson.attendance.length > 5 && (
+                                                                <div className="w-7 h-7 rounded-full border-2 border-white bg-orange-500 flex items-center justify-center text-[10px] font-black text-white shadow-sm">
+                                                                    +{lesson.attendance.length - 5}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-1 border-l pl-3 border-gray-200">
+                                                        <button
+                                                            onClick={() => handleEditLesson(lesson)}
+                                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        >
+                                                            <Pencil size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteLesson(lesson.id)}
+                                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-slate-500">
-                            <Calendar size={48} className="mx-auto mb-2 text-gray-300" />
-                            <p>Nenhuma aula registrada ainda</p>
-                        </div>
-                    )}
-                </div>
+                                    ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-slate-400 border-2 border-dashed border-gray-100 rounded-xl">
+                                <Calendar size={48} className="mx-auto mb-2 opacity-20" />
+                                <p>Nenhuma aula registrada ainda.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <AddStudentModal

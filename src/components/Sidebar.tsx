@@ -1,8 +1,7 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useAuth } from '../contexts/AuthContext';
-// ... imports
 import {
   LayoutDashboard,
   Users,
@@ -19,73 +18,127 @@ import {
   Calendar,
   Wallet,
   Shield,
-  BarChart3 // Added
+  BarChart3,
+  ArrowLeft,
+  ChevronRight,
+  Gift,
+  ListChecks,
+  Activity,
+  ClipboardList
 } from 'lucide-react';
+
+interface NavBaseItem {
+  to?: string;
+  icon: any;
+  label: string;
+  module?: string;
+  permission?: string;
+  end?: boolean;
+}
 
 const Sidebar: React.FC = () => {
   const { isOpen, closeSidebar } = useSidebar();
   const { user, hasPermission, hasRole } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [activeModule, setActiveModule] = useState<string | null>(null);
+
+  // Auto-detect module from URL
+  useEffect(() => {
+    if (location.pathname.startsWith('/members')) setActiveModule('members');
+    else if (location.pathname.startsWith('/departments')) setActiveModule('departments');
+    else if (location.pathname.startsWith('/discipleship')) setActiveModule('discipleship');
+    else if (location.pathname.startsWith('/teaching')) setActiveModule('teaching');
+    else if (location.pathname.startsWith('/finance')) setActiveModule('finance');
+    else if (location.pathname.startsWith('/groups')) setActiveModule('groups');
+    else if (location.pathname.startsWith('/network')) setActiveModule('network');
+  }, [location.pathname]);
 
   // Helper function to check navigation permissions
-  const checkNavPermission = (path: string): boolean => {
-    // Dashboard is accessible to all logged in users
-    if (path === '/dashboard') return true;
-
-    // Map paths to specific view permissions
-    // Note: These keys must match the module IDs defined in Settings.tsx + '_view'
-    if (path === '/members') return hasPermission('members_view');
-    if (path === '/services') return hasPermission('services_view');
-    if (path === '/groups') return hasPermission('groups_view');
-    if (path === '/finance') return hasPermission('finances_view');
-    if (path === '/discipleship') return hasPermission('discipleship_view');
-    if (path === '/departments') return hasPermission('departments_view');
-    if (path === '/teaching') return hasPermission('teaching_view');
-    if (path === '/events') return hasPermission('events_view');
-    if (path === '/network') return hasPermission('branches_view');
-    if (path === '/reports') return true;
-
-    // Default fallback
-    return true;
+  const checkNavPermission = (permissionKey: string): boolean => {
+    return hasPermission(permissionKey);
   };
 
-  let navItems = [
-    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  ];
+  // Sub-menu definitions
+  const subMenus: Record<string, { title: string, items: NavBaseItem[] }> = {
+    members: {
+      title: "Gestão de Membros",
+      items: [
+        { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
+        { to: "/members", icon: Users, label: "Lista de membros", permission: 'members_view', end: true },
+        { to: "/members?filter=aniversariantes", icon: Gift, label: "Aniversariantes", permission: 'members_view' },
+        { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
+      ]
+    },
+    departments: {
+      title: "Departamentos",
+      items: [
+        { to: "/departments", icon: Network, label: "Lista de Departamentos", permission: 'departments_view' },
+        { to: "/events", icon: Activity, label: "Atividades/Eventos", permission: 'events_view' },
+      ]
+    },
+    finance: {
+      title: "Gestão Financeira",
+      items: [
+        { to: "/finance/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
+        { to: "/finance", icon: Wallet, label: "Finanças", permission: 'finances_view', end: true },
+        { to: "/finance?view=requests", icon: ClipboardList, label: "Requisições", permission: 'finances_view' },
+      ]
+    },
+    discipleship: {
+      title: "Discipulado",
+      items: [
+        { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
+        { to: "/discipleship", icon: BookOpenCheck, label: "Discipuladores", permission: 'discipleship_view', end: true },
+      ]
+    },
+    teaching: {
+      title: "Ensino e EBD",
+      items: [
+        { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
+        { to: "/teaching", icon: GraduationCap, label: "Turmas e Classes", permission: 'teaching_view', end: true },
+      ]
+    }
+  };
 
-  if (hasRole('superuser')) {
-    // Superuser only gets Dashboard, Users, and Super Admin
-    navItems.push({ to: "/users", icon: Users, label: "Usuários" });
-    navItems.push({ to: "/admin", icon: Shield, label: "Super Admin" });
-  } else {
-    // Normal users get standard modules
-    navItems.push(
-      { to: "/members", icon: Users, label: "Membros" },
-      { to: "/services", icon: Calendar, label: "Cultos" },
-      { to: "/groups", icon: Users2, label: "Grupos" },
-      { to: "/network", icon: Network, label: "Minhas Igrejas" }, // Added
-      { to: "/finance", icon: Wallet, label: "Finanças" },
-      { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado" },
-      { to: "/departments", icon: Network, label: "Departamentos" },
-      { to: "/teaching", icon: GraduationCap, label: "Ensino" },
-      { to: "/events", icon: CalendarDays, label: "Eventos" },
-      { to: "/reports", icon: BarChart3, label: "Relatórios" }
-    );
+  const getMainNavItems = (): NavBaseItem[] => {
+    let items: NavBaseItem[] = [
+      { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    ];
 
-    // Add user management and settings for admins
-    if (hasRole('admin')) {
-      navItems.push({ to: "/users", icon: Users, label: "Usuários" });
-      navItems.push({ to: "/settings", icon: Settings, label: "Configurações" });
+    if (hasRole('superuser')) {
+      items.push(
+        { to: "/users", icon: Users, label: "Usuários" },
+        { to: "/admin", icon: Shield, label: "Super Admin" }
+      );
+    } else {
+      items.push(
+        { to: "/members", icon: Users, label: "Membros", module: 'members', permission: 'members_view' },
+        { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view' },
+        { to: "/groups", icon: Users2, label: "Grupos", permission: 'groups_view' },
+        { to: "/network", icon: Network, label: "Minhas Igrejas", permission: 'branches_view' },
+        { to: "/finance", icon: Wallet, label: "Finanças", module: 'finance', permission: 'finances_view' },
+        { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado", module: 'discipleship', permission: 'discipleship_view' },
+        { to: "/departments", icon: Network, label: "Departamentos", module: 'departments', permission: 'departments_view' },
+        { to: "/teaching", icon: GraduationCap, label: "Ensino", module: 'teaching', permission: 'teaching_view' },
+        { to: "/events", icon: CalendarDays, label: "Eventos", permission: 'events_view' },
+        { to: "/reports", icon: BarChart3, label: "Relatórios" }
+      );
+
+      if (hasRole('admin')) {
+        items.push(
+          { to: "/users", icon: Users, label: "Usuários" },
+          { to: "/settings", icon: Settings, label: "Configurações" }
+        );
+      }
+
+      if (user?.roles?.some(r => ['admin', 'pastor'].includes(r))) {
+        items.push({ to: "/subscription", icon: CreditCard, label: "Assinatura" });
+      }
     }
 
-    // Add subscription for admins and pastors
-    const canViewSubscription = user?.roles?.some(r => ['admin', 'pastor'].includes(r));
-    if (canViewSubscription) {
-      navItems.push({ to: "/subscription", icon: CreditCard, label: "Assinatura" });
-    }
-  }
-
-  // Filter items based on permissions
-  const filteredNavItems = navItems.filter(item => checkNavPermission(item.to));
+    return items.filter(item => !item.permission || checkNavPermission(item.permission));
+  };
 
   return (
     <>
@@ -123,22 +176,97 @@ const Sidebar: React.FC = () => {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-          {filteredNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => window.innerWidth < 1024 && closeSidebar()}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${isActive
-                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700'
-                }`
-              }
-            >
-              <item.icon size={20} />
-              {item.label}
-            </NavLink>
-          ))}
+          {activeModule && subMenus[activeModule] ? (
+            <div className="animate-in fade-in slide-in-from-left-4 duration-300">
+              <button
+                onClick={() => {
+                  setActiveModule(null);
+                  navigate('/dashboard');
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 mb-4 text-orange-400 hover:text-orange-300 hover:bg-slate-700/50 rounded-lg text-sm font-bold transition-all border border-orange-500/20"
+              >
+                <ArrowLeft size={18} />
+                Menu Principal
+              </button>
+
+              <div className="px-4 py-2 mb-2 text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                {subMenus[activeModule].title}
+              </div>
+
+              {subMenus[activeModule].items
+                .filter(item => !item.permission || checkNavPermission(item.permission))
+                .map((item) => (
+                  <NavLink
+                    key={item.to + item.label}
+                    to={item.to}
+                    end={item.end}
+                    onClick={() => window.innerWidth < 1024 && closeSidebar()}
+                    className={({ isActive }) => {
+                      // Custom active logic for query params
+                      const isExactlyActive = isActive && (
+                        !item.to?.includes('?') ||
+                        location.search === item.to.substring(item.to.indexOf('?'))
+                      );
+
+                      // Handle the /members (main) vs /members?filter=... case
+                      if (item.to === '/members' && location.search !== '') {
+                        return 'flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700';
+                      }
+
+                      // Handle the /finance (main) vs /finance?view=... case
+                      if (item.to === '/finance' && location.search !== '') {
+                        return 'flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700';
+                      }
+
+                      // Handle the /discipleship (main) case
+                      if (item.to === '/discipleship' && location.pathname !== '/discipleship') {
+                        // This handles sub-routes like /discipleship/123
+                        // But for simplicity, we allow normal isActive if it's a NavLink
+                      }
+
+                      return `flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all ${isExactlyActive
+                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-700'
+                        }`;
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon size={20} />
+                      {item.label}
+                    </div>
+                    <ChevronRight size={14} className="opacity-50" />
+                  </NavLink>
+                ))}
+            </div>
+          ) : (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+              {getMainNavItems().map((item) => (
+                <NavLink
+                  key={item.to || item.label}
+                  to={item.to || '#'}
+                  onClick={(e) => {
+                    if (item.module) {
+                      e.preventDefault();
+                      setActiveModule(item.module);
+                    }
+                    if (window.innerWidth < 1024 && !item.module) closeSidebar();
+                  }}
+                  className={({ isActive }) =>
+                    `flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all ${isActive && !item.module
+                      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-700'
+                    }`
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon size={20} />
+                    {item.label}
+                  </div>
+                  {item.module && <ChevronRight size={14} className="opacity-50" />}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* Bottom Actions */}

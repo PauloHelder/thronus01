@@ -18,6 +18,7 @@ import GroupDetail from './pages/GroupDetail';
 import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
 import Finance from './pages/Finance'; // Novo módulo
+import FinanceDashboard from './pages/FinanceDashboard';
 import Finances from './pages/Finances'; // Antigo (manter por enquanto se necessário, ou remover)
 import TransactionDetail from './pages/TransactionDetail';
 import Departments from './pages/Departments';
@@ -67,6 +68,7 @@ const AppContent: React.FC = () => {
 
             {/* Finance Module */}
             <Route path="/finance" element={<Finance />} />
+            <Route path="/finance/dashboard" element={<FinanceDashboard />} />
             <Route path="/finances" element={<Finances />} /> {/* Manter compatibilidade se links antigos existirem */}
             <Route path="/finances/:id" element={<TransactionDetail />} />
 

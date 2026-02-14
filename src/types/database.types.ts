@@ -42,6 +42,11 @@ export interface Database {
             discipleship_meeting_attendance: DiscipleshipMeetingAttendance;
             transaction_categories: TransactionCategory;
             transactions: Transaction;
+            financial_accounts: FinancialAccount;
+            financial_categories: FinancialCategory;
+            financial_transactions: FinancialTransaction;
+            financial_requests: FinancialRequest;
+            department_goals: DepartmentGoal;
             audit_logs: AuditLog;
         };
     };
@@ -310,6 +315,22 @@ export interface DepartmentScheduleAssignment {
     member_id: string;
 }
 
+export interface DepartmentGoal {
+    id: string;
+    church_id: string;
+    department_id: string;
+    title: string;
+    description: string | null;
+    target_value: number | null;
+    current_value: number;
+    deadline: string | null;
+    status: 'pending' | 'in_progress' | 'completed' | 'delayed';
+    priority: 'low' | 'medium' | 'high';
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+}
+
 // =====================================================
 // EVENTS
 // =====================================================
@@ -468,6 +489,67 @@ export interface Transaction {
     receipt_number: string | null;
     reference_number: string | null;
     description: string | null;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+}
+
+export interface FinancialAccount {
+    id: string;
+    church_id: string;
+    name: string;
+    type: 'bank' | 'cash' | 'investment';
+    initial_balance: number;
+    current_balance: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+}
+
+export interface FinancialCategory {
+    id: string;
+    church_id: string;
+    name: string;
+    type: 'income' | 'expense';
+    color: string | null;
+    is_system: boolean;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+}
+
+export interface FinancialTransaction {
+    id: string;
+    church_id: string;
+    description: string;
+    amount: number;
+    type: 'income' | 'expense';
+    date: string;
+    category_id: string | null;
+    account_id: string | null;
+    status: 'paid' | 'pending';
+    payment_method: string | null;
+    document_number: string | null;
+    notes: string | null;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+}
+
+export interface FinancialRequest {
+    id: string;
+    church_id: string;
+    department_id: string;
+    title: string;
+    description: string | null;
+    amount: number;
+    status: 'pending' | 'approved' | 'rejected' | 'paid';
+    requested_by: string | null;
+    approved_by: string | null;
+    category_id: string | null;
+    notes: string | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
