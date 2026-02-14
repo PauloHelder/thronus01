@@ -58,6 +58,8 @@ export interface FinancialRequest {
     category_id?: string;
     notes?: string;
     created_at: string;
+    approval_date?: string;
+    payment_date?: string;
     // Joined fields
     department?: { name: string };
     category?: { name: string; color: string };
@@ -298,7 +300,7 @@ export const useFinance = () => {
         }
     };
 
-    const payRequest = async (requestId: string, accountId: string) => {
+    const payRequest = async (requestId: string, accountId: string, paymentDate?: string) => {
         if (!user?.churchId) return false;
         try {
             // 1. Buscar detalhes da requisição
@@ -311,6 +313,8 @@ export const useFinance = () => {
             if (reqError) throw reqError;
             if (!request) throw new Error('Requisição não encontrada');
 
+            const dateToUse = paymentDate || new Date().toISOString().split('T')[0];
+
             // 2. Criar a transação financeira (despesa)
             const { error: txError } = await (supabase
                 .from('financial_transactions' as any)
@@ -319,7 +323,7 @@ export const useFinance = () => {
                     description: `Pgmto: ${request.title}`,
                     amount: request.amount,
                     type: 'expense',
-                    date: new Date().toISOString().split('T')[0],
+                    date: dateToUse,
                     category_id: request.category_id,
                     account_id: accountId,
                     status: 'paid',
@@ -332,7 +336,10 @@ export const useFinance = () => {
             // 3. Atualizar status da requisição
             const { error: updError } = await (supabase
                 .from('financial_requests' as any)
-                .update({ status: 'paid' })
+                .update({
+                    status: 'paid',
+                    payment_date: dateToUse
+                })
                 .eq('id', requestId) as any);
 
             if (updError) throw updError;

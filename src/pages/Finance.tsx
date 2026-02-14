@@ -79,6 +79,7 @@ const Finance = () => {
     const [isPayModalOpen, setIsPayModalOpen] = useState(false);
     const [requestToPay, setRequestToPay] = useState<FinancialRequest | null>(null);
     const [selectedPayAccountId, setSelectedPayAccountId] = useState('');
+    const [selectedPayDate, setSelectedPayDate] = useState('');
     const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | undefined>(undefined);
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -197,7 +198,12 @@ const Finance = () => {
     };
 
     const handleUpdateStatus = async (requestId: string, newStatus: 'approved' | 'rejected' | 'paid') => {
-        const success = await updateRequest(requestId, { status: newStatus });
+        const updateData: any = { status: newStatus };
+        if (newStatus === 'approved') {
+            updateData.approval_date = new Date().toISOString();
+        }
+
+        const success = await updateRequest(requestId, updateData);
         if (success) {
             toast.success(`Status atualizado para ${newStatus}`);
         } else {
@@ -207,6 +213,7 @@ const Finance = () => {
 
     const handlePayRequestClick = (request: FinancialRequest) => {
         setRequestToPay(request);
+        setSelectedPayDate(new Date().toISOString().split('T')[0]);
         // Pre-select first account if available
         if (accounts.length > 0) {
             setSelectedPayAccountId(accounts[0].id);
@@ -215,9 +222,9 @@ const Finance = () => {
     };
 
     const handleConfirmPayment = async () => {
-        if (!requestToPay || !selectedPayAccountId) return;
+        if (!requestToPay || !selectedPayAccountId || !selectedPayDate) return;
 
-        const success = await payRequest(requestToPay.id, selectedPayAccountId);
+        const success = await payRequest(requestToPay.id, selectedPayAccountId, selectedPayDate);
         if (success) {
             toast.success('Pagamento efetuado e despesa registrada!');
             setIsPayModalOpen(false);
@@ -737,6 +744,16 @@ const Finance = () => {
                                 <p className="text-sm text-orange-800 font-medium">Você está registrando o pagamento de:</p>
                                 <p className="text-lg font-bold text-slate-900 mt-1">{requestToPay.title}</p>
                                 <p className="text-2xl font-black text-orange-600 mt-2">{formatCurrency(requestToPay.amount)}</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 label text-left">Data do Pagamento</label>
+                                <input
+                                    type="date"
+                                    value={selectedPayDate}
+                                    onChange={(e) => setSelectedPayDate(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all text-slate-800"
+                                />
                             </div>
 
                             <div>
