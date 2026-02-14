@@ -153,6 +153,61 @@ const FinanceDashboard = () => {
                 </div>
             </div>
 
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 mt-6">
+                {/* Income */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-green-50 text-green-600 rounded-xl">
+                            <TrendingUp size={24} />
+                        </div>
+                        <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">Receitas</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">Total Receitas</p>
+                    <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totals.income || 0)}</h3>
+                </div>
+
+                {/* Expense */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                            <TrendingDown size={24} />
+                        </div>
+                        <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">Despesas</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">Total Despesas</p>
+                    <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totals.expense || 0)}</h3>
+                </div>
+
+                {/* Period Balance */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                            <Activity size={24} />
+                        </div>
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Fluxo</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">Fluxo do Período</p>
+                    <h3 className={`text-2xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency((totals.income || 0) - (totals.expense || 0))}
+                    </h3>
+                </div>
+
+                {/* Total Balance (Stock) */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                            <Wallet size={24} />
+                        </div>
+                        <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">Geral</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">Saldo Geral (Contas)</p>
+                    <h3 className="text-2xl font-bold text-slate-800">
+                        {formatCurrency(accounts.reduce((acc, a) => acc + Number(a.current_balance || 0), 0))}
+                    </h3>
+                </div>
+            </div>
+
             {/* Accounts Cards */}
             <div>
                 <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
@@ -211,43 +266,7 @@ const FinanceDashboard = () => {
                 </div>
             </div>
 
-            {/* Dashboard Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                            <TrendingUp className="text-green-600 w-6 h-6" />
-                        </div>
-                        <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">+12% este mês</span>
-                    </div>
-                    <p className="text-sm text-slate-500">Receitas Totais</p>
-                    <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(totals.income)}</p>
-                </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-2 bg-red-100 rounded-lg">
-                            <TrendingDown className="text-red-600 w-6 h-6" />
-                        </div>
-                        <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">+5% este mês</span>
-                    </div>
-                    <p className="text-sm text-slate-500">Despesas Totais</p>
-                    <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(totals.expense)}</p>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <DollarSign className="text-blue-600 w-6 h-6" />
-                        </div>
-                        <span className="text-xs font-medium text-slate-500">Saldo Atual</span>
-                    </div>
-                    <p className="text-sm text-slate-500">Saldo em Caixa</p>
-                    <p className={`text-2xl font-bold mt-1 ${balance >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
-                        {formatCurrency(balance)}
-                    </p>
-                </div>
-            </div>
 
             {/* Main Chart */}
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-[400px]">

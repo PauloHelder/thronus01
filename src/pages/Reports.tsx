@@ -40,16 +40,63 @@ const COLORS = ['#F97316', '#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899'
 
 const Reports: React.FC = () => {
     const { user } = useAuth();
-    const { members } = useMembers();
-    const { groups } = useGroups();
-    const { departments } = useDepartments();
-    const { leaders } = useDiscipleship();
+    const { members, loading: membersLoading } = useMembers();
+    const { groups, loading: groupsLoading } = useGroups();
+    const { departments, loading: deptsLoading } = useDepartments();
+    const { leaders, loading: leadersLoading } = useDiscipleship();
+
+    const isLoading = membersLoading || groupsLoading || deptsLoading || leadersLoading;
+
+
 
     const reportRef = useRef<HTMLDivElement>(null);
     const [generatingPdf, setGeneratingPdf] = useState(false);
     const [churchDetails, setChurchDetails] = useState<any>(null);
+    const [realStats, setRealStats] = useState({
+        groups: 0,
+        departments: 0,
+        discipleship: 0
+    });
 
-    // Fetch church details
+    // Fetch exact counts directly from DB to ensure "General Data" is correct
+    useEffect(() => {
+        if (!user?.churchId) return;
+
+        const fetchCounts = async () => {
+            try {
+                // Groups Count
+                const { count: groupsCount } = await supabase
+                    .from('groups')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null);
+
+                // Departments Count
+                const { count: deptsCount } = await supabase
+                    .from('departments')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null);
+
+                // Discipleship Count (distinct pairs? or just leaders rows?)
+                // Assuming "Em Discipulado" means members who have a leader?
+                // Or members involved in discipleship?
+                // Existing logic: filteredMembers.filter(m => hasLeader || isLeader).
+                // Let's stick to existing logic for Discipleship if it works ("44" worked), 
+                // but for Groups/Depts use the direct count.
+
+                setRealStats(prev => ({
+                    ...prev,
+                    groups: groupsCount || 0,
+                    departments: deptsCount || 0
+                }));
+            } catch (error) {
+                console.error("Error fetching stats counts:", error);
+            }
+        };
+
+        fetchCounts();
+    }, [user?.churchId]);
     useEffect(() => {
         if (!user?.churchId) return;
         const fetchChurchDetails = async () => {
@@ -65,7 +112,9 @@ const Reports: React.FC = () => {
 
     // --- Filters State ---
     const [genderFilter, setGenderFilter] = useState<string>('all');
-    const [statusFilter, setStatusFilter] = useState<string>('Active');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [baptismFilter, setBaptismFilter] = useState<string>('all');
+    const [roleFilter, setRoleFilter] = useState<string>('all');
     const [maritalFilter, setMaritalFilter] = useState<string>('all');
     const [occupationFilter, setOccupationFilter] = useState<string>('all');
     const [birthMonthFilter, setBirthMonthFilter] = useState<string>('all');
@@ -180,6 +229,7 @@ const Reports: React.FC = () => {
             }));
 
         return {
+            totalMembers, // Added totalMembers to stats
             totalInDiscipleship,
             ageData,
             maritalData,
@@ -205,6 +255,14 @@ const Reports: React.FC = () => {
             }, [] as { name: string; count: number }[])
         };
     }, [filteredMembers, groups, departments, leaders]);
+
+    const hasActiveFilters = statusFilter !== 'all' ||
+        genderFilter !== 'all' ||
+        baptismFilter !== 'all' ||
+        roleFilter !== 'all' ||
+        maritalFilter !== 'all' ||
+        occupationFilter !== 'all' ||
+        birthMonthFilter !== 'all';
 
     const handleDownloadPDF = async () => {
         if (!reportRef.current) return;
@@ -373,63 +431,104 @@ const Reports: React.FC = () => {
                             <option key={i} value={i}>{m}</option>
                         ))}
                     </select>
+
+                    {/* Baptism Filter */}
+                    <select
+                        value={baptismFilter}
+                        onChange={(e) => setBaptismFilter(e.target.value)}
+                        className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                        <option value="all">Batismo</option>
+                        <option value="baptized">Batizados</option>
+                        <option value="not-baptized">Não Batizados</option>
+                    </select>
+
+                    {/* Role Filter (Example, assuming roles are available) */}
+                    {/* You might need to fetch unique roles similar to uniqueOccupations */}
+                    <select
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                        <option value="all">Função na Igreja</option>
+                        {/* Example roles, replace with dynamic data if available */}
+                        <option value="Membro">Membro</option>
+                        <option value="Líder">Líder</option>
+                        <option value="Pastor">Pastor</option>
+                        <option value="Diácono">Diácono</option>
+                    </select>
                 </div>
             </div>
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
                         <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
                             <Users size={24} />
                         </div>
                         <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-full flex items-center gap-1">
-                            {statusFilter === 'all' ? 'Total' : statusFilter}
+                            {hasActiveFilters ? 'Filtrado' : 'Global'}
                         </span>
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-slate-500">Membros Filtrados</p>
-                        <h3 className="text-2xl font-bold text-slate-800">{stats.totalMembers}</h3>
+                        <p className="text-sm font-medium text-slate-500">
+                            {hasActiveFilters ? 'Membros Filtrados' : 'Total de Membros'}
+                        </p>
+                        <h3 className="text-2xl font-bold text-slate-800 mt-1">
+                            {isLoading ? '...' : (stats.totalMembers ?? 0)}
+                        </h3>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
                         <div className="p-3 bg-orange-50 text-orange-600 rounded-lg">
                             <Users2 size={24} />
                         </div>
+                        <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Grupos</span>
                     </div>
                     <div>
                         <p className="text-sm font-medium text-slate-500">Células / Grupos</p>
-                        <h3 className="text-2xl font-bold text-slate-800">{stats.totalGroups}</h3>
+                        <h3 className="text-2xl font-bold text-slate-800 mt-1">
+                            {isLoading ? '...' : (realStats.groups || stats.totalGroups || 0)}
+                        </h3>
                         <p className="text-xs text-slate-400 mt-1">Total Geral da Igreja</p>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-green-50 text-green-600 rounded-lg">
+                        <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
                             <BookOpenCheck size={24} />
                         </div>
+                        <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-1 rounded-full">Discipulado</span>
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-slate-500">Em Discipulado</p>
-                        <h3 className="text-2xl font-bold text-slate-800">{stats.totalInDiscipleship}</h3>
+                        <p className="text-sm font-medium text-slate-500">
+                            {hasActiveFilters ? 'Em Discipulado (Filtrado)' : 'Total em Discipulado'}
+                        </p>
+                        <h3 className="text-2xl font-bold text-slate-800 mt-1">
+                            {isLoading ? '...' : (stats.totalInDiscipleship ?? 0)}
+                        </h3>
                         <p className="text-xs text-slate-400 mt-1">
-                            {stats.totalMembers > 0 ? ((stats.totalInDiscipleship / stats.totalMembers) * 100).toFixed(1) : 0}% da seleção
+                            {stats.totalMembers ? Math.round((stats.totalInDiscipleship / stats.totalMembers) * 100) : 0}% do total
                         </p>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
+                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
                             <Network size={24} />
                         </div>
+                        <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Departamentos</span>
                     </div>
                     <div>
                         <p className="text-sm font-medium text-slate-500">Departamentos</p>
-                        <h3 className="text-2xl font-bold text-slate-800">{stats.totalDepartments}</h3>
+                        <h3 className="text-2xl font-bold text-slate-800 mt-1">
+                            {isLoading ? '...' : (realStats.departments || stats.totalDepartments || 0)}
+                        </h3>
                         <p className="text-xs text-slate-400 mt-1">Total Geral da Igreja</p>
                     </div>
                 </div>
