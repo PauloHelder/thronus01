@@ -67,6 +67,7 @@ const Finance = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [filterAccount, setFilterAccount] = useState<string>('All');
     const [showFilters, setShowFilters] = useState(false);
 
     // Filters State for Requests
@@ -98,6 +99,7 @@ const Finance = () => {
         return transactions.filter(t => {
             const matchesType = filterType === 'All' || t.type === filterType;
             const matchesCategory = filterCategory === 'All' || t.category_id === filterCategory;
+            const matchesAccount = filterAccount === 'All' || t.account_id === filterAccount;
             const searchLower = searchTerm.toLowerCase();
             const matchesSearch =
                 (t.description?.toLowerCase() || '').includes(searchLower) ||
@@ -107,9 +109,9 @@ const Finance = () => {
             const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
             const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
 
-            return matchesType && matchesCategory && matchesSearch && matchesStartDate && matchesEndDate;
+            return matchesType && matchesCategory && matchesAccount && matchesSearch && matchesStartDate && matchesEndDate;
         });
-    }, [transactions, filterType, filterCategory, searchTerm, startDate, endDate]);
+    }, [transactions, filterType, filterCategory, filterAccount, searchTerm, startDate, endDate]);
 
     // Filter Requests
     const filteredRequests = useMemo(() => {
@@ -159,6 +161,7 @@ const Finance = () => {
     const clearFilters = () => {
         setFilterType('All');
         setFilterCategory('All');
+        setFilterAccount('All');
         setSearchTerm('');
         setStartDate('');
         setEndDate('');
@@ -184,6 +187,7 @@ const Finance = () => {
             filters: {
                 type: filterType,
                 category: filterCategory === 'All' ? 'Todas' : (categories.find(c => c.id === filterCategory)?.name || 'Desconhecido'),
+                account: filterAccount === 'All' ? 'Todas' : (accounts.find(a => a.id === filterAccount)?.name || 'Desconhecida'),
                 startDate,
                 endDate
             }
@@ -285,7 +289,7 @@ const Finance = () => {
         }
     };
 
-    const hasActiveFilters = filterType !== 'All' || filterCategory !== 'All' || searchTerm !== '' || startDate !== '' || endDate !== '';
+    const hasActiveFilters = filterType !== 'All' || filterCategory !== 'All' || filterAccount !== 'All' || searchTerm !== '' || startDate !== '' || endDate !== '';
 
     // If no permission, return Access Denied immediately
     if (!canView) {
@@ -324,7 +328,20 @@ const Finance = () => {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {/* ... other buttons */}
+                    <button
+                        onClick={() => setIsAccountModalOpen(true)}
+                        className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors font-medium shadow-sm"
+                    >
+                        <Building2 size={18} className="text-slate-400" />
+                        Contas
+                    </button>
+                    <button
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors font-medium shadow-sm"
+                    >
+                        <Filter size={18} className="text-slate-400" />
+                        Categorias
+                    </button>
                     <div className="relative">
                         <button
                             onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
@@ -546,6 +563,9 @@ const Finance = () => {
                                 >
                                     <Filter size={18} />
                                     Filtros
+                                    {hasActiveFilters && (
+                                        <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                                    )}
                                 </button>
                             </div>
                         </div>
@@ -553,7 +573,21 @@ const Finance = () => {
                         {/* Filters Area */}
                         {showFilters && (
                             <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Conta Bancária</label>
+                                        <select
+                                            value={filterAccount}
+                                            onChange={(e) => setFilterAccount(e.target.value)}
+                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
+                                        >
+                                            <option value="All">Todas as Contas</option>
+                                            {accounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                     <div>
                                         <label className="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
                                         <select
@@ -622,7 +656,8 @@ const Finance = () => {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-slate-500 uppercase">
                                     <th className="px-6 py-4">Data</th>
-                                    <th className="px-6 py-4">Descrição / Origem</th>
+                                    <th className="px-6 py-4">Descrição</th>
+                                    <th className="px-6 py-4">Conta</th>
                                     <th className="px-6 py-4">Categoria</th>
                                     <th className="px-6 py-4 text-right">Valor</th>
                                     <th className="px-6 py-4 text-center">Ações</th>
@@ -631,7 +666,7 @@ const Finance = () => {
                             <tbody className="divide-y divide-gray-100">
                                 {filteredTransactions.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                                             <div className="flex flex-col items-center justify-center">
                                                 <Calendar size={48} className="mb-2 text-gray-300" />
                                                 <p>Nenhuma transação encontrada.</p>
@@ -652,6 +687,9 @@ const Finance = () => {
                                                 {tx.notes && (
                                                     <div className="text-xs text-slate-500 mt-0.5">{tx.notes}</div>
                                                 )}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">
+                                                {tx.account?.name || '-'}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span

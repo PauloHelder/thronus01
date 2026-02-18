@@ -47,6 +47,9 @@ export interface Database {
             financial_transactions: FinancialTransaction;
             financial_requests: FinancialRequest;
             department_goals: DepartmentGoal;
+            asset_categories: AssetCategory;
+            assets: Asset;
+            asset_maintenance: AssetMaintenance;
             audit_logs: AuditLog;
         };
     };
@@ -558,6 +561,57 @@ export interface FinancialRequest {
 // =====================================================
 // AUDIT
 // =====================================================
+
+// =====================================================
+// ASSET MANAGEMENT
+// =====================================================
+
+export interface AssetCategory {
+    id: string;
+    church_id: string;
+    name: string;
+    description: string | null;
+    useful_life_years: number;
+    created_at: string;
+}
+
+export interface Asset {
+    id: string;
+    church_id: string;
+    category_id: string | null;
+    department_id: string | null;
+    assigned_to: string | null;
+    name: string;
+    description: string | null;
+    serial_number: string | null;
+    purchase_date: string | null;
+    purchase_price: number;
+    useful_life_years: number | null;
+    salvage_value: number;
+    condition: 'new' | 'good' | 'fair' | 'poor' | 'broken';
+    status: 'available' | 'in_use' | 'under_maintenance' | 'disposed';
+    location: string | null;
+    image_url: string | null;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+
+    // Joined data
+    category?: AssetCategory;
+    department?: Department;
+    member?: Member;
+}
+
+export interface AssetMaintenance {
+    id: string;
+    asset_id: string;
+    maintenance_date: string;
+    description: string;
+    cost: number;
+    performed_by: string | null;
+    next_maintenance: string | null;
+    created_at: string;
+}
 
 export interface AuditLog {
     id: string;

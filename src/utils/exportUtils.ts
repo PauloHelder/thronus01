@@ -15,6 +15,7 @@ interface ExportData {
     filters: {
         type: string;
         category: string;
+        account: string;
         startDate: string;
         endDate: string;
     };
@@ -55,19 +56,20 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
         [churchName.toUpperCase()],
         ['RELATÓRIO DE ESTRATO FINANCEIRO'],
         [`Gerado em: ${new Date().toLocaleString('pt-BR')}`],
-        [`Filtros: Tipo: ${filters.type === 'All' ? 'Todos' : (filters.type === 'income' ? 'Receitas' : 'Despesas')}, Categoria: ${filters.category}, Período: ${filters.startDate || 'Início'} a ${filters.endDate || 'Fim'}`],
+        [`Filtros: Tipo: ${filters.type === 'All' ? 'Todos' : (filters.type === 'income' ? 'Receitas' : 'Despesas')}, Categoria: ${filters.category}, Conta: ${filters.account}, Período: ${filters.startDate || 'Início'} a ${filters.endDate || 'Fim'}`],
         [],
         ['RESUMO DO PERÍODO'],
         ['Total Receitas', formatCurrency(summary.totalIncome)],
         ['Total Despesas', formatCurrency(summary.totalExpense)],
         ['Saldo Líquido', formatCurrency(summary.balance)],
         [],
-        ['DATA', 'DESCRIÇÃO', 'CATEGORIA', 'TIPO', 'VALOR (AOA)', 'STATUS']
+        ['DATA', 'DESCRIÇÃO', 'CONTA', 'CATEGORIA', 'TIPO', 'VALOR (AOA)', 'STATUS']
     ];
 
     const transactionRows = transactions.map(tx => [
         formatDate(tx.date),
         tx.description,
+        tx.account?.name || '-',
         getCategoryName(tx.category_id),
         tx.type === 'income' ? 'Receita' : 'Despesa',
         tx.amount,
@@ -82,6 +84,7 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
     ws['!cols'] = [
         { wch: 15 }, // Data
         { wch: 40 }, // Descrição
+        { wch: 20 }, // Conta
         { wch: 20 }, // Categoria
         { wch: 15 }, // Tipo
         { wch: 15 }, // Valor
@@ -142,7 +145,8 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(COLORS.slate600[0], COLORS.slate600[1], COLORS.slate600[2]);
     let filterLine = `Tipo: ${filters.type === 'All' ? 'Todos' : (filters.type === 'income' ? 'Receitas' : 'Despesas')}`;
-    filterLine += `  |  Categoria: ${filters.category}`;
+    filterLine += `  |  Cat: ${filters.category}`;
+    filterLine += `  |  Conta: ${filters.account}`;
     filterLine += `  |  Período: ${filters.startDate || 'Início'} a ${filters.endDate || 'Fim'}`;
     doc.text(filterLine, pageWidth / 2, 47, { align: 'center' });
 
@@ -187,11 +191,12 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
 
-    doc.text('DATA', 18, y);
-    doc.text('DESCRIÇÃO / ORIGEM', 40, y);
-    doc.text('CATEGORIA', 110, y);
-    doc.text('TIPO', 150, y);
-    doc.text('VALOR (AOA)', pageWidth - 18, y, { align: 'right' });
+    doc.text('DATA', 16, y);
+    doc.text('DESCRIÇÃO', 35, y);
+    doc.text('CONTA', 95, y);
+    doc.text('CATEGORIA', 125, y);
+    doc.text('TIPO', 155, y);
+    doc.text('VALOR (AOA)', pageWidth - 16, y, { align: 'right' });
 
     y += 10;
     doc.setFont('helvetica', 'normal');
@@ -215,11 +220,12 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
             doc.roundedRect(14, y - 6, pageWidth - 28, 10, 1, 1, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFont('helvetica', 'bold');
-            doc.text('DATA', 18, y);
-            doc.text('DESCRIÇÃO / ORIGEM', 40, y);
-            doc.text('CATEGORIA', 110, y);
-            doc.text('TIPO', 150, y);
-            doc.text('VALOR (AOA)', pageWidth - 18, y, { align: 'right' });
+            doc.text('DATA', 16, y);
+            doc.text('DESCRIÇÃO', 35, y);
+            doc.text('CONTA', 95, y);
+            doc.text('CATEGORIA', 125, y);
+            doc.text('TIPO', 155, y);
+            doc.text('VALOR (AOA)', pageWidth - 16, y, { align: 'right' });
             y += 10;
         }
 
@@ -233,24 +239,30 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
         doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
         doc.setFontSize(8);
 
-        doc.text(formatDate(tx.date), 18, y);
+        doc.text(formatDate(tx.date), 16, y);
 
         let desc = tx.description || '';
-        if (desc.length > 45) desc = desc.substring(0, 42) + '...';
-        doc.text(desc, 40, y);
+        if (desc.length > 32) desc = desc.substring(0, 30) + '...';
+        doc.text(desc, 35, y);
 
-        doc.text(getCategoryName(tx.category_id), 110, y);
+        let accName = tx.account?.name || '-';
+        if (accName.length > 15) accName = accName.substring(0, 13) + '..';
+        doc.text(accName, 95, y);
 
-        const typeLabel = tx.type === 'income' ? 'Receita' : 'Despesa';
-        doc.text(typeLabel, 150, y);
+        let catName = getCategoryName(tx.category_id);
+        if (catName.length > 15) catName = catName.substring(0, 13) + '..';
+        doc.text(catName, 125, y);
+
+        const typeLabel = tx.type === 'income' ? 'Rec' : 'Desp';
+        doc.text(typeLabel, 155, y);
 
         // Color for value
         if (tx.type === 'income') {
             doc.setTextColor(COLORS.green600[0], COLORS.green600[1], COLORS.green600[2]);
-            doc.text(`+ ${formatCurrency(tx.amount)}`, pageWidth - 18, y, { align: 'right' });
+            doc.text(`+ ${formatCurrency(tx.amount)}`, pageWidth - 16, y, { align: 'right' });
         } else {
             doc.setTextColor(COLORS.red600[0], COLORS.red600[1], COLORS.red600[2]);
-            doc.text(`- ${formatCurrency(tx.amount)}`, pageWidth - 18, y, { align: 'right' });
+            doc.text(`- ${formatCurrency(tx.amount)}`, pageWidth - 16, y, { align: 'right' });
         }
 
         // Border line

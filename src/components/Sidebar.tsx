@@ -24,7 +24,10 @@ import {
   Gift,
   ListChecks,
   Activity,
-  ClipboardList
+  ClipboardList,
+  Package,
+  Wrench,
+  Tag
 } from 'lucide-react';
 
 interface NavBaseItem {
@@ -52,6 +55,7 @@ const Sidebar: React.FC = () => {
     else if (location.pathname.startsWith('/finance')) setActiveModule('finance');
     else if (location.pathname.startsWith('/groups')) setActiveModule('groups');
     else if (location.pathname.startsWith('/network')) setActiveModule('network');
+    else if (location.pathname.startsWith('/assets')) setActiveModule('assets');
   }, [location.pathname]);
 
   // Helper function to check navigation permissions
@@ -98,6 +102,15 @@ const Sidebar: React.FC = () => {
         { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
         { to: "/teaching", icon: GraduationCap, label: "Turmas e Classes", permission: 'teaching_view', end: true },
       ]
+    },
+    assets: {
+      title: "Patrimônio",
+      items: [
+        { to: "/assets", icon: Package, label: "Inventário", permission: 'assets_view', end: true },
+        { to: "/assets?tab=categories", icon: Tag, label: "Categorias", permission: 'assets_view' },
+        { to: "/assets?tab=maintenance", icon: Wrench, label: "Manutenções", permission: 'assets_view' },
+        { to: "/assets?tab=reports", icon: BarChart3, label: "Relatórios", permission: 'assets_view' },
+      ]
     }
   };
 
@@ -121,6 +134,7 @@ const Sidebar: React.FC = () => {
         { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado", module: 'discipleship', permission: 'discipleship_view' },
         { to: "/departments", icon: Network, label: "Departamentos", module: 'departments', permission: 'departments_view' },
         { to: "/teaching", icon: GraduationCap, label: "Ensino", module: 'teaching', permission: 'teaching_view' },
+        { to: "/assets", icon: Package, label: "Patrimônio", module: 'assets', permission: 'assets_view' },
         { to: "/events", icon: CalendarDays, label: "Eventos", permission: 'events_view' },
         { to: "/reports", icon: BarChart3, label: "Relatórios" }
       );
@@ -203,26 +217,12 @@ const Sidebar: React.FC = () => {
                     onClick={() => window.innerWidth < 1024 && closeSidebar()}
                     className={({ isActive }) => {
                       // Custom active logic for query params
+                      const hasQuery = item.to?.includes('?');
                       const isExactlyActive = isActive && (
-                        !item.to?.includes('?') ||
-                        location.search === item.to.substring(item.to.indexOf('?'))
+                        hasQuery
+                          ? location.search === item.to!.substring(item.to!.indexOf('?'))
+                          : location.search === ''
                       );
-
-                      // Handle the /members (main) vs /members?filter=... case
-                      if (item.to === '/members' && location.search !== '') {
-                        return 'flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700';
-                      }
-
-                      // Handle the /finance (main) vs /finance?view=... case
-                      if (item.to === '/finance' && location.search !== '') {
-                        return 'flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-700';
-                      }
-
-                      // Handle the /discipleship (main) case
-                      if (item.to === '/discipleship' && location.pathname !== '/discipleship') {
-                        // This handles sub-routes like /discipleship/123
-                        // But for simplicity, we allow normal isActive if it's a NavLink
-                      }
 
                       return `flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all ${isExactlyActive
                         ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'

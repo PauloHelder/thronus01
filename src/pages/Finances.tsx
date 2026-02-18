@@ -28,6 +28,7 @@ const Finances: React.FC = () => {
     const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | null>(null);
     const [filterType, setFilterType] = useState<'All' | 'income' | 'expense'>('All');
     const [filterCategory, setFilterCategory] = useState<string>('All');
+    const [filterAccount, setFilterAccount] = useState<string>('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -108,16 +109,18 @@ const Finances: React.FC = () => {
     const clearFilters = () => {
         setFilterType('All');
         setFilterCategory('All');
+        setFilterAccount('All');
         setSearchTerm('');
         setStartDate('');
         setEndDate('');
     };
 
-    const hasActiveFilters = filterType !== 'All' || filterCategory !== 'All' || searchTerm !== '' || startDate !== '' || endDate !== '';
+    const hasActiveFilters = filterType !== 'All' || filterCategory !== 'All' || filterAccount !== 'All' || searchTerm !== '' || startDate !== '' || endDate !== '';
 
     const filteredTransactions = transactions.filter(t => {
         const matchesType = filterType === 'All' || t.type === filterType;
         const matchesCategory = filterCategory === 'All' || t.category_id === filterCategory;
+        const matchesAccount = filterAccount === 'All' || t.account_id === filterAccount;
         const searchLower = searchTerm.toLowerCase();
 
         const categoryName = getCategoryName(t.category_id).toLowerCase();
@@ -132,7 +135,7 @@ const Finances: React.FC = () => {
         const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
         const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
 
-        return matchesType && matchesCategory && matchesSearch && matchesStartDate && matchesEndDate;
+        return matchesType && matchesCategory && matchesAccount && matchesSearch && matchesStartDate && matchesEndDate;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const handleExport = (format: 'pdf' | 'excel') => {
@@ -155,6 +158,7 @@ const Finances: React.FC = () => {
             filters: {
                 type: filterType,
                 category: filterCategory === 'All' ? 'Todas' : getCategoryName(filterCategory),
+                account: filterAccount === 'All' ? 'Todas' : (accounts.find(a => a.id === filterAccount)?.name || 'Desconhecida'),
                 startDate,
                 endDate
             }
@@ -334,7 +338,21 @@ const Finances: React.FC = () => {
                     {/* Filtros Expandidos */}
                     {showFilters && (
                         <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 mb-1">Conta Bancária</label>
+                                    <select
+                                        value={filterAccount}
+                                        onChange={(e) => setFilterAccount(e.target.value)}
+                                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
+                                    >
+                                        <option value="All">Todas as Contas</option>
+                                        {accounts.map(acc => (
+                                            <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <div>
                                     <label className="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
                                     <select
@@ -403,7 +421,8 @@ const Finances: React.FC = () => {
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-slate-500 uppercase">
                                 <th className="px-6 py-4">Data</th>
-                                <th className="px-6 py-4">Descrição / Origem</th>
+                                <th className="px-6 py-4">Descrição</th>
+                                <th className="px-6 py-4">Conta</th>
                                 <th className="px-6 py-4">Categoria</th>
                                 <th className="px-6 py-4 text-right">Valor</th>
                                 <th className="px-6 py-4 text-center">Ações</th>
@@ -420,7 +439,9 @@ const Finances: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-slate-800">{tx.description}</div>
-                                        {/* Show source if needed, though description usually covers it with new logic */}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                        {tx.account?.name || '-'}
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${tx.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -473,21 +494,23 @@ const Finances: React.FC = () => {
                 </div>
 
                 {/* Resumo dos Resultados Filtrados */}
-                {filteredTransactions.length > 0 && (
-                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center text-sm">
-                        <span className="text-slate-600">
-                            Mostrando <span className="font-semibold text-slate-800">{filteredTransactions.length}</span> transação(ões)
-                        </span>
-                        <div className="flex gap-6">
-                            <span className="text-green-600 font-medium">
-                                Receitas: {formatCurrency(filteredTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0))}
+                {
+                    filteredTransactions.length > 0 && (
+                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center text-sm">
+                            <span className="text-slate-600">
+                                Mostrando <span className="font-semibold text-slate-800">{filteredTransactions.length}</span> transação(ões)
                             </span>
-                            <span className="text-red-600 font-medium">
-                                Despesas: {formatCurrency(filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0))}
-                            </span>
+                            <div className="flex gap-6">
+                                <span className="text-green-600 font-medium">
+                                    Receitas: {formatCurrency(filteredTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0))}
+                                </span>
+                                <span className="text-red-600 font-medium">
+                                    Despesas: {formatCurrency(filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0))}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
             </div>
 
             <TransactionModal

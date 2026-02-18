@@ -243,3 +243,50 @@ export interface DiscipleshipMeeting {
   status: 'Scheduled' | 'Completed' | 'Cancelled';
   notes?: string;
 }
+
+export interface AssetCategory {
+  id: string;
+  church_id: string;
+  name: string;
+  description?: string;
+  useful_life_years: number;
+  created_at: string;
+}
+
+export interface Asset {
+  id: string;
+  church_id: string;
+  category_id?: string;
+  department_id?: string;
+  assigned_to?: string;
+  name: string;
+  description?: string;
+  serial_number?: string;
+  purchase_date?: string;
+  purchase_price: number;
+  useful_life_years?: number;
+  salvage_value: number;
+  condition: 'new' | 'good' | 'fair' | 'poor' | 'broken';
+  status: 'available' | 'in_use' | 'under_maintenance' | 'disposed';
+  location?: string;
+  image_url?: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+
+  // Joined
+  category?: AssetCategory;
+  department?: Department;
+  member?: Member;
+}
+
+export interface AssetMaintenance {
+  id: string;
+  asset_id: string;
+  maintenance_date: string;
+  description: string;
+  cost: number;
+  performed_by?: string;
+  next_maintenance?: string;
+  created_at: string;
+}
