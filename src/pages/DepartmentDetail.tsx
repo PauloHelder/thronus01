@@ -39,6 +39,7 @@ const DepartmentDetail: React.FC = () => {
         categories,
         fetchRequests,
         addRequest,
+        updateRequest,
         loading: financeLoading
     } = useFinance();
 
@@ -58,6 +59,7 @@ const DepartmentDetail: React.FC = () => {
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
     const [selectedGoal, setSelectedGoal] = useState<DepartmentGoal | null>(null);
     const [editingSchedule, setEditingSchedule] = useState<DepartmentSchedule | null>(null);
+    const [editingRequest, setEditingRequest] = useState<any>(null);
 
     // Filters for Goals
     const [goalStatusFilter, setGoalStatusFilter] = useState<'All' | 'pending' | 'in_progress' | 'completed' | 'delayed'>('All');
@@ -118,7 +120,21 @@ const DepartmentDetail: React.FC = () => {
     };
 
     const handleSaveRequest = async (requestData: any) => {
-        return await addRequest(requestData);
+        if (editingRequest) {
+            const success = await updateRequest(editingRequest.id, requestData);
+            if (success) {
+                setEditingRequest(null);
+                setIsRequestModalOpen(false);
+            }
+            return success;
+        } else {
+            return await addRequest(requestData);
+        }
+    };
+
+    const handleOpenRequestModal = (request?: any) => {
+        setEditingRequest(request || null);
+        setIsRequestModalOpen(true);
     };
 
     const handleSaveGoal = async (goalData: any) => {
@@ -480,8 +496,8 @@ const DepartmentDetail: React.FC = () => {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${goal.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' :
-                                                                    goal.priority === 'medium' ? 'bg-orange-50 text-orange-600 border-orange-100' :
-                                                                        'bg-blue-50 text-blue-600 border-blue-100'
+                                                                goal.priority === 'medium' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                                                                    'bg-blue-50 text-blue-600 border-blue-100'
                                                                 }`}>
                                                                 <Flag size={10} />
                                                                 {goal.priority === 'high' ? 'Alta' : goal.priority === 'medium' ? 'Média' : 'Baixa'}
@@ -489,9 +505,9 @@ const DepartmentDetail: React.FC = () => {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${goal.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
-                                                                    goal.status === 'delayed' ? 'bg-red-50 text-red-700 border-red-200' :
-                                                                        goal.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                                            'bg-gray-50 text-gray-700 border-gray-200'
+                                                                goal.status === 'delayed' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                                    goal.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                                        'bg-gray-50 text-gray-700 border-gray-200'
                                                                 }`}>
                                                                 {goal.status === 'completed' ? 'Concluído' :
                                                                     goal.status === 'delayed' ? 'Atrasado' :
@@ -645,7 +661,7 @@ const DepartmentDetail: React.FC = () => {
                                 <p className="text-xs text-slate-500">Solicitações de budget e aprovações</p>
                             </div>
                             <button
-                                onClick={() => setIsRequestModalOpen(true)}
+                                onClick={() => handleOpenRequestModal()}
                                 className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-orange-200/50"
                             >
                                 <Plus size={16} /> Nova Solicitação
@@ -660,6 +676,7 @@ const DepartmentDetail: React.FC = () => {
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Valor</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Data</th>
                                         <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -685,6 +702,19 @@ const DepartmentDetail: React.FC = () => {
                                                         {getStatusIcon(request.status)}
                                                         {getStatusLabel(request.status)}
                                                     </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        {request.status === 'pending' && (
+                                                            <button
+                                                                onClick={() => handleOpenRequestModal(request)}
+                                                                className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                                                title="Editar"
+                                                            >
+                                                                <Pencil size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -725,10 +755,15 @@ const DepartmentDetail: React.FC = () => {
             {id && (
                 <FinanceRequestModal
                     isOpen={isRequestModalOpen}
-                    onClose={() => setIsRequestModalOpen(false)}
+                    onClose={() => {
+                        setIsRequestModalOpen(false);
+                        setEditingRequest(null);
+                    }}
                     onSave={handleSaveRequest}
                     categories={categories}
                     departmentId={id}
+                    request={editingRequest}
+                    departments={department ? [department as any] : []}
                 />
             )}
 

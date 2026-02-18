@@ -8,6 +8,7 @@ interface FinanceRequestModalProps {
     onClose: () => void;
     onSave: (data: any) => Promise<boolean>;
     categories: FinancialCategory[];
+    request?: any; // Added for editing
     departmentId?: string;
     departments?: Department[];
 }
@@ -17,6 +18,7 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
     onClose,
     onSave,
     categories,
+    request,
     departmentId,
     departments
 }) => {
@@ -31,15 +33,25 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            setFormData({
-                title: '',
-                description: '',
-                amount: '',
-                category_id: '',
-                department_id: departmentId || ''
-            });
+            if (request) {
+                setFormData({
+                    title: request.title || '',
+                    description: request.description || '',
+                    amount: request.amount?.toString() || '',
+                    category_id: request.category_id || '',
+                    department_id: request.department_id || departmentId || ''
+                });
+            } else {
+                setFormData({
+                    title: '',
+                    description: '',
+                    amount: '',
+                    category_id: '',
+                    department_id: departmentId || ''
+                });
+            }
         }
-    }, [isOpen, departmentId]);
+    }, [isOpen, request, departmentId]);
 
     if (!isOpen) return null;
 
@@ -51,10 +63,12 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
         }
         setLoading(true);
         try {
-            const success = await onSave({
+            const dataToSave = {
                 ...formData,
                 amount: parseFloat(formData.amount)
-            });
+            };
+
+            const success = await onSave(dataToSave);
             if (success) {
                 onClose();
             }
@@ -73,7 +87,9 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                         <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
                             <ClipboardList size={24} />
                         </div>
-                        <h2 className="text-xl font-bold text-slate-800">Nova Requisição Financeira</h2>
+                        <h2 className="text-xl font-bold text-slate-800">
+                            {request ? 'Editar Requisição Financeira' : 'Nova Requisição Financeira'}
+                        </h2>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
                         <X size={20} />
@@ -81,7 +97,8 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {!departmentId && departments && (
+                    {/* Only show department selection if not in a specific department context AND not editing */}
+                    {!departmentId && departments && !request && (
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Departamento</label>
                             <div className="relative">
@@ -99,6 +116,17 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                                         <option key={dept.id} value={dept.id}>{dept.name}</option>
                                     ))}
                                 </select>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* If editing, show read-only department name if needed, or just skip it */}
+                    {request && departments && (
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5 opacity-50">Departamento (Não Editável)</label>
+                            <div className="px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-slate-500 flex items-center gap-2">
+                                <Building2 size={18} />
+                                <span>{departments.find(d => d.id === formData.department_id)?.name || 'Departamento'}</span>
                             </div>
                         </div>
                     )}
@@ -178,7 +206,7 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                             disabled={loading}
                             className="flex-1 px-6 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? 'Salvando...' : 'Enviar Requisição'}
+                            {loading ? 'Salvando...' : (request ? 'Atualizar Requisição' : 'Enviar Requisição')}
                         </button>
                     </div>
                 </form>

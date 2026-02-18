@@ -80,6 +80,7 @@ const Finance = () => {
     const [requestToPay, setRequestToPay] = useState<FinancialRequest | null>(null);
     const [selectedPayAccountId, setSelectedPayAccountId] = useState('');
     const [selectedPayDate, setSelectedPayDate] = useState('');
+    const [selectedRequest, setSelectedRequest] = useState<FinancialRequest | null>(null);
     const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | undefined>(undefined);
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -140,6 +141,11 @@ const Finance = () => {
     const handleOpenTransactionModal = (transaction?: FinancialTransaction) => {
         setSelectedTransaction(transaction);
         setIsTransactionModalOpen(true);
+    };
+
+    const handleOpenRequestModal = (request?: FinancialRequest) => {
+        setSelectedRequest(request || null);
+        setIsRequestModalOpen(true);
     };
 
     const handleSaveTransaction = async (data: any) => {
@@ -235,12 +241,19 @@ const Finance = () => {
     };
 
     const handleSaveRequest = async (data: any) => {
-        const success = await addRequest(data);
-        if (success) {
-            toast.success('Requisição enviada com sucesso!');
-            setIsRequestModalOpen(false);
+        let success;
+        if (selectedRequest) {
+            success = await updateRequest(selectedRequest.id, data);
         } else {
-            toast.error('Erro ao enviar requisição.');
+            success = await addRequest(data);
+        }
+
+        if (success) {
+            toast.success(selectedRequest ? 'Requisição atualizada!' : 'Requisição enviada com sucesso!');
+            setIsRequestModalOpen(false);
+            setSelectedRequest(null);
+        } else {
+            toast.error('Erro ao salvar requisição.');
         }
         return success;
     };
@@ -346,7 +359,7 @@ const Finance = () => {
                     </div>
                     {currentView === 'requests' ? (
                         <button
-                            onClick={() => setIsRequestModalOpen(true)}
+                            onClick={() => handleOpenRequestModal()}
                             className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
                         >
                             <Plus size={18} />
@@ -479,6 +492,15 @@ const Finance = () => {
                                                             className="px-3 py-1 bg-blue-500 text-white hover:bg-blue-600 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1"
                                                         >
                                                             <Check size={12} /> Efetuar Pagamento
+                                                        </button>
+                                                    )}
+                                                    {request.status === 'pending' && (
+                                                        <button
+                                                            onClick={() => handleOpenRequestModal(request)}
+                                                            className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors border border-transparent hover:border-orange-100"
+                                                            title="Editar"
+                                                        >
+                                                            <Pencil size={16} />
                                                         </button>
                                                     )}
                                                     <button
@@ -723,10 +745,14 @@ const Finance = () => {
 
             <FinanceRequestModal
                 isOpen={isRequestModalOpen}
-                onClose={() => setIsRequestModalOpen(false)}
+                onClose={() => {
+                    setIsRequestModalOpen(false);
+                    setSelectedRequest(null);
+                }}
                 onSave={handleSaveRequest}
                 categories={categories}
                 departments={departments}
+                request={selectedRequest}
             />
 
             {/* Payment Confirmation Modal */}
