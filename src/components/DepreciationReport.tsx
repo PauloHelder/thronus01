@@ -6,7 +6,8 @@ import {
     ArrowDownRight,
     AlertTriangle,
     Download,
-    Loader2
+    Loader2,
+    Clock
 } from 'lucide-react';
 import { Asset, AssetCategory } from '../types/database.types';
 import jsPDF from 'jspdf';
@@ -18,13 +19,15 @@ interface DepreciationReportProps {
     categories: AssetCategory[];
     calculateDepreciation: (asset: Asset) => number;
     formatCurrency: (value: number) => string;
+    churchName?: string;
 }
 
 const DepreciationReport: React.FC<DepreciationReportProps> = ({
     assets,
     categories,
     calculateDepreciation,
-    formatCurrency
+    formatCurrency,
+    churchName
 }) => {
     const reportRef = useRef<HTMLDivElement>(null);
     const [isExporting, setIsExporting] = useState(false);
@@ -97,10 +100,20 @@ const DepreciationReport: React.FC<DepreciationReportProps> = ({
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Report Content to be Captured */}
             <div ref={reportRef} className="space-y-8 p-4 bg-gray-50 rounded-3xl">
-                {/* PDF Header (Hidden in UI, Visible in Capture if needed, but styling usually handles it) */}
-                <div className="hidden pdf-only block mb-8">
-                    <h1 className="text-2xl font-black text-slate-800">Relatório Consolidado de Depreciação</h1>
-                    <p className="text-slate-500">Data de emissão: {new Date().toLocaleDateString('pt-BR')}</p>
+                {/* PDF Header - Professional document style */}
+                <div className="flex items-center justify-between border-b-2 border-slate-800 pb-6 mb-8 mt-2">
+                    <div className="flex flex-col">
+                        <h1 className="text-3xl font-black text-slate-900 leading-tight">Tronus • Patrimônio</h1>
+                        <p className="text-xl font-bold text-slate-600 mt-1">{churchName || 'Relatório de Ativos'}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Relatório Consolidado</p>
+                        <h2 className="text-lg font-black text-slate-800">Depreciação de Ativos</h2>
+                        <div className="flex items-center justify-end gap-2 text-slate-500 text-sm mt-1">
+                            <Clock size={14} />
+                            <span>Emitido em: {new Date().toLocaleDateString('pt-BR')}</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Summary Cards */}

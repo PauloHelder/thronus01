@@ -25,22 +25,27 @@ import {
     Activity,
     User,
     ChevronLeft,
-    Clock
+    Clock,
+    Download
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAssets } from '../hooks/useAssets';
 import { useDepartments } from '../hooks/useDepartments';
 import { useMembers } from '../hooks/useMembers';
 import { Asset, AssetCategory } from '../types/database.types';
+import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
+import { ShieldAlert } from 'lucide-react';
 
 import AssetModal from '../components/modals/AssetModal';
 import AssetCategoryModal from '../components/modals/AssetCategoryModal';
 import MaintenanceModal from '../components/modals/MaintenanceModal';
 import DepreciationReport from '../components/DepreciationReport';
+import { exportAssetsToPDF, exportAssetsToExcel } from '../utils/assetExportUtils';
 
 const Assets = () => {
     const navigate = useNavigate();
+    const { user, hasPermission } = useAuth();
     const {
         assets,
         categories,
@@ -65,6 +70,7 @@ const Assets = () => {
     const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
     const [assetForMaintenance, setAssetForMaintenance] = useState<Asset | null>(null);
 
@@ -113,7 +119,7 @@ const Assets = () => {
         return new Intl.NumberFormat('pt-AO', {
             style: 'currency',
             currency: 'AOA'
-        }).format(value);
+        }).format(value || 0);
     };
 
     const formatDate = (dateString?: string) => {
@@ -148,6 +154,27 @@ const Assets = () => {
             }
         }
         return success;
+    };
+
+    const handleExport = (type: 'pdf' | 'excel') => {
+        const exportData = {
+            assets: filteredAssets,
+            categories,
+            churchName: user?.churchName || 'Minha Igreja',
+            filters: {
+                category: categoryFilter === 'all' ? 'Todas' : (categories.find(c => c.id === categoryFilter)?.name || '---'),
+                condition: conditionFilter === 'all' ? 'Todos' : conditionFilter,
+                status: statusFilter === 'all' ? 'Todos' : statusFilter,
+                searchTerm
+            }
+        };
+
+        if (type === 'pdf') {
+            exportAssetsToPDF(exportData);
+        } else {
+            exportAssetsToExcel(exportData);
+        }
+        setIsExportMenuOpen(false);
     };
 
     const getConditionBadge = (condition: string) => {
@@ -199,6 +226,28 @@ const Assets = () => {
         );
     };
 
+    if (!hasPermission('assets_view')) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-white m-8 rounded-3xl border border-gray-200">
+                <div className="p-4 bg-red-50 text-red-500 rounded-full mb-6">
+                    <ShieldAlert size={48} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Acesso Restrito</h2>
+                <p className="text-slate-600 max-w-md mb-8">
+                    Você não tem permissão para visualizar o Patrimônio da igreja.
+                    Entre em contato com o administrador se considerar que isso é um erro.
+                </p>
+                <button
+                    onClick={() => navigate('/')}
+                    className="px-6 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-all flex items-center gap-2"
+                >
+                    <ChevronLeft size={20} />
+                    Voltar ao Início
+                </button>
+            </div>
+        );
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -228,18 +277,22 @@ const Assets = () => {
                     </div>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
-                    <button
-                        onClick={() => setIsCategoryModalOpen(true)}
-                        className="flex-1 md:flex-none px-5 py-2.5 bg-white hover:bg-gray-50 text-slate-700 border border-gray-200 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
-                    >
-                        <Tag size={20} className="text-blue-500" /> Categorias
-                    </button>
-                    <button
-                        onClick={() => { setSelectedAsset(null); setIsAssetModalOpen(true); }}
-                        className="flex-1 md:flex-none px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-orange-200"
-                    >
-                        <Plus size={20} /> Novo Ativo
-                    </button>
+                    {hasPermission('assets_create') && (
+                        <>
+                            <button
+                                onClick={() => setIsCategoryModalOpen(true)}
+                                className="flex-1 md:flex-none px-5 py-2.5 bg-white hover:bg-gray-50 text-slate-700 border border-gray-200 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                            >
+                                <Tag size={20} className="text-blue-500" /> Categorias
+                            </button>
+                            <button
+                                onClick={() => { setSelectedAsset(null); setIsAssetModalOpen(true); }}
+                                className="flex-1 md:flex-none px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-orange-200"
+                            >
+                                <Plus size={20} /> Novo Ativo
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -348,6 +401,39 @@ const Assets = () => {
                                     <List size={20} />
                                 </button>
                             </div>
+
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                                    className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 flex items-center gap-2 transition-all font-bold shadow-sm h-[42px]"
+                                >
+                                    <Download size={18} />
+                                    Exportar
+                                </button>
+
+                                {isExportMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <button
+                                            onClick={() => handleExport('pdf')}
+                                            className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-orange-50 hover:text-orange-600 flex items-center gap-3 transition-colors"
+                                        >
+                                            <div className="p-1.5 bg-red-50 text-red-600 rounded-lg">
+                                                <FileText size={14} />
+                                            </div>
+                                            Lista em PDF
+                                        </button>
+                                        <button
+                                            onClick={() => handleExport('excel')}
+                                            className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-orange-50 hover:text-orange-600 flex items-center gap-3 transition-colors"
+                                        >
+                                            <div className="p-1.5 bg-green-50 text-green-600 rounded-lg">
+                                                <Download size={14} />
+                                            </div>
+                                            Planilha Excel
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -378,27 +464,31 @@ const Assets = () => {
                                         </div>
                                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <div className="flex gap-2">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedAsset(asset);
-                                                        setIsAssetModalOpen(true);
-                                                    }}
-                                                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-slate-600 hover:text-orange-600 shadow-lg transition-colors"
-                                                    title="Editar"
-                                                >
-                                                    <Pencil size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (window.confirm('Excluir este ativo permanentemente?')) deleteAsset(asset.id);
-                                                    }}
-                                                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-slate-600 hover:text-red-600 shadow-lg transition-colors"
-                                                    title="Excluir"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                                {hasPermission('assets_edit') && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedAsset(asset);
+                                                            setIsAssetModalOpen(true);
+                                                        }}
+                                                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-slate-600 hover:text-orange-600 shadow-lg transition-colors"
+                                                        title="Editar"
+                                                    >
+                                                        <Pencil size={18} />
+                                                    </button>
+                                                )}
+                                                {hasPermission('assets_delete') && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (window.confirm('Excluir este ativo permanentemente?')) deleteAsset(asset.id);
+                                                        }}
+                                                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-slate-600 hover:text-red-600 shadow-lg transition-colors"
+                                                        title="Excluir"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -485,37 +575,43 @@ const Assets = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => {
-                                                            setAssetForMaintenance(asset);
-                                                            setIsMaintenanceModalOpen(true);
-                                                        }}
-                                                        className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors border border-transparent hover:border-emerald-100"
-                                                        title="Registrar Manutenção"
-                                                    >
-                                                        <Wrench size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedAsset(asset);
-                                                            setIsAssetModalOpen(true);
-                                                        }}
-                                                        className="p-2 hover:bg-orange-50 text-orange-600 rounded-lg transition-colors border border-transparent hover:border-orange-100"
-                                                        title="Editar"
-                                                    >
-                                                        <Pencil size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            if (window.confirm('Tem certeza que deseja excluir este bem permanentemente?')) {
-                                                                deleteAsset(asset.id);
-                                                            }
-                                                        }}
-                                                        className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                                                        title="Excluir"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
+                                                    {hasPermission('assets_edit') && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setAssetForMaintenance(asset);
+                                                                setIsMaintenanceModalOpen(true);
+                                                            }}
+                                                            className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors border border-transparent hover:border-emerald-100"
+                                                            title="Registrar Manutenção"
+                                                        >
+                                                            <Wrench size={18} />
+                                                        </button>
+                                                    )}
+                                                    {hasPermission('assets_edit') && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedAsset(asset);
+                                                                setIsAssetModalOpen(true);
+                                                            }}
+                                                            className="p-2 hover:bg-orange-50 text-orange-600 rounded-lg transition-colors border border-transparent hover:border-orange-100"
+                                                            title="Editar"
+                                                        >
+                                                            <Pencil size={18} />
+                                                        </button>
+                                                    )}
+                                                    {hasPermission('assets_delete') && (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (window.confirm('Tem certeza que deseja excluir este bem permanentemente?')) {
+                                                                    deleteAsset(asset.id);
+                                                                }
+                                                            }}
+                                                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                                                            title="Excluir"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -623,6 +719,7 @@ const Assets = () => {
                     categories={categories}
                     calculateDepreciation={calculateDepreciation}
                     formatCurrency={formatCurrency}
+                    churchName={user?.churchName || 'Minha Igreja'}
                 />
             )}
 

@@ -20,6 +20,7 @@ const MODULES = [
     { id: 'events', label: 'Eventos' },
     { id: 'departments', label: 'Departamentos' },
     { id: 'discipleship', label: 'Discipulado' },
+    { id: 'assets', label: 'Patrimônio' },
     { id: 'branches', label: 'Minhas Igrejas' },
 ];
 
@@ -131,10 +132,11 @@ const Settings: React.FC = () => {
                 if (error) throw error;
 
                 if (data) {
+                    const church = data as any;
                     // Load branding
-                    if (data.logo_url) setLogoUrl(data.logo_url);
-                    if (data.primary_color) setPrimaryColor(data.primary_color);
-                    if (data.secondary_color) setSecondaryColor(data.secondary_color);
+                    if (church.logo_url) setLogoUrl(church.logo_url);
+                    if (church.primary_color) setPrimaryColor(church.primary_color);
+                    if (church.secondary_color) setSecondaryColor(church.secondary_color);
 
                     // Load JSON settings
                     const settings = (data as any).settings || {};
@@ -144,9 +146,9 @@ const Settings: React.FC = () => {
                     } else {
                         // Default permissions
                         setRolePermissions({
-                            'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'groups_create', 'groups_edit', 'groups_delete', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'events_delete', 'departments_view', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit'],
-                            'leader': ['members_view', 'members_edit', 'groups_view', 'groups_create', 'groups_edit', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit'],
-                            'member': ['members_view', 'groups_view', 'discipleship_view', 'events_view', 'services_view', 'teaching_view']
+                            'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'groups_create', 'groups_edit', 'groups_delete', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'events_delete', 'departments_view', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit', 'assets_view', 'assets_create', 'assets_edit', 'assets_delete'],
+                            'leader': ['members_view', 'members_edit', 'groups_view', 'groups_create', 'groups_edit', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit', 'assets_view', 'assets_create', 'assets_edit'],
+                            'member': ['members_view', 'groups_view', 'discipleship_view', 'events_view', 'services_view', 'teaching_view', 'assets_view']
                         });
                     }
 
@@ -191,9 +193,9 @@ const Settings: React.FC = () => {
                 [key]: value
             };
 
-            const { error } = await supabase
-                .from('churches')
-                .update({ settings: updatedSettings, updated_at: new Date().toISOString() } as any)
+            const { error } = await (supabase
+                .from('churches') as any)
+                .update({ settings: updatedSettings, updated_at: new Date().toISOString() })
                 .eq('id', user.churchId);
 
             if (error) throw error;
@@ -323,14 +325,14 @@ const Settings: React.FC = () => {
                 }
             }
 
-            const { error } = await supabase
-                .from('churches')
+            const { error } = await (supabase
+                .from('churches') as any)
                 .update({
                     logo_url: finalLogoUrl,
                     primary_color: primaryColor,
                     secondary_color: secondaryColor,
                     updated_at: new Date().toISOString()
-                } as any)
+                })
                 .eq('id', user.churchId);
 
             if (error) throw error;

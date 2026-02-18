@@ -121,9 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     // Default permissions if setting is missing (fallback)
                     const defaultPermissions: Record<string, string[]> = {
-                        'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'groups_create', 'groups_edit', 'groups_delete', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'events_delete', 'departments_view', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit'],
-                        'leader': ['members_view', 'members_edit', 'groups_view', 'groups_create', 'groups_edit', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit'],
-                        'member': ['members_view', 'groups_view', 'discipleship_view', 'events_view', 'services_view', 'teaching_view']
+                        'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'groups_create', 'groups_edit', 'groups_delete', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'events_delete', 'departments_view', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit', 'assets_view', 'assets_create', 'assets_edit', 'assets_delete'],
+                        'leader': ['members_view', 'members_edit', 'groups_view', 'groups_create', 'groups_edit', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit', 'assets_view', 'assets_create', 'assets_edit'],
+                        'member': ['members_view', 'groups_view', 'discipleship_view', 'events_view', 'services_view', 'teaching_view', 'assets_view']
                     };
 
                     const computedPermissions = new Set<string>();
