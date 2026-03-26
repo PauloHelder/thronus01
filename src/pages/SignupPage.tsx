@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Building, Phone, User, MapPin, Hash, Link as LinkIcon, AlertCircle, Loader2, CheckCircle, Globe, Search, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Building, Phone, User, MapPin, Hash, Link as LinkIcon, AlertCircle, Loader2, CheckCircle, Globe, Search, ChevronDown, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDenominations } from '../hooks/useDenominations';
@@ -40,7 +40,7 @@ const PROVINCIAS_ANGOLA = {
 
 const SignupPage: React.FC = () => {
     const navigate = useNavigate();
-    const { signup, loading, isAuthenticated } = useAuth();
+    const { signup, linkChurch, loading, isAuthenticated } = useAuth();
     const { denominations, loading: loadingDenominations } = useDenominations();
 
     const [showPassword, setShowPassword] = useState(false);
@@ -48,6 +48,7 @@ const SignupPage: React.FC = () => {
     const [step, setStep] = useState(1);
     const [error, setError] = useState('');
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showLinkModal, setShowLinkModal] = useState(false);
 
     // State for searchable denomination dropdown
     const [isDenominationOpen, setIsDenominationOpen] = useState(false);
@@ -203,7 +204,7 @@ const SignupPage: React.FC = () => {
             }
         } else if (step === 3) {
             if (validateStep3()) {
-                const success = await signup({
+                const result = await signup({
                     churchName: formData.nomeIgreja,
                     fullName: formData.nomePastor,
                     email: formData.email,
@@ -220,10 +221,12 @@ const SignupPage: React.FC = () => {
                     categoria: formData.categoria
                 });
 
-                if (success) {
+                if (result.success) {
                     setShowSuccessModal(true);
+                } else if (result.userExists) {
+                    setShowLinkModal(true);
                 } else {
-                    setError('Este email já está registrado ou ocorreu um erro');
+                    setError('Ocorreu um erro no cadastro');
                 }
             }
         }
@@ -243,6 +246,15 @@ const SignupPage: React.FC = () => {
                 <div className="absolute bottom-20 left-10 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
                 <div className="absolute top-1/2 left-1/2 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
             </div>
+
+            {/* Back Button */}
+            <button
+                onClick={() => navigate('/')}
+                className="absolute top-6 left-6 md:top-10 md:left-10 z-50 flex items-center gap-2 text-slate-600 hover:text-orange-500 transition-colors bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm hover:shadow-md border border-gray-100"
+            >
+                <ArrowLeft size={20} />
+                <span className="font-medium hidden sm:block">Voltar para Home</span>
+            </button>
 
             <div className="w-full max-w-4xl relative z-10">
                 <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-10 border border-gray-100">
@@ -730,6 +742,59 @@ const SignupPage: React.FC = () => {
                             >
                                 Ir para Login
                             </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Link Modal */}
+                {showLinkModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center relative animate-in zoom-in-95 duration-300">
+                            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <LinkIcon className="text-orange-600 w-10 h-10" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-800 mb-2">Conta Existente</h3>
+                            <p className="text-slate-600 mb-8">
+                                O e-mail <strong>{formData.email}</strong> já está cadastrado no sistema.
+                                Deseja vincular esta nova igreja à sua conta existente?
+                            </p>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowLinkModal(false)}
+                                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        const result = await linkChurch({
+                                            churchName: formData.nomeIgreja,
+                                            fullName: formData.nomePastor,
+                                            email: formData.email,
+                                            phone: formData.telefone,
+                                            password: formData.password,
+                                            sigla: formData.sigla,
+                                            denominacao: formData.denominacao,
+                                            nif: formData.nif,
+                                            endereco: formData.endereco,
+                                            provincia: formData.provincia,
+                                            municipio: formData.municipio,
+                                            bairro: formData.bairro,
+                                            categoria: formData.categoria
+                                        });
+                                        setShowLinkModal(false);
+                                        if (result) {
+                                            navigate('/login');
+                                        } else {
+                                            setError('Ocorreu um erro ao vincular a igreja.');
+                                        }
+                                    }}
+                                    disabled={loading}
+                                    className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    {loading ? <Loader2 size={20} className="animate-spin" /> : 'Sim, Vincular'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

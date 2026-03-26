@@ -46,6 +46,45 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const [activeModule, setActiveModule] = useState<string | null>(null);
 
+  // PWA Install Logic
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+      // Update UI notify the user they can install the PWA
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setShowInstallBtn(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    // Optionally, send analytics event with outcome of user choice
+    console.log(`User response to the install prompt: ${outcome}`);
+    // We've used the prompt, and can't use it again, throw it away
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
+
   // Auto-detect module from URL
   useEffect(() => {
     if (location.pathname.startsWith('/members')) setActiveModule('members');
@@ -136,15 +175,10 @@ const Sidebar: React.FC = () => {
         { to: "/teaching", icon: GraduationCap, label: "Ensino", module: 'teaching', permission: 'teaching_view' },
         { to: "/assets", icon: Package, label: "Patrimônio", module: 'assets', permission: 'assets_view' },
         { to: "/events", icon: CalendarDays, label: "Eventos", permission: 'events_view' },
-        { to: "/reports", icon: BarChart3, label: "Relatórios" }
+        { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
+        { to: "/users", icon: Users, label: "Usuários", permission: 'users_view' },
+        { to: "/settings", icon: Settings, label: "Configurações", permission: 'settings_view' }
       );
-
-      if (hasRole('admin')) {
-        items.push(
-          { to: "/users", icon: Users, label: "Usuários" },
-          { to: "/settings", icon: Settings, label: "Configurações" }
-        );
-      }
 
       if (user?.roles?.some(r => ['admin', 'pastor'].includes(r))) {
         items.push({ to: "/subscription", icon: CreditCard, label: "Assinatura" });
@@ -278,6 +312,16 @@ const Sidebar: React.FC = () => {
             <HelpCircle size={20} />
             Ajuda e Suporte
           </NavLink>
+
+          {showInstallBtn && (
+            <button
+              onClick={handleInstallClick}
+              className="w-full flex items-center gap-3 px-4 py-2 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 hover:text-orange-300 rounded-lg text-sm transition-all border border-orange-500/30 animate-pulse-slow"
+            >
+              <Package size={20} />
+              Instalar Aplicativo
+            </button>
+          )}
 
           <div className="mt-4 pt-4 border-t border-slate-700 flex items-center gap-3 px-2">
             <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center font-bold text-white shrink-0">

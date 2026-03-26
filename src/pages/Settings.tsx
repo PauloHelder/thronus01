@@ -22,6 +22,8 @@ const MODULES = [
     { id: 'discipleship', label: 'Discipulado' },
     { id: 'assets', label: 'Patrimônio' },
     { id: 'branches', label: 'Minhas Igrejas' },
+    { id: 'users', label: 'Usuários' },
+    { id: 'reports', label: 'Relatórios' },
 ];
 
 const ACTIONS = [

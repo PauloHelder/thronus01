@@ -107,7 +107,7 @@ const Services: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full overflow-y-auto lg:overflow-hidden">
+        <div className="flex flex-col min-h-0">
             {/* Header com Estatísticas */}
             <div className="p-4 lg:p-6 bg-white border-b border-gray-200">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
@@ -234,7 +234,7 @@ const Services: React.FC = () => {
             </div>
 
             {/* Tabela de Cultos */}
-            <div className="flex-1 p-4 lg:p-6 lg:overflow-y-auto bg-gray-50">
+            <div className="flex-1 p-4 lg:p-6 bg-gray-50">
                 {/* Mobile/Tablet Cards View */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:hidden">
                     {filteredServices.map((service) => (

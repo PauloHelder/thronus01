@@ -8,7 +8,7 @@ const Header: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
-  const { user } = useAuth();
+  const { user, switchChurch } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +76,32 @@ const Header: React.FC = () => {
         <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg hidden sm:block">
           <Settings size={20} />
         </button>
+
+        {/* Church Switcher (Multi-Tenant) */}
+        {user?.churches && user.churches.length > 1 && (
+          <div className="hidden sm:block mr-2 relative">
+             <select 
+                title="Trocar de Igreja ativamente"
+                className="appearance-none bg-orange-50 border border-orange-200 rounded-lg py-1.5 pl-3 pr-8 text-sm font-medium text-orange-800 hover:bg-orange-100 focus:ring-2 focus:ring-orange-500 outline-none transition-colors cursor-pointer max-w-[200px] truncate shadow-sm"
+                value={user.churchId}
+                onChange={async (e) => {
+                   const success = await switchChurch(e.target.value);
+                   if (success) {
+                       if (location.pathname === '/dashboard') {
+                           window.location.reload();
+                       } else {
+                           navigate('/dashboard');
+                       }
+                   }
+                }}
+             >
+                {user.churches.map(uc => (
+                   <option key={uc.church_id} value={uc.church_id}>{uc.church.name}</option>
+                ))}
+             </select>
+             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-orange-600 pointer-events-none" />
+          </div>
+        )}
 
         {/* User Menu */}
         <div className="relative" ref={menuRef}>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
-import { Search, Shield, UserCog, Mail, Phone, Trash2, Plus, Copy, Check, Eye, EyeOff, ChevronDown, X } from 'lucide-react';
+import { Search, Shield, UserCog, Mail, Phone, Trash2, Plus, Copy, Check, Eye, EyeOff, ChevronDown, X, Power } from 'lucide-react';
 import Modal from '../components/Modal';
 import { useMembers } from '../hooks/useMembers';
 
@@ -12,6 +12,7 @@ interface SystemUser {
     role: string;
     permissions: { roles?: string[];[key: string]: any };
     created_at: string;
+    is_active?: boolean;
     member?: {
         name: string;
         avatar_url: string | null;
@@ -188,6 +189,7 @@ const UserManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
 
     const [invites, setInvites] = useState<any[]>([]);
 
@@ -242,14 +244,9 @@ const UserManagement: React.FC = () => {
         if (!currentUser?.churchId) return;
         setLoading(true);
         try {
-            // Fetch Users
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select(`
-                    *,
-                    member:members(name, avatar_url, phone)
-                `)
-                .eq('church_id', currentUser.churchId);
+            // Fetch Users via RPC (Multi-tenant safe)
+            // @ts-ignore
+            const { data: userData, error: userError } = await (supabase.rpc as any)('get_church_users', { p_church_id: currentUser.churchId });
 
             if (userError) throw userError;
             setUsers(userData || []);
@@ -293,15 +290,25 @@ const UserManagement: React.FC = () => {
         let primaryRole = newRoles.find(r => roleHierarchy.includes(r)) || newRoles[0];
 
         try {
-            const { error } = await supabase
-                .from('users')
+            // Update user_churches mapping
+            const { error: ucError } = await (supabase.from('user_churches') as any)
                 .update({
                     role: primaryRole,
                     permissions: { roles: newRoles }
                 })
-                .eq('id', userId);
+                .eq('user_id', userId)
+                .eq('church_id', currentUser?.churchId);
 
-            if (error) throw error;
+            if (ucError) throw ucError;
+
+            // Opportunistically update users table if their active session is this church
+            await (supabase.from('users') as any)
+                .update({
+                    role: primaryRole,
+                    permissions: { roles: newRoles }
+                })
+                .eq('id', userId)
+                .eq('church_id', currentUser?.churchId);
 
             // Optimistic update
             setUsers(users.map(u =>
@@ -330,10 +337,10 @@ const UserManagement: React.FC = () => {
                 // NOTE: Deleting auth.users requires Service Role/Admin API.
                 // Here we usually just delete the record from public.users which revokes app access.
 
-                const { error } = await supabase
-                    .from('users')
+                const { error } = await (supabase.from('user_churches') as any)
                     .delete()
-                    .eq('id', userId);
+                    .eq('user_id', userId)
+                    .eq('church_id', currentUser?.churchId);
 
                 if (error) throw error;
 
@@ -342,6 +349,39 @@ const UserManagement: React.FC = () => {
                 console.error('Error deleting user:', err);
                 alert('Erro ao remover usuário.');
             }
+        }
+    };
+
+    const handleToggleActive = async (userId: string, currentActive: boolean) => {
+        if (userId === currentUser?.id) {
+            alert('Você não pode desativar sua própria conta.');
+            return;
+        }
+
+        const newActive = !currentActive;
+        const action = newActive ? 'reativar' : 'desativar';
+
+        if (!window.confirm(`Tem certeza que deseja ${action} este usuário?`)) return;
+
+        try {
+            // @ts-ignore
+            const { data, error } = await (supabase.rpc as any)('toggle_user_active', {
+                p_user_id: userId,
+                p_church_id: currentUser?.churchId,
+                p_active: newActive
+            });
+
+            if (error) throw error;
+            if (data && !data.success) {
+                alert(data.error || 'Erro ao alterar status.');
+                return;
+            }
+
+            // Optimistic update
+            setUsers(users.map(u => u.id === userId ? { ...u, is_active: newActive } : u));
+        } catch (err) {
+            console.error('Error toggling user active:', err);
+            alert('Erro ao alterar status do usuário.');
         }
     };
 
@@ -360,11 +400,15 @@ const UserManagement: React.FC = () => {
         const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             u.email.toLowerCase().includes(searchTerm.toLowerCase());
 
-        // Check if user has the selected role in their 'roles' array (permissions.roles or single role)
         const userRoles = u.permissions?.roles || [u.role];
         const matchesRole = filterRole === 'all' || userRoles.includes(filterRole);
 
-        return matchesSearch && matchesRole;
+        const isActive = u.is_active !== false;
+        const matchesStatus = filterStatus === 'all' || 
+            (filterStatus === 'active' && isActive) || 
+            (filterStatus === 'inactive' && !isActive);
+
+        return matchesSearch && matchesRole && matchesStatus;
     });
 
     const [showUserModal, setShowUserModal] = useState(false);
@@ -428,56 +472,65 @@ const UserManagement: React.FC = () => {
                 }
             });
 
+            // Determine Primary Role early
+            const roleHierarchy = ['admin', 'supervisor', 'leader'];
+            let primaryRole = newUserRoles.find(r => roleHierarchy.includes(r)) || newUserRoles[0];
+
             if (authError) {
-                if (authError.message?.includes('already registered')) {
-                    console.log('User already registered. Attempting recovery...');
-                    const { data: signInData, error: signInError } = await tempClient.auth.signInWithPassword({
-                        email: newUserEmail,
-                        password: newUserPassword
-                    });
+                if (authError.message?.toLowerCase().includes('already registered') || authError.message?.toLowerCase().includes('already in use') || authError.message?.toLowerCase().includes('já está registrado')) {
+                    console.log('User already registered. Linking to current church...');
+                    
+                    const { data: linkData, error: linkError } = await supabase.rpc('admin_add_existing_user_by_email', {
+                        p_email: newUserEmail,
+                        p_role: primaryRole,
+                        p_name: newUserName,
+                        p_phone: newUserPhone || null,
+                        p_member_id: (linkToMember && selectedMemberId) ? selectedMemberId : null
+                    } as any);
 
-                    if (signInError) {
-                        throw new Error('Este email já está registrado (e a senha não confere).');
+                    if (linkError || !(linkData as any)?.success) {
+                        throw new Error(linkError?.message || (linkData as any)?.error || 'Falha ao vincular usuário.');
                     }
-
-                    if (signInData.user) {
-                        userId = signInData.user.id;
-                    }
+                    
+                    userId = (linkData as any).user_id;
                 } else {
                     throw authError; // Rethrow other errors
                 }
             } else {
                 if (!authData.user) throw new Error('Falha ao criar usuário (sem dados retornados).');
                 userId = authData.user.id;
+
+                // 3. Create Public User Entry + Member Entry via RPC for NEW user
+                const { error: rpcError } = await supabase.rpc('admin_create_user_entry', {
+                    p_user_id: userId,
+                    p_email: newUserEmail,
+                    p_role: primaryRole,
+                    p_name: newUserName,
+                    p_phone: newUserPhone || null,
+                    p_member_id: (linkToMember && selectedMemberId) ? selectedMemberId : null
+                } as any);
+
+                if (rpcError) throw rpcError;
             }
 
             if (!userId) throw new Error('Falha ao identificar ID do usuário.');
-
-            // Determine Primary Role
-            const roleHierarchy = ['admin', 'supervisor', 'leader'];
-            let primaryRole = newUserRoles.find(r => roleHierarchy.includes(r)) || newUserRoles[0];
-
-            // 3. Create Public User Entry + Member Entry via RPC
-            // This function creates the user row and sets the 'role' column.
-            // @ts-ignore
-            const { error: rpcError } = await supabase.rpc('admin_create_user_entry', {
-                p_user_id: userId,
-                p_email: newUserEmail,
-                p_role: primaryRole,
-                p_name: newUserName,
-                p_phone: newUserPhone || null,
-                p_member_id: (linkToMember && selectedMemberId) ? selectedMemberId : null
-            });
-
-            if (rpcError) throw rpcError;
 
             // 4. Update the permissions column to include ALL roles
             const { error: updateError } = await supabase
                 .from('users')
                 .update({ permissions: { roles: newUserRoles } })
-                .eq('id', userId);
+                .eq('id', userId)
+                .eq('church_id', currentUser?.churchId);
 
-            if (updateError) console.error("Error saving multiple roles:", updateError);
+            if (updateError) console.error("Error saving multiple roles in users:", updateError);
+
+            const { error: updateUcError } = await supabase
+                .from('user_churches' as any)
+                .update({ permissions: { roles: newUserRoles } })
+                .eq('user_id', userId)
+                .eq('church_id', currentUser?.churchId);
+                
+            if (updateUcError) console.error("Error saving multiple roles in user_churches:", updateUcError);
 
             // Success
             alert('Usuário criado (ou vinculado) com sucesso!');
@@ -560,13 +613,24 @@ const UserManagement: React.FC = () => {
                             ))}
                         </select>
                     </div>
+                    <div className="w-full md:w-40">
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                        >
+                            <option value="all">Todos os Status</option>
+                            <option value="active">Ativos</option>
+                            <option value="inactive">Inativos</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
             {/* Users List */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-8">
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-700">Usuários Ativos</h3>
+                    <h3 className="font-bold text-slate-700">Gestão de Usuários</h3>
                     <span className="text-sm text-slate-500">{filteredUsers.length} usuários</span>
                 </div>
                 <div className="overflow-x-auto">
@@ -576,6 +640,7 @@ const UserManagement: React.FC = () => {
                                 <th className="px-6 py-4">Usuário</th>
                                 <th className="px-6 py-4">Contato</th>
                                 <th className="px-6 py-4">Funções</th>
+                                <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4">Data de Cadastro</th>
                                 <th className="px-6 py-4 text-center">Ações</th>
                             </tr>
@@ -583,13 +648,13 @@ const UserManagement: React.FC = () => {
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
                                         Carregando usuários...
                                     </td>
                                 </tr>
                             ) : filteredUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center">
+                                    <td colSpan={6} className="px-6 py-12 text-center">
                                         <UserCog size={48} className="mx-auto text-gray-300 mb-3" />
                                         <p className="text-slate-600">Nenhum usuário encontrado</p>
                                     </td>
@@ -597,8 +662,9 @@ const UserManagement: React.FC = () => {
                             ) : (
                                 filteredUsers.map((u) => {
                                     const userRoles = u.permissions?.roles || [u.role];
+                                    const isActive = u.is_active !== false;
                                     return (
-                                        <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                                        <tr key={u.id} className={`hover:bg-gray-50 transition-colors ${!isActive ? 'opacity-60' : ''}`}>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-lg">
@@ -629,6 +695,15 @@ const UserManagement: React.FC = () => {
                                                     ))}
                                                 </div>
                                             </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
+                                                    isActive 
+                                                        ? 'bg-green-100 text-green-700 border-green-200' 
+                                                        : 'bg-red-100 text-red-700 border-red-200'
+                                                }`}>
+                                                    {isActive ? 'Ativo' : 'Inativo'}
+                                                </span>
+                                            </td>
                                             <td className="px-6 py-4 text-sm text-slate-600">
                                                 {new Date(u.created_at).toLocaleDateString('pt-BR')}
                                             </td>
@@ -643,6 +718,19 @@ const UserManagement: React.FC = () => {
                                                                 onChange={(newRoles) => handleRolesChange(u.id, newRoles)}
                                                             />
                                                         </div>
+
+                                                        <button
+                                                            onClick={() => handleToggleActive(u.id, isActive)}
+                                                            className={`p-1.5 rounded transition-colors ${
+                                                                isActive
+                                                                    ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
+                                                                    : 'text-green-400 hover:text-green-600 hover:bg-green-50'
+                                                            }`}
+                                                            title={isActive ? 'Desativar Usuário' : 'Reativar Usuário'}
+                                                            disabled={u.id === currentUser?.id}
+                                                        >
+                                                            <Power size={16} />
+                                                        </button>
 
                                                         <button
                                                             onClick={() => handleDeleteUser(u.id)}

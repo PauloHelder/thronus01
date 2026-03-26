@@ -103,6 +103,7 @@ const AppContent: React.FC = () => {
 };
 
 import { Toaster } from 'sonner';
+import { OfflineIndicator, ReloadPrompt, IOSInstallPrompt } from './components/PWAComponents';
 
 const App: React.FC = () => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -129,6 +130,9 @@ const App: React.FC = () => {
   return (
     <Router>
       <Toaster position="top-right" richColors />
+      <OfflineIndicator />
+      <ReloadPrompt />
+      <IOSInstallPrompt />
       <AuthProvider>
         <Routes>
           {/* Public Routes */}

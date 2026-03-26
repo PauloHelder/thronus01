@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Phone, AlertCircle, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Phone, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
-    const { login, loading, isAuthenticated } = useAuth();
+    const { login, user, loading, isAuthenticated, switchChurch } = useAuth();
 
     const [showPassword, setShowPassword] = useState(false);
     const [emailOrPhone, setEmailOrPhone] = useState('');
@@ -14,12 +14,14 @@ const LoginPage: React.FC = () => {
     const [error, setError] = useState('');
     const [loginType, setLoginType] = useState<'email' | 'phone'>('email');
 
-    // Redirect to dashboard if already authenticated
+    // Redirect to dashboard if already authenticated and has only 1 church
     useEffect(() => {
-        if (!loading && isAuthenticated) {
-            navigate('/dashboard');
+        if (!loading && isAuthenticated && user) {
+            if (!user.churches || user.churches.length <= 1) {
+                navigate('/dashboard');
+            }
         }
-    }, [isAuthenticated, loading, navigate]);
+    }, [isAuthenticated, loading, user, navigate]);
 
     // Detect if input is email or phone
     const detectInputType = (value: string) => {
@@ -79,7 +81,7 @@ const LoginPage: React.FC = () => {
             if (rememberMe) {
                 localStorage.setItem('thronus_remember', emailOrPhone);
             }
-            navigate('/dashboard');
+            // Navigate will be handled by useEffect instead of here
         } else {
             setError('Credenciais inválidas. Verifique seu email/telefone e senha.');
         }
@@ -95,6 +97,63 @@ const LoginPage: React.FC = () => {
         }
     }, []);
 
+    if (isAuthenticated && user?.churches && user.churches.length > 1) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50 flex items-center justify-center p-4">
+                <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 border border-gray-100 animate-in zoom-in-95 duration-300">
+                    <div className="flex justify-center mb-6">
+                        <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
+                            <span className="font-bold text-white text-3xl">Tr</span>
+                        </div>
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-2 text-center">Selecione a Igreja</h2>
+                    <p className="text-slate-500 text-center mb-8">Você possui acesso a múltiplas igrejas. Escolha qual deseja acessar agora.</p>
+                    
+                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                        {user.churches.map((uc) => (
+                            <button
+                                key={uc.church_id}
+                                onClick={async () => {
+                                    const success = await switchChurch(uc.church_id);
+                                    if (success) {
+                                        navigate('/dashboard');
+                                    }
+                                }}
+                                disabled={loading}
+                                className={`w-full p-4 rounded-xl border text-left ${user.churchId === uc.church_id ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50/50'} transition-all flex items-center justify-between group disabled:opacity-50`}
+                            >
+                                <div>
+                                    <h3 className="font-semibold text-slate-800">{uc.church.name}</h3>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full capitalize">
+                                            {uc.role === 'admin' ? 'Administrador' : uc.role}
+                                        </span>
+                                        {user.churchId === uc.church_id && (
+                                            <span className="text-xs font-medium px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full">
+                                                Atual
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <ArrowRight size={20} className={`opacity-0 group-hover:opacity-100 transition-opacity ${user.churchId === uc.church_id ? 'text-orange-500' : 'text-gray-400'}`} />
+                            </button>
+                        ))}
+                    </div>
+                    
+                    <button 
+                        onClick={() => {
+                            // Can add logout here if they want to cancel
+                            navigate('/dashboard'); // or allow fallback
+                        }}
+                        className="mt-6 w-full py-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors"
+                    >
+                        Continuar na igreja atual
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50 flex items-center justify-center p-4">
             {/* Background Decorations */}
@@ -103,6 +162,15 @@ const LoginPage: React.FC = () => {
                 <div className="absolute top-40 right-10 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
                 <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
             </div>
+
+            {/* Back Button */}
+            <button
+                onClick={() => navigate('/')}
+                className="absolute top-6 left-6 md:top-10 md:left-10 z-50 flex items-center gap-2 text-slate-600 hover:text-orange-500 transition-colors bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm hover:shadow-md border border-gray-100"
+            >
+                <ArrowLeft size={20} />
+                <span className="font-medium hidden sm:block">Voltar para Home</span>
+            </button>
 
             <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center relative z-10">
                 {/* Left Side - Branding */}

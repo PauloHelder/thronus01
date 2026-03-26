@@ -15,13 +15,16 @@ export interface User {
     roles: string[]; // All roles
     permissions: string[]; // Computed permissions
     churchSettings?: any;
+    churches?: any[]; // Adicionado para multi-tenant
 }
 
 interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     login: (emailOrPhone: string, password: string) => Promise<boolean>;
-    signup: (data: SignupData) => Promise<boolean>;
+    signup: (data: SignupData) => Promise<{ success: boolean; userExists?: boolean }>;
+    linkChurch: (data: SignupData) => Promise<boolean>;
+    switchChurch: (churchId: string) => Promise<boolean>;
     logout: () => void;
     loading: boolean;
     hasPermission: (permission: string) => boolean;
@@ -108,6 +111,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         .eq('id', (userData as any).church_id)
                         .single();
 
+                    const { data: userChurches } = await supabase
+                        .from('user_churches')
+                        .select(`church_id, role, is_active, church:church_id(name, slug)`)
+                        .eq('user_id', session.user.id)
+                        .eq('is_active', true);
+
+                    const activeChurches = userChurches || [];
+
+                    // Se o usuário não tem nenhuma igreja ativa, forçar logout
+                    if (activeChurches.length === 0) {
+                        console.warn('Usuário sem igrejas ativas. Forçando logout.');
+                        await supabase.auth.signOut();
+                        setUser(null);
+                        localStorage.removeItem('thronus_user');
+                        alert('Seu acesso foi desativado em todas as igrejas. Contate o administrador.');
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Se a igreja ativa atual NÃO está na lista de igrejas ativas, trocar automaticamente
+                    const currentChurchId = (userData as any).church_id;
+                    const isCurrentChurchActive = activeChurches.some((uc: any) => uc.church_id === currentChurchId);
+
+                    if (!isCurrentChurchActive) {
+                        // Trocar para a primeira igreja ativa disponível
+                        const fallbackChurch = activeChurches[0] as any;
+                        console.warn('Igreja ativa atual foi desativada. Trocando para:', fallbackChurch.church?.name);
+                        
+                        const { error: switchError } = await supabase.rpc('switch_active_church' as any, { p_church_id: fallbackChurch.church_id } as any);
+                        if (switchError) {
+                            console.error('Erro ao trocar igreja:', switchError);
+                            await supabase.auth.signOut();
+                            setUser(null);
+                            localStorage.removeItem('thronus_user');
+                            alert('Erro ao acessar suas igrejas. Tente fazer login novamente.');
+                            setLoading(false);
+                            return;
+                        }
+
+                        // Re-buscar dados atualizados após troca
+                        await checkSession();
+                        return;
+                    }
+
                     const dbPermissions = (userData as any).permissions || {};
                     // Determine roles: use permissions.roles if available, else single role
                     const primaryRole = (userData as any).role as string;
@@ -151,7 +198,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         role: primaryRole,
                         roles: roles,
                         permissions: Array.from(computedPermissions),
-                        churchSettings: churchSettings
+                        churchSettings: churchSettings,
+                        churches: activeChurches
                     };
 
                     setUser(userInfo);
@@ -195,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const signup = async (data: SignupData): Promise<boolean> => {
+    const signup = async (data: SignupData): Promise<{success: boolean, userExists?: boolean}> => {
         setLoading(true);
 
         try {
@@ -207,14 +255,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (authError) {
                 console.error('Auth signup error:', authError);
+                if (authError.message.toLowerCase().includes('already registered')) {
+                     setLoading(false);
+                     return { success: false, userExists: true };
+                }
                 setLoading(false);
-                return false;
+                return { success: false };
             }
 
             if (!authData.user) {
                 console.error('No user returned from signup');
                 setLoading(false);
-                return false;
+                return { success: false };
             }
 
             // 2. Preparar dados para a RPC
@@ -251,13 +303,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Tenta limpar o usuário do Auth se a criação dos dados falhar
                 await supabase.auth.signOut();
                 setLoading(false);
-                return false;
+                return { success: false };
             }
 
             if (rpcData && !(rpcData as any).success) {
                 console.error('RPC Signup logic error:', (rpcData as any).error);
                 setLoading(false);
-                return false;
+                return { success: false };
             }
 
             // 4. Finalização
@@ -267,9 +319,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             setLoading(false);
-            return true;
+            return { success: true };
         } catch (error) {
             console.error('Signup exception:', error);
+            setLoading(false);
+            return { success: false };
+        }
+    };
+
+    const linkChurch = async (data: SignupData): Promise<boolean> => {
+        setLoading(true);
+        try {
+            const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            const slug = (data.sigla || data.churchName).toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') + '-' + randomSuffix;
+
+            const { data: rpcData, error: rpcError } = await supabase.rpc('link_existing_user', {
+                p_email: data.email,
+                p_church_name: data.churchName,
+                p_church_slug: slug,
+                p_phone: data.phone || '',
+                p_address: data.endereco || '',
+                p_neighborhood: data.bairro || '',
+                p_district: data.municipio || '',
+                p_province: data.provincia || '',
+                p_settings: {
+                    sigla: data.sigla,
+                    denominacao: data.denominacao,
+                    nif: data.nif,
+                    categoria: data.categoria
+                },
+                p_full_name: data.fullName
+            } as any);
+
+            if (rpcError || (rpcData && !(rpcData as any).success)) {
+                console.error('RPC Link error:', rpcError || rpcData);
+                setLoading(false);
+                return false;
+            }
+
+            setLoading(false);
+            return true;
+        } catch (error) {
+            console.error('Link exception:', error);
+            setLoading(false);
+            return false;
+        }
+    };
+
+    const switchChurch = async (churchId: string): Promise<boolean> => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.rpc('switch_active_church', { p_church_id: churchId });
+            if (error || !data?.success) {
+                 console.error("Error switching church", error || data);
+                 setLoading(false);
+                 return false;
+            }
+            await checkSession();
+            return true;
+        } catch (error) {
+            console.error(error);
             setLoading(false);
             return false;
         }
@@ -303,6 +412,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isAuthenticated: !!user,
             login,
             signup,
+            linkChurch,
+            switchChurch,
             logout,
             loading,
             hasPermission,
