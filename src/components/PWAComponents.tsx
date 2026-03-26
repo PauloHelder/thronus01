@@ -195,3 +195,77 @@ export const IOSInstallPrompt: React.FC = () => {
         </div>
     );
 };
+
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { Download, Zap as ZapIcon } from 'lucide-react';
+
+export const PWAInstallSheet: React.FC = () => {
+    const { showInstallBtn, handleInstallClick } = usePWAInstall();
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        if (showInstallBtn) {
+            // Verificar se o usuário já fechou este prompt específico hoje
+            const lastDismissed = localStorage.getItem('thronus_install_sheet_dismissed');
+            const now = new Date().getTime();
+            
+            // Mostrar se nunca fechou ou se fechou há mais de 24 horas
+            if (!lastDismissed || now - parseInt(lastDismissed) > 24 * 60 * 60 * 1000) {
+                const timer = setTimeout(() => setIsVisible(true), 2000);
+                return () => clearTimeout(timer);
+            }
+        } else {
+            setIsVisible(false);
+        }
+    }, [showInstallBtn]);
+
+    const handleDismiss = () => {
+        setIsVisible(false);
+        localStorage.setItem('thronus_install_sheet_dismissed', new Date().getTime().toString());
+    };
+
+    if (!isVisible) return null;
+
+    return (
+        <div className="fixed inset-x-0 bottom-0 z-[60] p-4 md:p-6 lg:p-8 flex justify-center animate-in slide-in-from-bottom duration-500">
+            <div className="bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl p-4 md:p-6 w-full max-w-lg flex items-center gap-4 md:gap-6 relative overflow-hidden">
+                {/* Background Decor */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
+                
+                <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
+                    <ZapIcon size={32} className="text-white fill-white/20" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-bold text-lg md:text-xl mb-1 truncate">Instalar Thronus App</h3>
+                    <p className="text-slate-400 text-sm md:text-base leading-tight">
+                        Acesse mais rápido e use offline. Prático e seguro.
+                    </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                        onClick={handleInstallClick}
+                        className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-sm md:text-base transition-all hover:scale-105 shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2"
+                    >
+                        <Download size={18} />
+                        Instalar
+                    </button>
+                    <button
+                        onClick={handleDismiss}
+                        className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium text-sm transition-colors md:hidden"
+                    >
+                        Agora não
+                    </button>
+                </div>
+
+                <button
+                    onClick={handleDismiss}
+                    className="absolute top-3 right-3 p-1 text-slate-500 hover:text-white transition-colors hidden md:block"
+                >
+                    <X size={20} />
+                </button>
+            </div>
+        </div>
+    );
+};

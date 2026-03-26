@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
           registerType: 'autoUpdate',
+          injectRegister: 'inline',
+          devOptions: {
+            enabled: true,
+            type: 'module'
+          },
           includeAssets: ['icon.svg', 'icon-192.svg', 'icon-512.svg', 'apple-touch-icon.svg'],
           manifest: {
             name: 'Thronus - Gestão de Igrejas',
@@ -28,19 +33,19 @@ export default defineConfig(({ mode }) => {
             categories: ['business', 'productivity'],
             icons: [
               {
-                src: 'icon-192.svg',
+                src: '/icon-192.svg',
                 sizes: '192x192',
                 type: 'image/svg+xml',
                 purpose: 'any'
               },
               {
-                src: 'icon-512.svg',
+                src: '/icon-512.svg',
                 sizes: '512x512',
                 type: 'image/svg+xml',
                 purpose: 'any'
               },
               {
-                src: 'icon-512.svg',
+                src: '/icon-512.svg',
                 sizes: '512x512',
                 type: 'image/svg+xml',
                 purpose: 'maskable'

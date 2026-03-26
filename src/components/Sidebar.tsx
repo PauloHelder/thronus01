@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useAuth } from '../contexts/AuthContext';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 import {
   LayoutDashboard,
   Users,
@@ -21,6 +22,7 @@ import {
   BarChart3,
   ArrowLeft,
   ChevronRight,
+  ChevronDown,
   Gift,
   ListChecks,
   Activity,
@@ -47,43 +49,7 @@ const Sidebar: React.FC = () => {
   const [activeModule, setActiveModule] = useState<string | null>(null);
 
   // PWA Install Logic
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showInstallBtn, setShowInstallBtn] = useState(false);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: any) => {
-      // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
-      // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
-      // Update UI notify the user they can install the PWA
-      setShowInstallBtn(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setShowInstallBtn(false);
-    }
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    // Show the install prompt
-    deferredPrompt.prompt();
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    // Optionally, send analytics event with outcome of user choice
-    console.log(`User response to the install prompt: ${outcome}`);
-    // We've used the prompt, and can't use it again, throw it away
-    setDeferredPrompt(null);
-    setShowInstallBtn(false);
-  };
+  const { showInstallBtn, handleInstallClick } = usePWAInstall();
 
   // Auto-detect module from URL
   useEffect(() => {
@@ -221,6 +187,38 @@ const Sidebar: React.FC = () => {
             <X size={20} />
           </button>
         </div>
+
+        {/* Church Selector (Mobile Friendly) */}
+        {user?.churches && user.churches.length > 1 && (
+          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/30">
+            <div className="relative">
+              <Building size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500" />
+              <select
+                title="Trocar de Igreja"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-8 text-sm font-medium text-white focus:ring-2 focus:ring-orange-500 outline-none appearance-none cursor-pointer transition-all"
+                value={user.churchId}
+                onChange={async (e) => {
+                  const success = await useAuth().switchChurch(e.target.value);
+                  if (success) {
+                    if (window.innerWidth < 1024) closeSidebar();
+                    if (location.pathname === '/dashboard') {
+                      window.location.reload();
+                    } else {
+                      navigate('/dashboard');
+                    }
+                  }
+                }}
+              >
+                {user.churches.map(uc => (
+                  <option key={uc.church_id} value={uc.church_id}>
+                    {uc.church.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">

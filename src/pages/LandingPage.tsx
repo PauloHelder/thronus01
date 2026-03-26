@@ -15,12 +15,14 @@ import {
     MessageCircle // Added
 } from 'lucide-react';
 import { usePlans } from '../hooks/usePlans';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 const LandingPage: React.FC = () => {
     const navigate = useNavigate();
     const { isAuthenticated, loading } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const { plans: fetchedPlans, loading: plansLoading } = usePlans();
+    const { showInstallBtn, handleInstallClick } = usePWAInstall();
 
     const defaultPlans: any[] = [
         {
@@ -176,6 +178,16 @@ const LandingPage: React.FC = () => {
                             <button onClick={() => scrollToSection('features')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Funcionalidades</button>
 
                             <button onClick={() => scrollToSection('pricing')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Planos</button>
+
+                            {showInstallBtn && (
+                                <button
+                                    onClick={handleInstallClick}
+                                    className="block w-full text-left px-4 py-2 text-orange-600 font-bold hover:bg-orange-50 rounded-lg"
+                                >
+                                    Instalar Aplicativo
+                                </button>
+                            )}
+
                             <a href="/#/login" className="block px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Login</a>
                             <a href="/#/signup" className="block px-4 py-2 bg-orange-500 text-white rounded-lg text-center font-medium">Começar Agora</a>
                         </div>
@@ -188,8 +200,19 @@ const LandingPage: React.FC = () => {
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
                         <div className="space-y-8 animate-in fade-in slide-in-from-left duration-700">
-                            <div className="inline-block px-4 py-2 bg-orange-100 text-orange-600 rounded-full text-sm font-medium">
-                                ✨ Plataforma Moderna de Gestão de Igrejas
+                            <div className="flex flex-wrap gap-2">
+                                <div className="inline-block px-4 py-2 bg-orange-100 text-orange-600 rounded-full text-sm font-medium">
+                                    ✨ Plataforma Moderna de Gestão de Igrejas
+                                </div>
+                                {showInstallBtn && (
+                                    <button
+                                        onClick={handleInstallClick}
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full text-sm font-medium hover:bg-slate-700 transition-colors shadow-lg"
+                                    >
+                                        <Zap size={14} className="text-orange-400" />
+                                        Instalar App
+                                    </button>
+                                )}
                             </div>
                             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-800 leading-tight">
                                 Potencialize sua Igreja com o <span className="text-orange-500">Tronus</span>
