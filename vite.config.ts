@@ -51,6 +51,7 @@ export default defineConfig(({ mode }) => {
             // Cache de páginas e navegação (App Shell)
             navigateFallback: 'index.html',
             navigateFallbackDenylist: [/^\/api/],
+            maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // Aumentado para 5MB devido ao tamanho do bundle
 
             runtimeCaching: [
               // Cache de fontes do Google
