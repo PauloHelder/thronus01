@@ -15,7 +15,8 @@ export interface User {
     roles: string[]; // All roles
     permissions: string[]; // Computed permissions
     churchSettings?: any;
-    churches?: any[]; // Adicionado para multi-tenant
+    churches?: any[];
+    originalChurchId?: string; // Church where the user belongs
 }
 
 interface AuthContextType {
@@ -139,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         const fallbackChurch = activeChurches[0] as any;
                         console.warn('Igreja ativa atual foi desativada. Trocando para:', fallbackChurch.church?.name);
                         
-                        const { error: switchError } = await supabase.rpc('switch_active_church' as any, { p_church_id: fallbackChurch.church_id } as any);
+                        const { error: switchError } = await (supabase as any).rpc('switch_active_church', { p_church_id: fallbackChurch.church_id });
                         if (switchError) {
                             console.error('Erro ao trocar igreja:', switchError);
                             await supabase.auth.signOut();
@@ -155,16 +156,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         return;
                     }
 
-                    const dbPermissions = (userData as any).permissions || {};
+                    // Encontrar a igreja "original" (onde o usuário foi criado ou é Admin principal)
+                    // Para fins de supervisão, vamos assumir que a primeira igreja na lista user_churches (provavelmente a sede) é a original se não houver outra marcação.
+                    // Em um sistema real, poderíamos ter uma flag 'is_primary' em user_churches.
+                    // Para este MVP, vamos guardar a igreja atual como original se for a primeira vez.
+                    const storedUser = localStorage.getItem('thronus_user');
+                    const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
+                    const originalChurchId = parsedStoredUser?.originalChurchId || (userData as any).church_id;
+
+                    // Encontrar o vínculo específico desta igreja
+                    const currentChurchLink = activeChurches.find((uc: any) => uc.church_id === currentChurchId) as any;
+                    
+                    const dbPermissions = currentChurchLink?.permissions || (userData as any).permissions || {};
+                    const primaryRole = currentChurchLink?.role || (userData as any).role as string;
+                    
                     // Determine roles: use permissions.roles if available, else single role
-                    const primaryRole = (userData as any).role as string;
                     const roles: string[] = dbPermissions.roles && Array.isArray(dbPermissions.roles) && dbPermissions.roles.length > 0
                         ? dbPermissions.roles
                         : [primaryRole];
 
-                    // Computed permissions based on church settings
-                    const churchSettings = (churchData as any)?.settings || {};
-                    const rolePermissionsMap = churchSettings.role_permissions || {};
+                    if (!churchData) throw new Error('Church data not found');
+                    const currentSettings = (churchData as any).settings || {};
+                    const rolePermissionsMap = currentSettings.role_permissions || {};
 
                     // Default permissions if setting is missing (fallback)
                     const defaultPermissions: Record<string, string[]> = {
@@ -198,8 +211,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         role: primaryRole,
                         roles: roles,
                         permissions: Array.from(computedPermissions),
-                        churchSettings: churchSettings,
-                        churches: activeChurches
+                        churchSettings: currentSettings,
+                        churches: activeChurches,
+                        originalChurchId: originalChurchId
                     };
 
                     setUser(userInfo);
@@ -333,7 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
             const slug = (data.sigla || data.churchName).toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') + '-' + randomSuffix;
 
-            const { data: rpcData, error: rpcError } = await supabase.rpc('link_existing_user', {
+            const { data: rpcData, error: rpcError } = await (supabase.rpc as any)('link_existing_user', {
                 p_email: data.email,
                 p_church_name: data.churchName,
                 p_church_slug: slug,
@@ -349,7 +363,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     categoria: data.categoria
                 },
                 p_full_name: data.fullName
-            } as any);
+            });
 
             if (rpcError || (rpcData && !(rpcData as any).success)) {
                 console.error('RPC Link error:', rpcError || rpcData);
@@ -369,7 +383,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const switchChurch = async (churchId: string): Promise<boolean> => {
         setLoading(true);
         try {
-            const { data, error } = await supabase.rpc('switch_active_church', { p_church_id: churchId });
+            const { data, error } = await (supabase.rpc as any)('switch_active_church', { p_church_id: churchId });
             if (error || !data?.success) {
                  console.error("Error switching church", error || data);
                  setLoading(false);
@@ -392,6 +406,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const hasPermission = (permission: string): boolean => {
         if (!user) return false;
+
+        // Supervisão: Se a igreja atual não é a original, verificar se o recurso está compartilhado
+        if (user.originalChurchId && user.churchId !== user.originalChurchId) {
+            const shared = user.churchSettings?.shared_permissions || {};
+            
+            // Map common permissions to shared keys
+            const permissionMap: Record<string, string> = {
+                'members_view': 'view_members',
+                'services_view': 'view_service_stats',
+                'finances_view': 'view_finances',
+                'discipleship_view': 'view_discipleship',
+                'departments_view': 'view_departments',
+                'teaching_view': 'view_teaching',
+                'events_view': 'view_events'
+            };
+
+            const sharedKey = permissionMap[permission];
+            if (sharedKey && !shared[sharedKey]) {
+                return false; // Bloqueado pelo acordo de compartilhamento
+            }
+        }
+
         if (user.roles.includes('admin') || user.roles.includes('superuser') || user.permissions.includes('all')) return true;
 
         // Simple permission check

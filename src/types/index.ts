@@ -203,6 +203,11 @@ export interface Service {
       men: number;
       women: number;
     };
+    newConverts?: {
+      men: number;
+      women: number;
+      children: number;
+    };
   };
 }
 

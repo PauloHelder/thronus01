@@ -14,7 +14,7 @@ interface MemberModalProps {
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, member }) => {
-    const { user } = useAuth();
+    const { user, hasRole } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState<Omit<Member, 'id' | 'avatar'>>({

@@ -91,7 +91,7 @@ const AppContent: React.FC = () => {
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/network" element={<Network />} />
+            <Route path="/network" element={<MyChurches />} />
             <Route path="/network/:id" element={<BranchDetails />} />
             <Route path="/assets" element={<Assets />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

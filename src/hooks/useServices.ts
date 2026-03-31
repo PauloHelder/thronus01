@@ -33,7 +33,7 @@ export function useServices() {
             if (fetchError) throw fetchError;
 
             // Map database format to app format
-            const mappedServices: Service[] = (data || []).map((dbService: any) => ({
+            const mappedServices: Service[] = ((data as any[]) || []).map((dbService: any) => ({
                 id: dbService.id,
                 churchId: dbService.church_id,
                 serviceTypeId: dbService.service_type_id || '',
@@ -57,6 +57,11 @@ export function useServices() {
                     visitors: {
                         men: dbService.stats_visitors_men || 0,
                         women: dbService.stats_visitors_women || 0
+                    },
+                    newConverts: {
+                        men: dbService.stats_new_converts_men || 0,
+                        women: dbService.stats_new_converts_women || 0,
+                        children: dbService.stats_new_converts_children || 0
                     }
                 }
             }));
@@ -93,7 +98,10 @@ export function useServices() {
                 stats_children_boys: service.statistics?.children.boys || 0,
                 stats_children_girls: service.statistics?.children.girls || 0,
                 stats_visitors_men: service.statistics?.visitors.men || 0,
-                stats_visitors_women: service.statistics?.visitors.women || 0
+                stats_visitors_women: service.statistics?.visitors.women || 0,
+                stats_new_converts_men: service.statistics?.newConverts?.men || 0,
+                stats_new_converts_women: service.statistics?.newConverts?.women || 0,
+                stats_new_converts_children: service.statistics?.newConverts?.children || 0
             };
 
             // First, insert without select
@@ -122,12 +130,12 @@ export function useServices() {
                 throw fetchError;
             }
 
-            if (!fetchedData || fetchedData.length === 0) {
+            if (!fetchedData || (fetchedData as any[]).length === 0) {
                 console.error('No data returned after insert');
                 throw new Error('Failed to fetch created service.');
             }
 
-            const insertedData = fetchedData[0];
+            const insertedData = (fetchedData as any[])[0];
 
             const newService: Service = {
                 id: insertedData.id,
@@ -153,11 +161,16 @@ export function useServices() {
                     visitors: {
                         men: insertedData.stats_visitors_men || 0,
                         women: insertedData.stats_visitors_women || 0
+                    },
+                    newConverts: {
+                        men: insertedData.stats_new_converts_men || 0,
+                        women: insertedData.stats_new_converts_women || 0,
+                        children: insertedData.stats_new_converts_children || 0
                     }
                 }
             };
 
-            setServices(prev => [newService, ...prev]);
+            setServices((prev: Service[]) => [newService, ...prev]);
             return newService;
         } catch (err) {
             console.error('Error creating service:', err);
@@ -186,6 +199,9 @@ export function useServices() {
                 dbService.stats_children_girls = service.statistics.children.girls || 0;
                 dbService.stats_visitors_men = service.statistics.visitors.men || 0;
                 dbService.stats_visitors_women = service.statistics.visitors.women || 0;
+                dbService.stats_new_converts_men = service.statistics.newConverts?.men || 0;
+                dbService.stats_new_converts_women = service.statistics.newConverts?.women || 0;
+                dbService.stats_new_converts_children = service.statistics.newConverts?.children || 0;
             }
 
             // First, update without select
@@ -214,12 +230,12 @@ export function useServices() {
                 throw fetchError;
             }
 
-            if (!fetchedData || fetchedData.length === 0) {
+            if (!fetchedData || (fetchedData as any[]).length === 0) {
                 console.error('No data found for ID:', id);
                 throw new Error('Failed to fetch updated service.');
             }
 
-            const updatedData = fetchedData[0];
+            const updatedData = (fetchedData as any[])[0];
 
             const updatedService: Service = {
                 id: updatedData.id,
@@ -245,11 +261,16 @@ export function useServices() {
                     visitors: {
                         men: updatedData.stats_visitors_men || 0,
                         women: updatedData.stats_visitors_women || 0
+                    },
+                    newConverts: {
+                        men: updatedData.stats_new_converts_men || 0,
+                        women: updatedData.stats_new_converts_women || 0,
+                        children: updatedData.stats_new_converts_children || 0
                     }
                 }
             };
 
-            setServices(prev => prev.map(s => s.id === id ? updatedService : s));
+            setServices((prev: Service[]) => prev.map(s => s.id === id ? updatedService : s));
             return updatedService;
         } catch (err) {
             console.error('Error updating service:', err);
@@ -267,7 +288,7 @@ export function useServices() {
 
             if (deleteError) throw deleteError;
 
-            setServices(prev => prev.filter(s => s.id !== id));
+            setServices((prev: Service[]) => prev.filter(s => s.id !== id));
         } catch (err) {
             console.error('Error deleting service:', err);
             throw err;
@@ -289,30 +310,37 @@ export function useServices() {
 
             if (fetchError) throw fetchError;
 
+            const serviceData = data as any;
+
             return {
-                id: data.id,
-                churchId: data.church_id,
-                serviceTypeId: data.service_type_id || '',
-                typeName: data.service_type?.name || 'Culto',
-                status: data.status,
-                date: data.date,
-                startTime: data.start_time,
-                preacher: data.preacher_name || '',
-                leader: data.leader_name || '',
-                location: data.location || '',
-                description: data.description || '',
+                id: serviceData.id,
+                churchId: serviceData.church_id,
+                serviceTypeId: serviceData.service_type_id || '',
+                typeName: serviceData.service_type?.name || 'Culto',
+                status: serviceData.status,
+                date: serviceData.date,
+                startTime: serviceData.start_time,
+                preacher: serviceData.preacher_name || '',
+                leader: serviceData.leader_name || '',
+                location: serviceData.location || '',
+                description: serviceData.description || '',
                 statistics: {
                     adults: {
-                        men: data.stats_adults_men || 0,
-                        women: data.stats_adults_women || 0
+                        men: serviceData.stats_adults_men || 0,
+                        women: serviceData.stats_adults_women || 0
                     },
                     children: {
-                        boys: data.stats_children_boys || 0,
-                        girls: data.stats_children_girls || 0
+                        boys: serviceData.stats_children_boys || 0,
+                        girls: serviceData.stats_children_girls || 0
                     },
                     visitors: {
-                        men: data.stats_visitors_men || 0,
-                        women: data.stats_visitors_women || 0
+                        men: serviceData.stats_visitors_men || 0,
+                        women: serviceData.stats_visitors_women || 0
+                    },
+                    newConverts: {
+                        men: serviceData.stats_new_converts_men || 0,
+                        women: serviceData.stats_new_converts_women || 0,
+                        children: serviceData.stats_new_converts_children || 0
                     }
                 }
             };
@@ -333,14 +361,17 @@ export function useServices() {
                     stats_children_boys: statistics?.children.boys || 0,
                     stats_children_girls: statistics?.children.girls || 0,
                     stats_visitors_men: statistics?.visitors.men || 0,
-                    stats_visitors_women: statistics?.visitors.women || 0
-                } as any)
+                    stats_visitors_women: statistics?.visitors.women || 0,
+                    stats_new_converts_men: statistics?.newConverts?.men || 0,
+                    stats_new_converts_women: statistics?.newConverts?.women || 0,
+                    stats_new_converts_children: statistics?.newConverts?.children || 0
+                } as Record<string, any>)
                 .eq('id', id);
 
             if (updateError) throw updateError;
 
             // Update local state
-            setServices(prev => prev.map(s =>
+            setServices((prev: Service[]) => prev.map(s =>
                 s.id === id ? { ...s, statistics } : s
             ));
         } catch (err) {

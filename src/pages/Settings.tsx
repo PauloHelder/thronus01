@@ -34,11 +34,13 @@ const ACTIONS = [
 ];
 
 const Settings: React.FC = () => {
-    const { user } = useAuth();
+    const { user, hasPermission, hasRole } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Check permission - Only admins can access settings
-    if (user?.role !== 'admin' && user?.role !== 'superuser') {
+    // Check permission - Only admins or users with explicit settings_view permission can access settings
+    const canAccessSettings = hasRole('admin') || hasRole('superuser') || hasPermission('settings_view') || hasPermission('all');
+
+    if (!canAccessSettings) {
         return (
             <div className="p-8 text-center min-h-screen flex flex-col items-center justify-center">
                 <ShieldCheck size={48} className="mx-auto text-gray-300 mb-4" />
@@ -109,7 +111,8 @@ const Settings: React.FC = () => {
         view_discipleship: false,
         view_departments: false,
         view_teaching: false,
-        view_events: false
+        view_events: false,
+        view_finances: false
     });
 
     // Branding Settings
@@ -354,7 +357,8 @@ const Settings: React.FC = () => {
         view_discipleship: 'Ver Discipulados',
         view_departments: 'Ver Departamentos',
         view_teaching: 'Ver Ensino',
-        view_events: 'Ver Eventos'
+        view_events: 'Ver Eventos',
+        view_finances: 'Ver Finanças'
     };
 
     return (

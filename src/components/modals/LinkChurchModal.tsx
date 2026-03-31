@@ -32,6 +32,7 @@ const LinkChurchModal: React.FC<LinkChurchModalProps> = ({ isOpen, onClose }) =>
         view_departments: true,
         view_teaching: true,
         view_events: true,
+        view_finances: false, // Default to false for privacy
     });
     const [selectedCategory, setSelectedCategory] = useState('');
 
@@ -162,7 +163,8 @@ const LinkChurchModal: React.FC<LinkChurchModalProps> = ({ isOpen, onClose }) =>
         view_discipleship: 'Ver Discipulados',
         view_departments: 'Ver Departamentos',
         view_teaching: 'Ver Ensino',
-        view_events: 'Ver Eventos'
+        view_events: 'Ver Eventos',
+        view_finances: 'Ver Finanças'
     };
 
     return (

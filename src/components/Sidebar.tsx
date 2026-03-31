@@ -43,7 +43,7 @@ interface NavBaseItem {
 
 const Sidebar: React.FC = () => {
   const { isOpen, closeSidebar } = useSidebar();
-  const { user, hasPermission, hasRole } = useAuth();
+  const { user, hasPermission, hasRole, switchChurch } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeModule, setActiveModule] = useState<string | null>(null);
@@ -59,7 +59,7 @@ const Sidebar: React.FC = () => {
     else if (location.pathname.startsWith('/teaching')) setActiveModule('teaching');
     else if (location.pathname.startsWith('/finance')) setActiveModule('finance');
     else if (location.pathname.startsWith('/groups')) setActiveModule('groups');
-    else if (location.pathname.startsWith('/network')) setActiveModule('network');
+    else if (location.pathname.startsWith('/network')) setActiveModule('network_supervision');
     else if (location.pathname.startsWith('/assets')) setActiveModule('assets');
   }, [location.pathname]);
 
@@ -134,7 +134,7 @@ const Sidebar: React.FC = () => {
         { to: "/members", icon: Users, label: "Membros", module: 'members', permission: 'members_view' },
         { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view' },
         { to: "/groups", icon: Users2, label: "Grupos", permission: 'groups_view' },
-        { to: "/network", icon: Network, label: "Minhas Igrejas", permission: 'branches_view' },
+        { to: "/network", icon: Activity, label: "Rede de Igrejas", permission: 'branches_view' },
         { to: "/finance", icon: Wallet, label: "Finanças", module: 'finance', permission: 'finances_view' },
         { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado", module: 'discipleship', permission: 'discipleship_view' },
         { to: "/departments", icon: Network, label: "Departamentos", module: 'departments', permission: 'departments_view' },
@@ -198,7 +198,7 @@ const Sidebar: React.FC = () => {
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-8 text-sm font-medium text-white focus:ring-2 focus:ring-orange-500 outline-none appearance-none cursor-pointer transition-all"
                 value={user.churchId}
                 onChange={async (e) => {
-                  const success = await useAuth().switchChurch(e.target.value);
+                  const success = await switchChurch(e.target.value);
                   if (success) {
                     if (window.innerWidth < 1024) closeSidebar();
                     if (location.pathname === '/dashboard') {

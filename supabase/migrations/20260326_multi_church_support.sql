@@ -32,19 +32,33 @@ AS $$
 DECLARE
     v_user_church RECORD;
 BEGIN
-    -- Obter vínculo usando token/session atual
+    -- 1. Tentar obter vínculo direto na user_churches
     SELECT * INTO v_user_church
     FROM public.user_churches
     WHERE user_id = auth.uid() AND church_id = p_church_id;
 
+    -- 2. Se não houver vínculo direto, verificar se o usuário é ADMIN na igreja mãe desta igreja
     IF NOT FOUND THEN
+        -- Verificar se a igreja alvo (p_church_id) tem como parent_id a igreja atual do usuário (onde ele é admin)
+        -- Ou se a igreja alvo tem como parent_id alguma igreja onde o usuário é admin
+        SELECT uc.church_id, uc.member_id, 'supervisor' as role, '{}'::jsonb as permissions 
+        INTO v_user_church
+        FROM public.user_churches uc
+        JOIN public.churches child ON child.parent_id = uc.church_id
+        WHERE uc.user_id = auth.uid() 
+          AND uc.role = 'admin' 
+          AND child.id = p_church_id
+        LIMIT 1;
+    END IF;
+
+    IF v_user_church IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Você não tem acesso a esta igreja.');
     END IF;
 
     -- Atualiza contexto da sessão ativa
     UPDATE public.users
     SET 
-        church_id = v_user_church.church_id,
+        church_id = p_church_id,
         member_id = v_user_church.member_id,
         role = v_user_church.role,
         permissions = v_user_church.permissions,
@@ -422,21 +436,34 @@ AS $$
 DECLARE
     v_user_church RECORD;
 BEGIN
+    -- 1. Tentar obter vínculo direto na user_churches
     SELECT * INTO v_user_church
     FROM public.user_churches
     WHERE user_id = auth.uid() AND church_id = p_church_id;
 
+    -- 2. Se não houver vínculo direto, verificar se o usuário é ADMIN na igreja mãe desta igreja
     IF NOT FOUND THEN
+        SELECT uc.church_id, uc.member_id, 'supervisor' as role, '{}'::jsonb as permissions 
+        INTO v_user_church
+        FROM public.user_churches uc
+        JOIN public.churches child ON child.parent_id = uc.church_id
+        WHERE uc.user_id = auth.uid() 
+          AND uc.role = 'admin' 
+          AND child.id = p_church_id
+        LIMIT 1;
+    END IF;
+
+    IF v_user_church IS NULL THEN
         RETURN jsonb_build_object('success', false, 'error', 'Você não tem acesso a esta igreja.');
     END IF;
 
-    IF v_user_church.is_active = false THEN
+    IF v_user_church.role <> 'supervisor' AND v_user_church.is_active = false THEN
         RETURN jsonb_build_object('success', false, 'error', 'Seu acesso a esta igreja foi desativado. Contate o administrador.');
     END IF;
 
     UPDATE public.users
     SET 
-        church_id = v_user_church.church_id,
+        church_id = p_church_id,
         member_id = v_user_church.member_id,
         role = v_user_church.role,
         permissions = v_user_church.permissions,

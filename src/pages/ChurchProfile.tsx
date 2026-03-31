@@ -9,7 +9,7 @@ import { ANGOLA_PROVINCES, ANGOLA_MUNICIPALITIES } from '../data/angolaLocations
 
 const ChurchProfile: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const { user } = useAuth();
+    const { user, hasRole } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
 
     const isReadOnly = !!id;
@@ -22,8 +22,13 @@ const ChurchProfile: React.FC = () => {
         view_discipleship: false,
         view_departments: false,
         view_teaching: false,
-        view_events: false
+        view_events: false,
+        view_finances: false
     });
+    const [childServices, setChildServices] = useState<any[]>([]);
+    const [childFinances, setChildFinances] = useState<any>(null);
+    const [isChildChurch, setIsChildChurch] = useState(false);
+    const [loadingChildData, setLoadingChildData] = useState(false);
 
     const [formData, setFormData] = useState({
         churchName: 'Demo Church',
@@ -109,23 +114,52 @@ const ChurchProfile: React.FC = () => {
                         }
                     }
 
-                    if (settings.provincia) {
-                        setChurchProvince(settings.provincia);
+                    if (church.provincia) {
+                        setChurchProvince(church.provincia);
+                    }
+
+                    // Check if current user is the parent of this church
+                    if (id && user && church.parent_id === user.churchId) {
+                        setIsChildChurch(true);
+                        
+                        // Fetch child data if shared
+                        if (settings.shared_permissions?.view_service_stats) {
+                            fetchChildServices(id);
+                        }
+                        if (settings.shared_permissions?.view_finances) {
+                            fetchChildFinances(id);
+                        }
                     }
                 }
             } catch (error) {
                 console.error('Error fetching church data:', error);
+            }
+        };
 
-                // If checking own profile, fallback to context
-                if (!id && user) {
-                    setFormData(prev => ({
-                        ...prev,
-                        churchName: user.churchName,
-                        email: user.email,
-                        telefone: user.phone || prev.telefone,
-                        nomePastor: user.fullName
-                    }));
+        const fetchChildServices = async (childId: string) => {
+            try {
+                setLoadingChildData(true);
+                const { data, error } = await (supabase.rpc as any)('get_child_church_services', { p_church_id: childId });
+                if (error) throw error;
+                if (data && data.success) {
+                    setChildServices(data.data || []);
                 }
+            } catch (err) {
+                console.error('Error fetching child services:', err);
+            } finally {
+                setLoadingChildData(false);
+            }
+        };
+
+        const fetchChildFinances = async (childId: string) => {
+            try {
+                const { data, error } = await (supabase.rpc as any)('get_child_church_finances', { p_church_id: childId });
+                if (error) throw error;
+                if (data && data.success) {
+                    setChildFinances(data.data);
+                }
+            } catch (err) {
+                console.error('Error fetching child finances:', err);
             }
         };
 
@@ -148,7 +182,8 @@ const ChurchProfile: React.FC = () => {
                 .eq('id', user.churchId)
                 .single();
 
-            const currentSettings = currentData?.settings || {};
+            if (!currentData) throw new Error('Church data not found');
+            const currentSettings = currentData.settings || {};
 
             const updatedSettings = {
                 ...currentSettings,
@@ -166,11 +201,12 @@ const ChurchProfile: React.FC = () => {
                 telefone: formData.telefone,
                 nomePastor: formData.nomePastor,
                 memberCount: formData.memberCount,
-                description: formData.description
+                description: formData.description,
+                shared_permissions: sharedPermissions
             };
 
-            const { error } = await supabase
-                .from('churches')
+            const { error } = await (supabase
+                .from('churches') as any)
                 .update({
                     name: formData.churchName,
                     settings: updatedSettings
@@ -200,7 +236,7 @@ const ChurchProfile: React.FC = () => {
                     <h1 className="text-3xl font-bold text-slate-800 mb-2">Perfil da Igreja</h1>
                     <p className="text-slate-600">Gerencie as informações da sua igreja</p>
                 </div>
-                {!isEditing && !isReadOnly && user?.role === 'admin' ? (
+                {!isEditing && !isReadOnly && hasRole('admin') ? (
                     <button
                         onClick={() => setIsEditing(true)}
                         className="mt-4 md:mt-0 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
@@ -574,15 +610,29 @@ const ChurchProfile: React.FC = () => {
                                             { key: 'view_discipleship', label: 'Ver Discipulados' },
                                             { key: 'view_departments', label: 'Ver Departamentos' },
                                             { key: 'view_teaching', label: 'Ver Ensino' },
-                                            { key: 'view_events', label: 'Ver Eventos' }
-                                        ].map(({ key, label }) => (
+                                            { key: 'view_events', label: 'Ver Eventos' },
+                                            { key: 'view_finances', label: 'Ver Finanças' }
+                                        ]
+                                        .filter(({ key }) => sharedPermissions[key] || !isReadOnly)
+                                        .map(({ key, label }) => (
                                             <div key={key} className="flex items-center gap-2 text-sm">
                                                 <div className={`w-4 h-4 rounded-full flex items-center justify-center ${sharedPermissions[key] ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
                                                     {sharedPermissions[key] ? <Check size={10} /> : <X size={10} />}
                                                 </div>
                                                 <span className={sharedPermissions[key] ? 'text-slate-700' : 'text-slate-400'}>{label}</span>
+                                                {!isReadOnly && isEditing && (
+                                                    <button 
+                                                        onClick={() => setSharedPermissions(prev => ({ ...prev, [key]: !prev[key] }))}
+                                                        className="ml-auto text-[10px] text-blue-600 hover:underline"
+                                                    >
+                                                        {sharedPermissions[key] ? 'Bloquear' : 'Compartilhar'}
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
+                                        {Object.values(sharedPermissions).every(v => !v) && isReadOnly && (
+                                            <p className="text-xs text-slate-500 italic">Nenhum dado compartilhado com a sede.</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -698,6 +748,102 @@ const ChurchProfile: React.FC = () => {
                         <p className="text-xs text-slate-500 text-center mt-3">
                             Desbloqueie mais recursos com os planos Profissional ou Premium
                         </p>
+                        {/* Child Church Supervision Data */}
+                        {isChildChurch && (
+                            <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                {sharedPermissions.view_service_stats && (
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="text-blue-600" size={20} />
+                                                <h3 className="font-bold text-slate-800">Últimos Cultos da Congregação</h3>
+                                            </div>
+                                            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Sincronizado</span>
+                                        </div>
+                                        <div className="p-6">
+                                            {loadingChildData ? (
+                                                <div className="flex justify-center py-8">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                                </div>
+                                            ) : childServices.length > 0 ? (
+                                                <div className="space-y-4">
+                                                    {childServices.slice(0, 5).map((service) => (
+                                                        <div key={service.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-lg bg-blue-50 flex flex-col items-center justify-center text-blue-600">
+                                                                    <span className="text-[10px] font-bold uppercase leading-none">{new Date(service.date).toLocaleDateString('pt', { month: 'short' })}</span>
+                                                                    <span className="text-base font-black leading-none">{new Date(service.date).getDate()}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-semibold text-slate-900">{service.preacher_name || 'Culto Geral'}</p>
+                                                                    <p className="text-xs text-slate-500">{service.start_time} • {service.location || 'Templo Principal'}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-sm font-bold text-slate-700">{service.stats_adults_men + service.stats_adults_women + service.stats_children_boys + service.stats_children_girls}</p>
+                                                                <p className="text-[10px] text-slate-400 font-medium">PRESENTES</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-center py-8 text-slate-500 text-sm">Nenhum culto registrado recentemente.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {sharedPermissions.view_finances && childFinances && (
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="px-6 py-4 border-b border-slate-100 bg-emerald-50 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Building className="text-emerald-600" size={20} />
+                                                <h3 className="font-bold text-slate-800">Resumo Financeiro</h3>
+                                            </div>
+                                            <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Supervisão Ativa</span>
+                                        </div>
+                                        <div className="p-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                                                    <p className="text-xs text-slate-500 mb-1 font-medium">Entradas Totais</p>
+                                                    <p className="text-xl font-black text-emerald-600">Kz {childFinances.total_income?.toLocaleString()}</p>
+                                                </div>
+                                                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                                                    <p className="text-xs text-slate-500 mb-1 font-medium">Saídas Totais</p>
+                                                    <p className="text-xl font-black text-rose-500">Kz {childFinances.total_expense?.toLocaleString()}</p>
+                                                </div>
+                                                <div className="p-4 rounded-xl bg-emerald-600 text-white">
+                                                    <p className="text-xs text-emerald-100 mb-1 font-medium">Saldo Atual</p>
+                                                    <p className="text-xl font-black">Kz {childFinances.balance?.toLocaleString()}</p>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <h4 className="text-sm font-bold text-slate-800 mb-4">Transações Recentes</h4>
+                                                <div className="space-y-3">
+                                                    {childFinances.recent_transactions?.map((t: any, i: number) => (
+                                                        <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${t.type === 'Income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                                                    {t.type === 'Income' ? <Check size={14} /> : <X size={14} />}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-medium text-slate-800">{t.description || 'Sem descrição'}</p>
+                                                                    <p className="text-[10px] text-slate-400">{new Date(t.date).toLocaleDateString('pt')}</p>
+                                                                </div>
+                                                            </div>
+                                                            <p className={`text-sm font-bold ${t.type === 'Income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                                {t.type === 'Income' ? '+' : '-'} {t.amount?.toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

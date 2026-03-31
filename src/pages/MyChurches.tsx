@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Building, Eye, TrendingUp, Users, MapPin, Filter, BarChart3 } from 'lucide-react';
+import { Search, Building, Eye, TrendingUp, Users, MapPin, Filter, BarChart3, Wallet, GraduationCap, Network, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_CHURCHES } from '../mocks/churches';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -21,31 +21,54 @@ const MyChurches: React.FC = () => {
     const [churches, setChurches] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    const [networkFinances, setNetworkFinances] = useState({ income: 0, expense: 0, balance: 0 });
+
     React.useEffect(() => {
         const fetchLinkedChurches = async () => {
             if (!user?.churchId) return;
 
             try {
-                const { data, error } = await supabase
-                    .from('churches')
-                    .select('*')
-                    .eq('parent_id', user.churchId);
+                const { data: result, error } = await (supabase.rpc as any)('get_supervised_churches_with_stats');
 
                 if (error) throw error;
 
-                if (data) {
-                    const mappedChurches = data.map((church: any) => ({
+                if (result?.success && result.data) {
+                    const mappedChurches = result.data.map((church: any) => ({
                         id: church.id,
                         name: church.name,
                         email: church.settings?.email || 'N/A',
                         denomination: church.settings?.denominacao || 'N/A',
                         pastorName: church.settings?.nomePastor || 'N/A',
                         address: church.settings?.endereco || 'N/A',
-                        memberCount: church.settings?.memberCount || 0,
-                        status: 'Active', // Default status for now
-                        joinedAt: church.created_at
+                        memberCount: church.real_member_count || 0,
+                        serviceCount: church.real_service_count || 0,
+                        groupCount: church.real_group_count || 0,
+                        status: 'Active',
+                        joinedAt: church.created_at,
+                        settings: church.settings
                     }));
                     setChurches(mappedChurches);
+
+                    // Fetch aggregate finances for churches that share it
+                    const churchesWithFinances = mappedChurches.filter(c => c.settings?.shared_permissions?.view_finances);
+                    if (churchesWithFinances.length > 0) {
+                        let totalIn = 0;
+                        let totalOut = 0;
+                        
+                        await Promise.all(churchesWithFinances.map(async (c) => {
+                            const { data: finData } = await (supabase.rpc as any)('get_child_church_finances', { p_church_id: c.id });
+                            if (finData?.success) {
+                                totalIn += finData.data.total_income || 0;
+                                totalOut += finData.data.total_expense || 0;
+                            }
+                        }));
+                        
+                        setNetworkFinances({
+                            income: totalIn,
+                            expense: totalOut,
+                            balance: totalIn - totalOut
+                        });
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching linked churches:', error);
@@ -82,8 +105,8 @@ const MyChurches: React.FC = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800">Minhas Igrejas</h1>
-                    <p className="text-slate-600 mt-1">Igrejas vinculadas à sua supervisão</p>
+                    <h1 className="text-3xl font-bold text-slate-800">Rede de Igrejas</h1>
+                    <p className="text-slate-600 mt-1">Supervisão e estatísticas das igrejas vinculadas</p>
                 </div>
                 <button
                     onClick={() => setShowLinkModal(true)}
@@ -140,13 +163,13 @@ const MyChurches: React.FC = () => {
                 <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl border border-orange-200">
                     <div className="flex items-center justify-between mb-2">
                         <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
-                            <Building className="text-white" size={24} />
+                            <TrendingUp className="text-white" size={24} />
                         </div>
-                        <TrendingUp className="text-orange-600" size={20} />
+                        <BarChart3 className="text-orange-600" size={20} />
                     </div>
-                    <p className="text-orange-600 text-sm font-medium">Taxa de Crescimento</p>
-                    <p className="text-3xl font-bold text-orange-900 mt-1">+8%</p>
-                    <p className="text-xs text-orange-700 mt-2">Últimos 30 dias</p>
+                    <p className="text-orange-600 text-sm font-medium">Saldo da Rede</p>
+                    <p className="text-3xl font-bold text-orange-900 mt-1">Kz {networkFinances.balance.toLocaleString()}</p>
+                    <p className="text-xs text-orange-700 mt-2">Igrejas que compartilham</p>
                 </div>
             </div>
 
@@ -203,6 +226,7 @@ const MyChurches: React.FC = () => {
                                 <th className="px-6 py-4">Denominação</th>
                                 <th className="px-6 py-4">Pastor Responsável</th>
                                 <th className="px-6 py-4 text-center">Membros</th>
+                                <th className="px-6 py-4">Acesso Liberado</th>
                                 <th className="px-6 py-4">Localização</th>
                                 <th className="px-6 py-4 text-center">Status</th>
                                 <th className="px-6 py-4 text-center">Ações</th>
@@ -210,7 +234,11 @@ const MyChurches: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {filteredChurches.map((church) => (
-                                <tr key={church.id} className="hover:bg-gray-50 transition-colors">
+                                <tr 
+                                    key={church.id} 
+                                    onClick={() => navigate(`/network/${church.id}`)}
+                                    className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                                >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
@@ -228,6 +256,36 @@ const MyChurches: React.FC = () => {
                                         <span className="font-bold text-slate-800">{church.memberCount}</span>
                                     </td>
                                     <td className="px-6 py-4">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {church.settings?.shared_permissions?.view_members && (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold border border-blue-100">
+                                                    <Users size={10} /> MEMBROS
+                                                </span>
+                                            )}
+                                            {church.settings?.shared_permissions?.view_service_stats && (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full text-[10px] font-bold border border-orange-100">
+                                                    <Calendar size={10} /> CULTOS
+                                                </span>
+                                            )}
+                                            {church.settings?.shared_permissions?.view_finances && (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-600 rounded-full text-[10px] font-bold border border-green-100">
+                                                    <Wallet size={10} /> FINANÇAS
+                                                </span>
+                                            )}
+                                            {church.settings?.shared_permissions?.view_teaching && (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full text-[10px] font-bold border border-purple-100">
+                                                    <GraduationCap size={10} /> ENSINO
+                                                </span>
+                                            )}
+                                            {church.settings?.shared_permissions?.view_departments && (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-cyan-50 text-cyan-600 rounded-full text-[10px] font-bold border border-cyan-100">
+                                                    <Network size={10} /> DEPTS
+                                                </span>
+                                            )}
+                                            {!church.settings?.shared_permissions && <span className="text-[10px] text-slate-400 italic">Padrão</span>}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
                                         <div className="flex items-center gap-1 text-sm text-slate-600">
                                             <MapPin size={14} />
                                             <span>{church.address}</span>
@@ -243,9 +301,9 @@ const MyChurches: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <button
-                                            onClick={() => navigate(`/churches/${church.id}`)}
+                                            onClick={() => navigate(`/network/${church.id}`)}
                                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                            title="Ver Perfil"
+                                            title="Ver Painel de Supervisão"
                                         >
                                             <Eye size={20} />
                                         </button>

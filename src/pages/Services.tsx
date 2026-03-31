@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, Clock, User, MapPin, Pencil, Trash2, Filter, Eye } from 'lucide-react';
+import { Plus, Calendar, Clock, User, MapPin, Pencil, Trash2, Filter, Eye, Heart } from 'lucide-react';
 import { Service } from '../types';
 import ServiceModal from '../components/modals/ServiceModal';
 import { useServices } from '../hooks/useServices';
@@ -87,6 +87,12 @@ const Services: React.FC = () => {
         return acc;
     }, 0);
 
+    const totalNewConverts = filteredServices.reduce((acc, s) => {
+        return acc + (s.statistics?.newConverts?.men || 0) + 
+                     (s.statistics?.newConverts?.women || 0) + 
+                     (s.statistics?.newConverts?.children || 0);
+    }, 0);
+
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr + 'T00:00:00');
         return date.toLocaleDateString('pt-BR');
@@ -170,6 +176,16 @@ const Services: React.FC = () => {
                                         <p className="text-[10px] md:text-xs text-purple-600 mt-1">Sem visitantes</p>
                                     </div>
                                     <User className="text-purple-500 w-6 h-6 md:w-8 md:h-8" />
+                                </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-rose-50 to-rose-100 p-4 md:p-6 rounded-lg border border-rose-200">
+                                <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-2">
+                                    <div>
+                                        <p className="text-rose-600 text-xs md:text-sm font-medium">Conversões</p>
+                                        <p className="text-xl md:text-2xl font-bold text-rose-700">{totalNewConverts}</p>
+                                        <p className="text-[10px] md:text-xs text-rose-600 mt-1">Novas vidas</p>
+                                    </div>
+                                    <Heart className="text-rose-500 w-6 h-6 md:w-8 md:h-8" />
                                 </div>
                             </div>
                         </div>
@@ -278,6 +294,17 @@ const Services: React.FC = () => {
                                         <p className="text-xs text-slate-500">Visitantes</p>
                                         <p className="font-bold text-blue-600">{getServiceVisitors(service)}</p>
                                     </div>
+                                    <div className="text-center">
+                                        <p className="text-xs text-slate-500">Conversões</p>
+                                        <div className="flex items-center justify-center gap-1">
+                                            <Heart size={12} className="text-rose-500 fill-rose-500" />
+                                            <p className="font-bold text-rose-600">
+                                                {(service.statistics?.newConverts?.men || 0) + 
+                                                 (service.statistics?.newConverts?.women || 0) + 
+                                                 (service.statistics?.newConverts?.children || 0)}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="flex gap-1">
                                     {hasPermission('services_edit') && (
@@ -315,6 +342,7 @@ const Services: React.FC = () => {
                                     <th className="px-6 py-4">Local</th>
                                     <th className="px-6 py-4 text-center">Presença</th>
                                     <th className="px-6 py-4 text-center">Visitantes</th>
+                                    <th className="px-6 py-4 text-center">Conversões</th>
                                     <th className="px-6 py-4 text-center">Status</th>
                                     <th className="px-6 py-4 text-center">Ações</th>
                                 </tr>
@@ -360,6 +388,16 @@ const Services: React.FC = () => {
                                             <span className="font-medium text-blue-600">
                                                 {getServiceVisitors(service)}
                                             </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                <Heart size={14} className="text-rose-500 fill-rose-500" />
+                                                <span className="font-bold text-rose-600">
+                                                    {(service.statistics?.newConverts?.men || 0) + 
+                                                     (service.statistics?.newConverts?.women || 0) + 
+                                                     (service.statistics?.newConverts?.children || 0)}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
