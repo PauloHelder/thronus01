@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Building, Users, CreditCard, Activity, Search, Trash2, Edit, Shield, Plus, Book, Save, X, Clock, CheckCircle, XCircle, AlertTriangle, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Building, Users, CreditCard, Activity, Search, Trash2, Edit, Shield, Plus, Book, Save, X, Clock, CheckCircle, XCircle, AlertTriangle, ChevronRight, TrendingUp, TrendingDown, MessageSquare } from 'lucide-react';
 import EditChurchModal from '../../components/modals/EditChurchModal';
 import PlanModal from '../../components/modals/PlanModal';
 import AdminSmsPackages from '../../components/admin/AdminSmsPackages';
@@ -106,7 +106,7 @@ const AdminDashboard: React.FC = () => {
 
                 let planPrice = 0;
                 if (sub) {
-                    const planInfo = plansData?.find((p: any) => p.id === sub.plan_id) || sub.plans;
+                    const planInfo = (plansData?.find((p: any) => p.id === sub.plan_id) || (sub as any).plans) as any;
                     planPrice = Number(planInfo?.price || planInfo?.total_amount || 0);
 
                     const planName = planInfo?.name;
@@ -520,6 +520,10 @@ const AdminDashboard: React.FC = () => {
                                         <div className="flex items-center gap-2 text-sm text-slate-600">
                                             <Building size={16} className="text-slate-400" />
                                             <span>{plan.features?.maxGroups || 0} Células</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm text-orange-600 font-bold">
+                                            <MessageSquare size={16} className="text-orange-400" />
+                                            <span>{plan.features?.smsBonus || 0} SMS Bónus</span>
                                         </div>
                                         <div className="pt-4 flex items-center gap-2">
                                             <button

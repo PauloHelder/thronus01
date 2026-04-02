@@ -157,6 +157,7 @@ const LandingPage: React.FC = () => {
                             <button onClick={() => scrollToSection('features')} className="text-slate-600 hover:text-orange-500 transition-colors">Funcionalidades</button>
 
                             <button onClick={() => scrollToSection('pricing')} className="text-slate-600 hover:text-orange-500 transition-colors">Planos</button>
+                            <a href="/#/guide" className="text-slate-600 hover:text-orange-500 transition-colors">Guia</a>
                             <a href="/#/login" className="text-slate-600 hover:text-orange-500 transition-colors">Login</a>
                             <a href="/#/signup" className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors">
                                 Começar Agora
@@ -178,6 +179,7 @@ const LandingPage: React.FC = () => {
                             <button onClick={() => scrollToSection('features')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Funcionalidades</button>
 
                             <button onClick={() => scrollToSection('pricing')} className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Planos</button>
+                            <a href="/#/guide" className="block w-full text-left px-4 py-2 text-slate-600 hover:bg-gray-100 rounded-lg">Guia do Utilizador</a>
 
                             {showInstallBtn && (
                                 <button

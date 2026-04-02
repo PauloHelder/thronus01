@@ -48,9 +48,12 @@ export default function HelpCenter() {
                             Criámos um manual completo em Português que cobre todas as áreas do sistema, desde a gestão de membros até ao controle financeiro.
                         </p>
                     </div>
-                    <div className="inline-flex items-center gap-2 font-bold text-slate-400 cursor-not-allowed">
-                        Ler Manual Completo <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded ml-2">EM BREVE</span>
-                    </div>
+                    <a 
+                        href="/#/guide" 
+                        className="inline-flex items-center gap-2 font-bold text-orange-600 hover:text-orange-700 transition-colors"
+                    >
+                        Ler Manual Completo <ChevronRight size={16} />
+                    </a>
                 </div>
 
                 <div className="bg-orange-600 rounded-3xl p-8 text-white shadow-xl flex flex-col justify-between transform hover:scale-[1.02] transition-transform">

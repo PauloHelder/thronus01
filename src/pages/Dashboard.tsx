@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import MemberModal from '../components/modals/MemberModal';
+import OneSignalTest from '../components/OneSignalTest';
 import { Member } from '../types';
 
 interface DashboardStats {
@@ -601,6 +602,9 @@ const Dashboard: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* OneSignal Test Integration */}
+        <OneSignalTest />
       </div>
 
       <MemberModal

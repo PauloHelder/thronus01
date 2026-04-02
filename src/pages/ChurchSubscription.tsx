@@ -1,27 +1,76 @@
 import React, { useState } from 'react';
-import { Check, X, Calendar, CreditCard } from 'lucide-react';
-import { Plan, Subscription } from '../types';
+import { Check, X, Calendar, CreditCard, Users, Building, ShieldCheck, BookOpen, UserPlus, Info, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Plan } from '../types';
 import { usePlans } from '../hooks/usePlans';
+import { useSubscriptionUsage } from '../hooks/useSubscriptionUsage';
+
+const ResourceUsageBar: React.FC<{
+  label: string;
+  current: number;
+  limit: number | 'unlimited';
+  icon: React.ReactNode;
+}> = ({ label, current, limit, icon }) => {
+  const isUnlimited = limit === 'unlimited';
+  const percentage = isUnlimited ? 0 : Math.min(Math.round((current / (limit as number)) * 100), 100);
+  
+  const getStatusColor = () => {
+    if (isUnlimited) return 'bg-green-500';
+    if (percentage >= 90) return 'bg-red-500';
+    if (percentage >= 70) return 'bg-orange-500';
+    return 'bg-green-500';
+  };
+
+  return (
+    <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-slate-50 text-slate-500 rounded-lg">
+            {icon}
+          </div>
+          <span className="font-semibold text-slate-700 text-sm">{label}</span>
+        </div>
+        <div className="text-right">
+          <span className="text-base font-bold text-slate-900">{current}</span>
+          <span className="text-xs text-slate-400 ml-1">
+            / {isUnlimited ? '∞' : limit}
+          </span>
+        </div>
+      </div>
+      
+      {!isUnlimited && (
+        <div className="space-y-1.5">
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div 
+              className={`h-full ${getStatusColor()} transition-all duration-500`} 
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+          <div className="flex justify-between items-center text-[9px] uppercase font-bold tracking-wider">
+            <span className={percentage >= 90 ? 'text-red-500' : 'text-slate-400'}>
+              {percentage >= 90 ? 'Limite Atingido' : `${percentage}% Consumido`}
+            </span>
+          </div>
+        </div>
+      )}
+      
+      {isUnlimited && (
+        <div className="flex items-center gap-2 text-[9px] text-green-600 font-bold uppercase tracking-wider">
+          <CheckCircle2 size={10} />
+          Uso Ilimitado
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ChurchSubscription: React.FC = () => {
-    const { plans, loading } = usePlans();
+    const { plans, loading: loadingPlans } = usePlans();
+    const { data: usageData, loading: loadingUsage, error: usageError } = useSubscriptionUsage();
+    
     const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
     const [duration, setDuration] = useState<1 | 3 | 6 | 12>(1);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-
-    // Mock current subscription
-    const currentSubscription: Subscription | null = {
-        id: '1',
-        churchId: 'demo-church-1',
-        planId: 'free',
-        duration: 1,
-        startDate: '2024-01-01',
-        endDate: '2024-02-01',
-        status: 'active',
-        totalAmount: 0,
-    };
-
-    const currentPlan = plans.find(p => p.id === currentSubscription?.planId);
+    const [viewMode, setViewMode] = useState<'usage' | 'plans'>('usage');
 
     const calculateEndDate = (startDate: Date, months: number): string => {
         const endDate = new Date(startDate);
@@ -34,15 +83,8 @@ const ChurchSubscription: React.FC = () => {
     };
 
     const handleSubscribe = (plan: Plan) => {
-        if (currentSubscription?.status === 'active' && currentSubscription.planId === plan.id) {
-            // Extend current subscription
-            setSelectedPlan(plan);
-            setShowPaymentModal(true);
-        } else {
-            // New subscription
-            setSelectedPlan(plan);
-            setShowPaymentModal(true);
-        }
+        setSelectedPlan(plan);
+        setShowPaymentModal(true);
     };
 
     const formatValue = (value: number | 'unlimited') => {
@@ -68,223 +110,271 @@ const ChurchSubscription: React.FC = () => {
     };
 
     const isCurrentPlan = (planId: string) => {
-        return currentSubscription?.planId === planId && currentSubscription?.status === 'active';
+        return usageData?.plan.id === planId;
     };
 
-    if (loading) {
-        return <div className="p-8 text-center text-slate-500">Carregando planos...</div>;
+    if (loadingPlans || loadingUsage) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-slate-500 font-medium">Carregando informações da assinatura...</p>
+            </div>
+        );
     }
 
     return (
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-slate-800">Planos e Assinaturas</h1>
-                <p className="text-slate-600 mt-1">Escolha o melhor plano para sua igreja</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                        <ShieldCheck className="text-orange-600" size={32} />
+                        Assinatura e Uso
+                    </h1>
+                    <p className="text-slate-600 mt-1">Gerencie seu plano e visualize o consumo da sua igreja</p>
+                </div>
+                
+                <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+                    <button 
+                        onClick={() => setViewMode('usage')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'usage' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Visão de Uso
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('plans')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'plans' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Alterar Plano
+                    </button>
+                </div>
             </div>
 
-            {/* Current Subscription */}
-            {currentSubscription && currentPlan && (
-                <div className="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-lg font-bold text-orange-900 mb-1">Plano Atual</h3>
-                            <p className="text-orange-700">
-                                <span className="font-semibold">{currentPlan.name}</span> -
-                                Válido até {new Date(currentSubscription.endDate).toLocaleDateString('pt-BR')}
-                            </p>
-                            <p className="text-sm text-orange-600 mt-1">
-                                Status: <span className="font-medium capitalize">{currentSubscription.status === 'active' ? 'Ativo' : currentSubscription.status}</span>
-                            </p>
+            {usageError && (
+                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl flex items-center gap-3 mb-6">
+                    <AlertTriangle size={20} />
+                    <p className="text-sm font-medium">Aviso: A função de contagem em tempo real ainda não foi ativada no banco de dados. Contate o administrador.</p>
+                </div>
+            )}
+
+            {viewMode === 'usage' ? (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                    {/* Current Plan Summary Card */}
+                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-8 opacity-10">
+                            <CreditCard size={150} />
                         </div>
-                        <div className="text-right">
-                            <p className="text-3xl font-bold text-orange-900">
-                                {currentPlan.price.toLocaleString('pt-BR')} Kz
-                            </p>
-                            <p className="text-sm text-orange-700">por mês</p>
+                        <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                            <div>
+                                <span className="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full border border-orange-500/30">
+                                    PLANO ATUAL
+                                </span>
+                                <h2 className="text-4xl font-black mt-4">{usageData?.plan.name || 'Buscando...'}</h2>
+                                <div className="mt-6 flex flex-wrap gap-4">
+                                    <div className="flex items-center gap-2 text-slate-300">
+                                        <Calendar size={18} className="text-orange-500" />
+                                        <span className="text-sm">Vence em: {usageData?.plan.expires_at ? new Date(usageData.plan.expires_at).toLocaleDateString('pt-BR') : 'Consultar Admin'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-slate-300">
+                                        <Info size={18} className="text-orange-500" />
+                                        <span className="text-sm">Bónus Mensal: <strong>{usageData?.plan.features.smsBonus || 0} SMS</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex justify-md-end">
+                                <button 
+                                    onClick={() => setViewMode('plans')}
+                                    className="px-6 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-orange-50 transition-all flex items-center gap-2"
+                                >
+                                    Fazer Upgrade <ArrowRight size={18} />
+                                </button>
+                            </div>
                         </div>
+                    </div>
+
+                    {/* Usage Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <ResourceUsageBar 
+                            label="Membros Ativos" 
+                            current={usageData?.usage.members || 0} 
+                            limit={usageData?.plan.features.maxMembers || 0} 
+                            icon={<Users size={20} />} 
+                        />
+                        <ResourceUsageBar 
+                            label="Células / Grupos" 
+                            current={usageData?.usage.groups || 0} 
+                            limit={usageData?.plan.features.maxGroups || 0} 
+                            icon={<Building size={20} />} 
+                        />
+                        <ResourceUsageBar 
+                            label="Líderes e Cargos" 
+                            current={usageData?.usage.leaders || 0} 
+                            limit={usageData?.plan.features.maxLeaders || 0} 
+                            icon={<ShieldCheck size={20} />} 
+                        />
+                        <ResourceUsageBar 
+                            label="Discípulos" 
+                            current={usageData?.usage.disciples || 0} 
+                            limit={usageData?.plan.features.maxDisciples || 0} 
+                            icon={<UserPlus size={20} />} 
+                        />
+                        <ResourceUsageBar 
+                            label="Departamentos" 
+                            current={usageData?.usage.departments || 0} 
+                            limit={usageData?.plan.features.maxDepartments || 0} 
+                            icon={<Info size={20} />} 
+                        />
+                        <ResourceUsageBar 
+                            label="Turmas e Classes" 
+                            current={usageData?.usage.classes || 0} 
+                            limit={usageData?.plan.features.maxClasses || 0} 
+                            icon={<BookOpen size={20} />} 
+                        />
+                    </div>
+                </div>
+            ) : (
+                <div className="animate-in fade-in duration-500">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {plans.map((plan) => {
+                            const isCurrent = isCurrentPlan(plan.id);
+
+                            return (
+                                <div
+                                    key={plan.id}
+                                    className={`bg-gradient-to-br ${getPlanColor(plan.name)} rounded-2xl border p-8 flex flex-col ${isCurrent ? 'ring-2 ring-orange-500 shadow-xl' : 'shadow-sm'
+                                        }`}
+                                >
+                                    <div className="mb-8">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${getPlanBadgeColor(plan.name)}`}>
+                                                {plan.name}
+                                            </span>
+                                            {isCurrent && (
+                                                <div className="flex items-center gap-1 text-orange-600 font-bold text-xs uppercase">
+                                                    <CheckCircle2 size={14} /> Ativo
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-black text-slate-800">
+                                                {plan.price.toLocaleString('pt-BR')}
+                                            </span>
+                                            <span className="text-slate-500 font-medium">Kz/mês</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 mb-10 flex-1">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-slate-600">Membros Suportados</span>
+                                            <span className="font-bold text-slate-800">{formatValue(plan.features.maxMembers)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-slate-600">Grupos / Células</span>
+                                            <span className="font-bold text-slate-800">{formatValue(plan.features.maxGroups)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-slate-600 text-orange-600 font-bold">Bónus de SMS Mensal</span>
+                                            <span className="font-bold text-orange-600">{plan.features.smsBonus || 0}</span>
+                                        </div>
+                                        <div className="pt-4 border-t border-slate-200">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Check className="text-green-500" size={16} />
+                                                <span className="text-xs text-slate-600">Estatísticas em Tempo Real</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {plan.features.customBranding ? (
+                                                     <Check className="text-green-500" size={16} />
+                                                ) : (
+                                                     <X className="text-slate-400" size={16} />
+                                                )}
+                                                <span className="text-xs text-slate-600">Marca Personalizada</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleSubscribe(plan)}
+                                        disabled={isCurrent && plan.price === 0}
+                                        className={`w-full py-4 rounded-xl font-bold transition-all shadow-lg ${isCurrent
+                                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                            : 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-500/20'
+                                            }`}
+                                    >
+                                        {isCurrent ? 'Plano Atual' : 'Migrar para este Plano'}
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
-            {/* Plans Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {plans.map((plan) => {
-                    const isCurrent = isCurrentPlan(plan.id);
-
-                    return (
-                        <div
-                            key={plan.id}
-                            className={`bg-gradient-to-br ${getPlanColor(plan.name)} rounded-xl border p-6 ${isCurrent ? 'ring-2 ring-orange-500' : ''
-                                }`}
-                        >
-                            {/* Plan Header */}
-                            <div className="mb-6">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getPlanBadgeColor(plan.name)}`}>
-                                        {plan.name}
-                                    </span>
-                                    {isCurrent && (
-                                        <span className="px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-full">
-                                            Atual
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-4xl font-bold text-slate-800">
-                                        {plan.price.toLocaleString('pt-BR')}
-                                    </span>
-                                    <span className="text-slate-600">Kz/{plan.billing_period === 'monthly' ? 'mês' : plan.billing_period}</span>
-                                </div>
-                            </div>
-
-                            {/* Features List - Compact */}
-                            <div className="space-y-2 mb-6 text-sm">
-                                <div className="flex items-center gap-2">
-                                    {plan.features.canLinkToSupervision ? (
-                                        <Check className="text-green-600 flex-shrink-0" size={16} />
-                                    ) : (
-                                        <X className="text-red-400 flex-shrink-0" size={16} />
-                                    )}
-                                    <span className="text-slate-700">Vincular a Supervisão</span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    {plan.features.customBranding ? (
-                                        <Check className="text-green-600 flex-shrink-0" size={16} />
-                                    ) : (
-                                        <X className="text-red-400 flex-shrink-0" size={16} />
-                                    )}
-                                    <span className="text-slate-700">Personalizar Marca</span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <Check className="text-green-600 flex-shrink-0" size={16} />
-                                    <span className="text-slate-700">
-                                        {formatValue(plan.features.maxMembers)} membros
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <Check className="text-green-600 flex-shrink-0" size={16} />
-                                    <span className="text-slate-700">
-                                        {formatValue(plan.features.maxGroups)} grupos
-                                    </span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    {plan.features.exportStatistics ? (
-                                        <Check className="text-green-600 flex-shrink-0" size={16} />
-                                    ) : (
-                                        <X className="text-red-400 flex-shrink-0" size={16} />
-                                    )}
-                                    <span className="text-slate-700">Exportar Estatísticas</span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    {plan.features.exportFinances ? (
-                                        <Check className="text-green-600 flex-shrink-0" size={16} />
-                                    ) : (
-                                        <X className="text-red-400 flex-shrink-0" size={16} />
-                                    )}
-                                    <span className="text-slate-700">Exportar Finanças</span>
-                                </div>
-                            </div>
-
-                            {/* Action Button */}
-                            <button
-                                onClick={() => handleSubscribe(plan)}
-                                disabled={isCurrent && plan.price === 0}
-                                className={`w-full py-3 rounded-lg font-medium transition-colors ${isCurrent
-                                    ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                                    : 'bg-white hover:bg-gray-50 text-slate-700 border border-slate-300'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                {isCurrent ? 'Estender Assinatura' : 'Assinar Plano'}
-                            </button>
-                        </div>
-                    );
-                })}
+            {/* Note Box */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex gap-4 mt-8">
+                <Info className="text-slate-400 shrink-0" size={24} />
+                <p className="text-xs text-slate-500 leading-relaxed">
+                    <strong>Gestão de Limites:</strong> O Thronus monitora o seu uso em tempo real. Ao atingir o limite de um recurso, novas entradas serão bloqueadas automaticamente. Para suporte adicional ou planos customizados acima do Premium, entre em contato com o suporte técnico.
+                </p>
             </div>
 
-            {/* Payment Modal */}
+            {/* Payment Modal (Reused) */}
             {showPaymentModal && selectedPlan && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl max-w-md w-full p-6">
-                        <h3 className="text-xl font-bold text-slate-800 mb-4">
-                            {isCurrentPlan(selectedPlan.id) ? 'Estender Assinatura' : 'Nova Assinatura'}
-                        </h3>
-
-                        <div className="mb-6">
-                            <p className="text-sm text-slate-600 mb-2">Plano selecionado:</p>
-                            <div className="bg-gray-50 p-3 rounded-lg">
-                                <p className="font-semibold text-slate-800">{selectedPlan.name}</p>
-                                <p className="text-sm text-slate-600">
-                                    {selectedPlan.price.toLocaleString('pt-BR')} Kz/mês
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Duração da Assinatura
-                            </label>
-                            <div className="grid grid-cols-4 gap-2">
-                                {[1, 3, 6, 12].map((months) => (
-                                    <button
-                                        key={months}
-                                        onClick={() => setDuration(months as 1 | 3 | 6 | 12)}
-                                        className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${duration === months
-                                            ? 'bg-orange-500 text-white'
-                                            : 'bg-gray-100 text-slate-700 hover:bg-gray-200'
-                                            }`}
-                                    >
-                                        {months} {months === 1 ? 'mês' : 'meses'}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Calendar size={16} className="text-blue-600" />
-                                <p className="text-sm font-medium text-blue-900">Período da Assinatura</p>
-                            </div>
-                            <p className="text-sm text-blue-700">
-                                Início: {new Date().toLocaleDateString('pt-BR')}
-                            </p>
-                            <p className="text-sm text-blue-700">
-                                Término: {new Date(calculateEndDate(new Date(), duration)).toLocaleDateString('pt-BR')}
-                            </p>
-                        </div>
-
-                        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-green-900">Total a Pagar:</span>
-                                <span className="text-2xl font-bold text-green-900">
-                                    {calculateTotal(selectedPlan, duration).toLocaleString('pt-BR')} Kz
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowPaymentModal(false)}
-                                className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 text-slate-700 rounded-lg font-medium transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={() => {
-                                    alert('Funcionalidade de pagamento será implementada');
-                                    setShowPaymentModal(false);
-                                }}
-                                className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
-                            >
-                                <CreditCard size={16} />
-                                Pagar Agora
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-2xl font-black text-slate-800">
+                                {isCurrentPlan(selectedPlan.id) ? 'Estender Plano' : 'Assinar Plano'}
+                            </h3>
+                            <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                                <X size={24} className="text-slate-400" />
                             </button>
                         </div>
+
+                        <div className="mb-6 space-y-4">
+                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">PLANO SELECIONADO</p>
+                                <p className="text-xl font-black text-slate-800">{selectedPlan.name}</p>
+                                <p className="text-sm font-bold text-orange-600">{selectedPlan.price.toLocaleString('pt-BR')} Kz / mês</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
+                                    PERÍODO DA ASSINATURA
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[1, 3, 6, 12].map((months) => (
+                                        <button
+                                            key={months}
+                                            onClick={() => setDuration(months as 1 | 3 | 6 | 12)}
+                                            className={`py-3 px-4 rounded-xl text-sm font-bold transition-all border ${duration === months
+                                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                                                }`}
+                                        >
+                                            {months} {months === 1 ? 'mês' : 'meses'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mb-8 p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-between">
+                            <span className="text-sm font-bold text-green-800">Total a Pagar:</span>
+                            <span className="text-2xl font-black text-green-900">
+                                {calculateTotal(selectedPlan, duration).toLocaleString('pt-BR')} Kz
+                            </span>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                alert('Aguardando confirmação do pagamento pelo Super Admin.');
+                                setShowPaymentModal(false);
+                            }}
+                            className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-black shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2 transition-all"
+                        >
+                            <CreditCard size={20} />
+                            Confirmar Assinatura
+                        </button>
                     </div>
                 </div>
             )}

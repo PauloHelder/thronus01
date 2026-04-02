@@ -125,6 +125,13 @@ const Plans: React.FC = () => {
                                 )}
                             </div>
 
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-700 font-semibold">Bónus de SMS (Mensal)</span>
+                                <span className="font-bold text-orange-600">
+                                    {plan.features.smsBonus || 0} SMS
+                                </span>
+                            </div>
+
                             <div className="border-t border-slate-300 my-3"></div>
 
                             <div className="flex items-center justify-between text-sm">

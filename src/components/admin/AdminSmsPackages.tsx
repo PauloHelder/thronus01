@@ -85,9 +85,11 @@ export default function AdminSmsPackages() {
             if (error) throw error;
             
             let totalSys = 0;
-            const formatted = (data || []).map(c => {
-                const balance = c.church_sms_balances ? (c.church_sms_balances as any).available_messages : 0;
-                const sent = c.church_sms_balances ? (c.church_sms_balances as any).total_sent : 0;
+            const formatted = ((data as any[]) || []).map(c => {
+                const balances = c.church_sms_balances;
+                const firstBalance = Array.isArray(balances) ? balances[0] : balances;
+                const balance = firstBalance?.available_messages || 0;
+                const sent = firstBalance?.total_sent || 0;
                 totalSys += balance;
                 return {
                     ...c,

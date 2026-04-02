@@ -43,6 +43,7 @@ export interface Plan {
     maxDepartments: number | 'unlimited';
     maxClasses: number | 'unlimited';
     maxEvents: number;
+    smsBonus: number;
   };
   is_active: boolean;
   description?: string;

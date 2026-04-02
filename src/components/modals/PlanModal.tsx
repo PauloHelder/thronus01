@@ -31,7 +31,8 @@ const PlanModal: React.FC<PlanModalProps> = ({ isOpen, onClose, plan, onUpdate }
       maxEvents: 10,
       serviceStatistics: false,
       exportStatistics: false,
-      exportFinances: false
+      exportFinances: false,
+      smsBonus: 0
     }
   });
 
@@ -69,7 +70,8 @@ const PlanModal: React.FC<PlanModalProps> = ({ isOpen, onClose, plan, onUpdate }
           maxEvents: 10,
           serviceStatistics: false,
           exportStatistics: false,
-          exportFinances: false
+          exportFinances: false,
+          smsBonus: 0
         }
       });
     }
@@ -257,12 +259,12 @@ const PlanModal: React.FC<PlanModalProps> = ({ isOpen, onClose, plan, onUpdate }
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">Discípulos</label>
+                    <label className="block text-xs font-medium text-orange-600 mb-1 uppercase">Bônus de SMS (Mensal)</label>
                     <input
                       type="number"
-                      value={formData.features.maxDisciples}
-                      onChange={e => handleFeatureChange('maxDisciples', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                      value={formData.features.smsBonus || 0}
+                      onChange={e => handleFeatureChange('smsBonus', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-orange-200 bg-orange-50/10 rounded-lg text-orange-700 font-bold focus:ring-2 focus:ring-orange-500 outline-none"
                     />
                   </div>
                 </div>
