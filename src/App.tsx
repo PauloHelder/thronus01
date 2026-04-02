@@ -47,6 +47,7 @@ import Network from './pages/Network';
 import BranchDetails from './pages/BranchDetails';
 import MemberRegistration from './pages/MemberRegistration';
 import Assets from './pages/Assets';
+import HelpCenter from './pages/HelpCenter';
 
 
 const AppContent: React.FC = () => {
@@ -98,6 +99,7 @@ const AppContent: React.FC = () => {
             <Route path="/network" element={<MyChurches />} />
             <Route path="/network/:id" element={<BranchDetails />} />
             <Route path="/assets" element={<Assets />} />
+            <Route path="/help" element={<HelpCenter />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

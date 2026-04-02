@@ -323,7 +323,7 @@ const Sidebar: React.FC = () => {
             className="flex items-center gap-3 px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
           >
             <HelpCircle size={20} />
-            Ajuda e Suporte
+            Ajuda & Tutoriais
           </NavLink>
 
           {showInstallBtn && (
