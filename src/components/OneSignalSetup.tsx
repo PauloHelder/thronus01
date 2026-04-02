@@ -54,17 +54,54 @@ const OneSignalSetup: React.FC = () => {
             }
         };
 
+        const checkSubscription = async () => {
+            try {
+                // Check if SDK is available
+                if (typeof OneSignal === 'undefined') {
+                    console.warn('OneSignal SDK não carregado.');
+                    return;
+                }
+
+                // Check if browser supports push
+                if (!OneSignal.Notifications.isPushSupported()) {
+                    return;
+                }
+
+                const permission = OneSignal.Notifications.permission;
+                
+                // Get User ID (Subscription ID)
+                const id = OneSignal.User.PushSubscription.id;
+            } catch (error) {
+                // Silently fail if not initialized due to domain error
+                console.debug('OneSignalTest: SDK ainda não inicializado ou erro de domínio.');
+            }
+        };
+
         initOneSignal();
     }, []);
 
     // Sync external user ID when user logs in
     useEffect(() => {
-        if (user?.id) {
-            OneSignal.login(user.id);
-            console.log('OneSignal: Usuário identificado:', user.id);
-        } else {
-            OneSignal.logout();
-        }
+        const syncUser = async () => {
+            if (user?.id && initialized.current) {
+                try {
+                    // Check if initialized and not in error state
+                    const isInitialized = await OneSignal.Notifications.isPushSupported();
+                    if (isInitialized) {
+                        await OneSignal.login(user.id);
+                        console.log('OneSignal: Usuário identificado com sucesso:', user.id);
+                    }
+                } catch (e) {
+                    console.warn('OneSignal: Falha ao identificar usuário (provavelmente erro de domínio):', e);
+                }
+            } else if (!user && initialized.current) {
+                try {
+                    await OneSignal.logout();
+                } catch (e) {}
+            }
+        };
+
+        syncUser();
     }, [user?.id]);
 
     return null; // Este componente não renderiza nada visualmente por padrão

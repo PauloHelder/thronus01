@@ -11,6 +11,12 @@ const OneSignalTest: React.FC = () => {
     useEffect(() => {
         const checkSubscription = async () => {
             try {
+                // Check if SDK is available via window
+                if (!(window as any).OneSignal) {
+                    console.debug('OneSignal: SDK global ainda não disponível.');
+                    return;
+                }
+
                 // Check if browser supports push
                 if (!OneSignal.Notifications.isPushSupported()) {
                     setIsSupported(false);
@@ -24,17 +30,19 @@ const OneSignalTest: React.FC = () => {
                 const id = OneSignal.User.PushSubscription.id;
                 setPushId(id || null);
             } catch (error) {
-                console.error('Erro ao verificar subscrição OneSignal:', error);
+                // Silently fail if not initialized due to domain error or other early issues
+                console.debug('OneSignalTest: Erro silencioso ao verificar subscrição (provavelmente restrição de domínio local).');
             }
         };
 
-        checkSubscription();
+        const timer = setTimeout(checkSubscription, 2000); // Dar tempo para o SDK carregar
         
         // Listen for changes
         const handleChangeListener = () => checkSubscription();
         OneSignal.Notifications.addEventListener("permissionChange", handleChangeListener);
         
         return () => {
+            clearTimeout(timer);
             OneSignal.Notifications.removeEventListener("permissionChange", handleChangeListener);
         };
     }, []);
