@@ -218,7 +218,7 @@ const LandingPage: React.FC = () => {
                                 Potencialize sua Igreja com o <span className="text-orange-500">Tronus</span>
                             </h1>
                             <p className="text-lg text-slate-600 leading-relaxed">
-                                A plataforma tudo-em-um para gerir membros, eventos, doações e muito mais.
+                                A plataforma tudo-em-um para gerir Membros, Pequenos  Grupos, cultos, Departamentos, Eventos, Finanças e muito mais.
                                 Otimize as operações da sua igreja e foque no que mais importa - a sua comunidade.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
@@ -229,7 +229,7 @@ const LandingPage: React.FC = () => {
                                     Saiba Mais
                                 </button>
                             </div>
-                            <div className="flex items-center gap-8 pt-4">
+                            {/* <div className="flex items-center gap-8 pt-4">
                                 <div>
                                     <p className="text-3xl font-bold text-slate-800">500+</p>
                                     <p className="text-sm text-slate-500">Igrejas</p>
@@ -242,7 +242,7 @@ const LandingPage: React.FC = () => {
                                     <p className="text-3xl font-bold text-slate-800">99.9%</p>
                                     <p className="text-sm text-slate-500">Uptime</p>
                                 </div>
-                            </div>
+                            </div> */}
                         </div>
 
                         {/* Hero Image/Illustration */}

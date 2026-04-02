@@ -70,13 +70,25 @@ const EditChurchModal: React.FC<EditChurchModalProps> = ({ isOpen, onClose, chur
 
         setLoading(true);
         try {
-            // 1. Update Church Settings (Status)
+            // Handle plan_id (use Free plan if empty)
+            let finalPlanId = formData.plan_id;
+            if (!finalPlanId) {
+                const freePlan = plans.find(p => p.name === 'Free');
+                if (freePlan) finalPlanId = freePlan.id;
+            }
+
+            const selectedPlan = plans.find(p => p.id === finalPlanId);
+            const planPrice = selectedPlan?.price || 0;
+
+            // 1. Update Church main columns and Settings
             const { error: churchError } = await supabase
                 .from('churches')
                 .update({
+                    plan_id: finalPlanId || null,
+                    subscription_status: formData.status === 'active' ? 'active' : (formData.status === 'pending' ? 'trial' : 'expired'),
                     settings: {
                         ...church.settings,
-                        status: formData.status
+                        status: formData.status as any
                     }
                 })
                 .eq('id', church.id);
@@ -86,35 +98,40 @@ const EditChurchModal: React.FC<EditChurchModalProps> = ({ isOpen, onClose, chur
             // 2. Update or Create Subscription
             const startDate = new Date(formData.start_date);
             const endDate = new Date(formData.end_date);
-            // Calculate approximate duration in months
-            const durationMonths = Math.max(1, (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()));
+            
+            // Calculate approximate duration in months and snap to valid values (1, 3, 6, 12)
+            const rawMonths = Math.max(1, (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()));
+            const validDurations = [1, 3, 6, 12];
+            const durationMonths = validDurations.reduce((prev, curr) => 
+                Math.abs(curr - rawMonths) < Math.abs(prev - rawMonths) ? curr : prev
+            );
 
             const activeSub = church.subscriptions?.[0];
 
-            if (activeSub) {
+            if (activeSub && activeSub.id) {
                 const { error: subError } = await supabase
                     .from('subscriptions')
                     .update({
-                        plan_id: formData.plan_id,
+                        plan_id: finalPlanId,
                         start_date: formData.start_date,
                         end_date: formData.end_date,
-                        duration_months: durationMonths
+                        duration_months: durationMonths,
+                        total_amount: planPrice
                     })
                     .eq('id', activeSub.id);
 
                 if (subError) throw subError;
-            } else if (formData.plan_id) {
+            } else if (finalPlanId) {
                 // Create new subscription
                 const { error: subError } = await supabase
                     .from('subscriptions')
                     .insert({
                         church_id: church.id,
-                        plan_id: formData.plan_id,
+                        plan_id: finalPlanId,
                         start_date: formData.start_date,
                         end_date: formData.end_date,
                         duration_months: durationMonths,
-                        price: 0, // Default price if required, or fetch from plan if needed. Assuming 0 or handled by DB default if not mentioned. 
-                        // But let's assume price might be needed if not default. The error didn't mention it.
+                        total_amount: planPrice,
                         status: 'active'
                     });
 
@@ -125,8 +142,13 @@ const EditChurchModal: React.FC<EditChurchModalProps> = ({ isOpen, onClose, chur
             onUpdate();
             onClose();
         } catch (error: any) {
-            console.error('Error updating church:', error);
-            toast.error('Erro ao atualizar igreja: ' + error.message);
+            console.error('Full Error Update Church:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
+            toast.error(`Erro ao atualizar igreja: ${error.message || 'Erro desconhecido'}`);
         } finally {
             setLoading(false);
         }

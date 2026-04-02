@@ -29,7 +29,8 @@ import {
   ClipboardList,
   Package,
   Wrench,
-  Tag
+  Tag,
+  MessageSquare
 } from 'lucide-react';
 
 interface NavBaseItem {
@@ -126,8 +127,12 @@ const Sidebar: React.FC = () => {
 
     if (hasRole('superuser')) {
       items.push(
-        { to: "/users", icon: Users, label: "Usuários" },
-        { to: "/admin", icon: Shield, label: "Super Admin" }
+        { to: "/admin?tab=dashboard", icon: LayoutDashboard, label: "Painel Super Admin" },
+        { to: "/admin?tab=churches", icon: Building, label: "Igrejas Cadastradas" },
+        { to: "/admin?tab=plans", icon: CreditCard, label: "Gerenciar Planos" },
+        { to: "/admin?tab=denominations", icon: BookOpenCheck, label: "Denominações" },
+        { to: "/admin?tab=sms-packages", icon: MessageSquare, label: "Pacotes de SMS" },
+        { to: "/users", icon: Users, label: "Usuários" }
       );
     } else {
       items.push(
@@ -147,7 +152,10 @@ const Sidebar: React.FC = () => {
       );
 
       if (user?.roles?.some(r => ['admin', 'pastor'].includes(r))) {
-        items.push({ to: "/subscription", icon: CreditCard, label: "Assinatura" });
+        items.push(
+            { to: "/subscription", icon: CreditCard, label: "Assinatura" },
+            { to: "/sms-store", icon: MessageSquare, label: "Comprar SMS" }
+        );
       }
     }
 
@@ -283,12 +291,19 @@ const Sidebar: React.FC = () => {
                     }
                     if (window.innerWidth < 1024 && !item.module) closeSidebar();
                   }}
-                  className={({ isActive }) =>
-                    `flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all ${isActive && !item.module
+                  className={({ isActive }) => {
+                    const hasQuery = item.to?.includes('?');
+                    const isExactlyActive = isActive && (
+                      hasQuery
+                        ? location.search === item.to!.substring(item.to!.indexOf('?'))
+                        : location.search === ''
+                    );
+
+                    return `flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all ${isExactlyActive && !item.module
                       ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                       : 'text-slate-300 hover:text-white hover:bg-slate-700'
-                    }`
-                  }
+                    }`;
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     <item.icon size={20} />

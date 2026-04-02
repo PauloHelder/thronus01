@@ -29,6 +29,7 @@ import Teaching from './pages/Teaching';
 import TeachingDetail from './pages/TeachingDetail';
 import ChurchProfile from './pages/ChurchProfile';
 import ChurchSubscription from './pages/ChurchSubscription';
+import SmsStore from './pages/church/SmsStore';
 import MyChurches from './pages/MyChurches';
 import Churches from './pages/Churches';
 import Plans from './pages/Plans';
@@ -40,6 +41,7 @@ import InviteLanding from './pages/InviteLanding';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminChurchDetail from './pages/admin/AdminChurchDetail';
 import Reports from './pages/Reports';
 import Network from './pages/Network';
 import BranchDetails from './pages/BranchDetails';
@@ -82,6 +84,7 @@ const AppContent: React.FC = () => {
             <Route path="/reports" element={<Reports />} />
             <Route path="/church-profile" element={<ChurchProfile />} />
             <Route path="/subscription" element={<ChurchSubscription />} />
+            <Route path="/sms-store" element={<SmsStore />} />
             <Route path="/my-churches" element={<MyChurches />} />
             <Route path="/churches" element={<Churches />} />
             <Route path="/churches/:id" element={<ChurchProfile />} />
@@ -91,6 +94,7 @@ const AppContent: React.FC = () => {
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/churches/:id" element={<AdminChurchDetail />} />
             <Route path="/network" element={<MyChurches />} />
             <Route path="/network/:id" element={<BranchDetails />} />
             <Route path="/assets" element={<Assets />} />

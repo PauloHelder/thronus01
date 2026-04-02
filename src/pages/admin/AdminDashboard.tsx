@@ -1,23 +1,44 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Building, Users, CreditCard, Activity, Search, Trash2, Edit, Shield, Plus, Book, Save, X } from 'lucide-react';
+import { Building, Users, CreditCard, Activity, Search, Trash2, Edit, Shield, Plus, Book, Save, X, Clock, CheckCircle, XCircle, AlertTriangle, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import EditChurchModal from '../../components/modals/EditChurchModal';
 import PlanModal from '../../components/modals/PlanModal';
+import AdminSmsPackages from '../../components/admin/AdminSmsPackages';
 import { useDenominations } from '../../hooks/useDenominations';
 import { toast } from 'sonner';
 
+const getDaysRemaining = (endDate: string | null | undefined): number | null => {
+    if (!endDate) return null;
+    const diff = new Date(endDate).getTime() - new Date().getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+const DaysBadge: React.FC<{ days: number | null }> = ({ days }) => {
+    if (days === null) return <span className="text-slate-400 text-sm">–</span>;
+    if (days < 0) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700"><XCircle size={11} />Expirado</span>;
+    if (days <= 7) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700"><AlertTriangle size={11} />{days}d</span>;
+    if (days <= 30) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700"><Clock size={11} />{days}d</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700"><CheckCircle size={11} />{days}d</span>;
+};
+
 const AdminDashboard: React.FC = () => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [churches, setChurches] = useState<any[]>([]);
     const [stats, setStats] = useState({
         totalChurches: 0,
         activeChurches: 0,
-        totalUsers: 0
+        totalUsers: 0,
+        paidRevenue: 0,
+        unpaidRevenue: 0,
+        planCounts: {} as Record<string, number>
     });
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState<'churches' | 'plans' | 'denominations'>('churches');
+    const [searchParams] = useSearchParams();
+    const activeTab = searchParams.get('tab') || 'dashboard';
 
     // Denominations State
     const { denominations, addDenomination, updateDenomination, deleteDenomination, loading: loadingDenominations } = useDenominations();
@@ -73,18 +94,43 @@ const AdminDashboard: React.FC = () => {
 
             setChurches(churchesData || []);
 
-            // Calculate stats
+            let paidRevenue = 0;
+            let unpaidRevenue = 0;
+            const planCounts: Record<string, number> = {};
+
             // Active church = has at least one active subscription or status in settings is active
             const activeChurchesCount = (churchesData || []).filter((c: any) => {
                 const sub = c.subscriptions?.[0];
                 const isActiveSub = sub && new Date(sub.end_date) > new Date();
-                return c.settings?.status === 'active' || isActiveSub;
+                const isPaidStatus = c.settings?.status === 'active' || isActiveSub;
+
+                let planPrice = 0;
+                if (sub) {
+                    const planInfo = plansData?.find((p: any) => p.id === sub.plan_id) || sub.plans;
+                    planPrice = Number(planInfo?.price || planInfo?.total_amount || 0);
+
+                    const planName = planInfo?.name;
+                    if (planName) {
+                        planCounts[planName] = (planCounts[planName] || 0) + 1;
+                    }
+                }
+
+                if (isPaidStatus) {
+                    paidRevenue += planPrice;
+                } else if (planPrice > 0) {
+                    unpaidRevenue += planPrice;
+                }
+
+                return isPaidStatus;
             }).length;
 
             setStats({
-                totalChurches: churchesData?.length || 0,
+                totalChurches: (churchesData ?? []).length,
                 activeChurches: activeChurchesCount,
-                totalUsers: usersCount || 0
+                totalUsers: usersCount || 0,
+                paidRevenue,
+                unpaidRevenue,
+                planCounts
             });
 
         } catch (error) {
@@ -216,67 +262,99 @@ const AdminDashboard: React.FC = () => {
 
                 {/* Stats Cards */}
                 {/* Stats Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
-                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
-                        <div className="p-2 md:p-3 bg-blue-100 text-blue-600 rounded-lg">
-                            <Building size={20} className="md:w-6 md:h-6" />
+                {activeTab === 'dashboard' && (
+                    <div className="space-y-8">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6">
+                            <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                                <div className="p-2 md:p-3 bg-blue-100 text-blue-600 rounded-lg shrink-0">
+                                    <Building size={20} className="md:w-6 md:h-6" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs md:text-sm text-slate-500 truncate">Total de Igrejas</p>
+                                    <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.totalChurches}</h3>
+                                </div>
+                            </div>
+                            <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                                <div className="p-2 md:p-3 bg-green-100 text-green-600 rounded-lg shrink-0">
+                                    <Activity size={20} className="md:w-6 md:h-6" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs md:text-sm text-slate-500 truncate">Igrejas Ativas</p>
+                                    <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.activeChurches}</h3>
+                                </div>
+                            </div>
+                            <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                                <div className="p-2 md:p-3 bg-purple-100 text-purple-600 rounded-lg shrink-0">
+                                    <Users size={20} className="md:w-6 md:h-6" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs md:text-sm text-slate-500 truncate">Total de Usuários</p>
+                                    <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.totalUsers}</h3>
+                                </div>
+                            </div>
+                            
+                            {/* Financial Projections */}
+                            <div className="bg-white p-4 md:p-6 rounded-xl border border-emerald-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 relative overflow-hidden h-full">
+                                <div className="absolute top-0 right-0 bg-emerald-50 w-24 h-24 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                                <div className="p-2 md:p-3 bg-emerald-100 text-emerald-600 rounded-lg shrink-0 z-10 relative">
+                                    <TrendingUp size={20} className="md:w-6 md:h-6" />
+                                </div>
+                                <div className="min-w-0 z-10 relative">
+                                    <p className="text-xs md:text-sm text-emerald-700 font-medium truncate">Projeção Ativa</p>
+                                    <h3 className="text-lg md:text-xl font-bold text-slate-800 break-words">
+                                        {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(stats.paidRevenue)}
+                                    </h3>
+                                </div>
+                            </div>
+                            <div className="bg-white p-4 md:p-6 rounded-xl border border-red-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 relative overflow-hidden h-full">
+                                <div className="absolute top-0 right-0 bg-red-50 w-24 h-24 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                                <div className="p-2 md:p-3 bg-red-100 text-red-600 rounded-lg shrink-0 z-10 relative">
+                                    <TrendingDown size={20} className="md:w-6 md:h-6" />
+                                </div>
+                                <div className="min-w-0 z-10 relative">
+                                    <p className="text-xs md:text-sm text-red-700 font-medium truncate">Projeção Pela Metade</p>
+                                    <h3 className="text-lg md:text-xl font-bold text-slate-800 break-words">
+                                        {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(stats.unpaidRevenue)}
+                                    </h3>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs md:text-sm text-slate-500">Total de Igrejas</p>
-                            <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.totalChurches}</h3>
-                        </div>
+                        
+                        {/* Planos Vendidos Section */}
+                        {Object.keys(stats.planCounts).length > 0 && (
+                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                    <CreditCard className="text-orange-600" size={20} />
+                                    Planos Vendidos
+                                </h2>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {Object.entries(stats.planCounts).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([planName, count]) => (
+                                        <div key={planName} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between hover:border-orange-200 transition-colors">
+                                            <div className="min-w-0 pr-3">
+                                                <p className="text-sm font-bold text-slate-700 truncate">{planName}</p>
+                                                <p className="text-xs text-slate-500 mt-0.5">Assinaturas Registadas</p>
+                                            </div>
+                                            <div className="bg-orange-50 text-orange-700 border border-orange-100 font-bold px-3 py-1.5 rounded-lg shrink-0 text-lg">
+                                                {count as React.ReactNode}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
-                        <div className="p-2 md:p-3 bg-green-100 text-green-600 rounded-lg">
-                            <Activity size={20} className="md:w-6 md:h-6" />
-                        </div>
-                        <div>
-                            <p className="text-xs md:text-sm text-slate-500">Igrejas Ativas</p>
-                            <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.activeChurches}</h3>
-                        </div>
-                    </div>
-                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 col-span-2 md:col-span-1">
-                        <div className="p-2 md:p-3 bg-purple-100 text-purple-600 rounded-lg">
-                            <Users size={20} className="md:w-6 md:h-6" />
-                        </div>
-                        <div>
-                            <p className="text-xs md:text-sm text-slate-500">Total de Usuários</p>
-                            <h3 className="text-xl md:text-2xl font-bold text-slate-800">{stats.totalUsers}</h3>
-                        </div>
-                    </div>
-                </div>
+                )}
 
                 {/* Tabs */}
-                <div className="flex gap-4 border-b border-gray-200 overflow-x-auto">
-                    <button
-                        onClick={() => setActiveTab('churches')}
-                        className={`pb-3 px-1 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'churches'
-                            ? 'text-orange-600 border-b-2 border-orange-600'
-                            : 'text-slate-500 hover:text-slate-700'
-                            }`}
-                    >
-                        Igrejas Cadastradas
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('plans')}
-                        className={`pb-3 px-1 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'plans'
-                            ? 'text-orange-600 border-b-2 border-orange-600'
-                            : 'text-slate-500 hover:text-slate-700'
-                            }`}
-                    >
-                        Gerenciar Planos
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('denominations')}
-                        className={`pb-3 px-1 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'denominations'
-                            ? 'text-orange-600 border-b-2 border-orange-600'
-                            : 'text-slate-500 hover:text-slate-700'
-                            }`}
-                    >
-                        Denominações
-                    </button>
-                </div>
 
+
+                {/* Outras Tabs */}
+                {activeTab === 'sms-packages' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <AdminSmsPackages />
+                    </div>
+                )}
+                
                 {/* Content */}
                 {activeTab === 'churches' && (
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -300,12 +378,11 @@ const AdminDashboard: React.FC = () => {
                                     <tr className="bg-white border-b border-gray-100">
                                         <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Igreja</th>
                                         <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Membros</th>
-                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Grupos</th>
-                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Discip.</th>
-                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Depts</th>
-                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Ensino</th>
                                         <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Usuários</th>
                                         <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Plano</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Data de Adesão</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Data Final</th>
+                                        <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase text-center">Dias Rest.</th>
                                         <th className="px-4 py-4 text-xs font-semibold text-slate-500 uppercase">Status</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Ações</th>
                                     </tr>
@@ -313,18 +390,24 @@ const AdminDashboard: React.FC = () => {
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredChurches.map(church => {
                                         const sub = church.subscriptions?.[0];
-                                        // Count helpers
                                         const getCount = (prop: any) => prop?.[0]?.count || 0;
+                                        const daysRemaining = getDaysRemaining(sub?.end_date);
+                                        const formatDateShort = (d: string | null | undefined) =>
+                                            d ? new Date(d).toLocaleDateString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–';
 
                                         return (
-                                            <tr key={church.id} className="hover:bg-slate-50 transition-colors">
+                                            <tr
+                                                key={church.id}
+                                                className="hover:bg-orange-50/40 transition-colors cursor-pointer group"
+                                                onClick={() => navigate(`/admin/churches/${church.id}`)}
+                                            >
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 shadow-sm">
                                                             <Building size={20} />
                                                         </div>
                                                         <div>
-                                                            <p className="font-medium text-slate-800">{church.name}</p>
+                                                            <p className="font-medium text-slate-800 group-hover:text-orange-700 transition-colors">{church.name}</p>
                                                             <p className="text-xs text-slate-400 max-w-[150px] truncate" title={church.slug}>{church.slug}</p>
                                                         </div>
                                                     </div>
@@ -333,35 +416,32 @@ const AdminDashboard: React.FC = () => {
                                                     {getCount(church.members)}
                                                 </td>
                                                 <td className="px-4 py-4 text-center text-sm text-slate-600">
-                                                    {getCount(church.groups)}
-                                                </td>
-                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
-                                                    {getCount(church.discipleship_leaders)}
-                                                </td>
-                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
-                                                    {getCount(church.departments)}
-                                                </td>
-                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
-                                                    {getCount(church.teaching_classes)}
-                                                </td>
-                                                <td className="px-4 py-4 text-center text-sm text-slate-600">
                                                     {getCount(church.users)}
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="text-sm text-slate-600">
-                                                        {sub?.plans?.name || '-'}
-                                                    </div>
-                                                    {sub?.end_date && (
-                                                        <div className="text-xs text-slate-400">
-                                                            Vence: {new Date(sub.end_date).toLocaleDateString('pt-BR')}
-                                                        </div>
-                                                    )}
+                                                    <p className="text-sm font-medium text-slate-700">{sub?.plans?.name || <span className="text-slate-400">–</span>}</p>
+                                                </td>
+                                                <td className="px-4 py-4 text-sm text-slate-600">
+                                                    {formatDateShort(sub?.start_date || church.created_at)}
+                                                </td>
+                                                <td className="px-4 py-4 text-sm text-slate-600">
+                                                    {formatDateShort(sub?.end_date)}
+                                                </td>
+                                                <td className="px-4 py-4 text-center">
+                                                    <DaysBadge days={daysRemaining} />
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     {getStatusBadge(church)}
                                                 </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
+                                                <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <button
+                                                            onClick={() => navigate(`/admin/churches/${church.id}`)}
+                                                            className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                                            title="Ver Detalhes"
+                                                        >
+                                                            <ChevronRight size={16} />
+                                                        </button>
                                                         <button
                                                             onClick={() => handleEditChurch(church)}
                                                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -383,7 +463,7 @@ const AdminDashboard: React.FC = () => {
                                     })}
                                     {filteredChurches.length === 0 && (
                                         <tr>
-                                            <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
+                                            <td colSpan={9} className="px-6 py-8 text-center text-slate-500">
                                                 Nenhuma igreja encontrada.
                                             </td>
                                         </tr>

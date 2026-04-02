@@ -121,7 +121,7 @@ const ChurchProfile: React.FC = () => {
                     // Check if current user is the parent of this church
                     if (id && user && church.parent_id === user.churchId) {
                         setIsChildChurch(true);
-                        
+
                         // Fetch child data if shared
                         if (settings.shared_permissions?.view_service_stats) {
                             fetchChildServices(id);
@@ -613,23 +613,23 @@ const ChurchProfile: React.FC = () => {
                                             { key: 'view_events', label: 'Ver Eventos' },
                                             { key: 'view_finances', label: 'Ver Finanças' }
                                         ]
-                                        .filter(({ key }) => sharedPermissions[key] || !isReadOnly)
-                                        .map(({ key, label }) => (
-                                            <div key={key} className="flex items-center gap-2 text-sm">
-                                                <div className={`w-4 h-4 rounded-full flex items-center justify-center ${sharedPermissions[key] ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
-                                                    {sharedPermissions[key] ? <Check size={10} /> : <X size={10} />}
+                                            .filter(({ key }) => sharedPermissions[key] || !isReadOnly)
+                                            .map(({ key, label }) => (
+                                                <div key={key} className="flex items-center gap-2 text-sm">
+                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${sharedPermissions[key] ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                                                        {sharedPermissions[key] ? <Check size={10} /> : <X size={10} />}
+                                                    </div>
+                                                    <span className={sharedPermissions[key] ? 'text-slate-700' : 'text-slate-400'}>{label}</span>
+                                                    {!isReadOnly && isEditing && (
+                                                        <button
+                                                            onClick={() => setSharedPermissions(prev => ({ ...prev, [key]: !prev[key] }))}
+                                                            className="ml-auto text-[10px] text-blue-600 hover:underline"
+                                                        >
+                                                            {sharedPermissions[key] ? 'Bloquear' : 'Compartilhar'}
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <span className={sharedPermissions[key] ? 'text-slate-700' : 'text-slate-400'}>{label}</span>
-                                                {!isReadOnly && isEditing && (
-                                                    <button 
-                                                        onClick={() => setSharedPermissions(prev => ({ ...prev, [key]: !prev[key] }))}
-                                                        className="ml-auto text-[10px] text-blue-600 hover:underline"
-                                                    >
-                                                        {sharedPermissions[key] ? 'Bloquear' : 'Compartilhar'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
+                                            ))}
                                         {Object.values(sharedPermissions).every(v => !v) && isReadOnly && (
                                             <p className="text-xs text-slate-500 italic">Nenhum dado compartilhado com a sede.</p>
                                         )}
@@ -645,7 +645,7 @@ const ChurchProfile: React.FC = () => {
 
                         <div className="mt-6 pt-6 border-t border-gray-100">
                             <h4 className="font-bold text-slate-800 mb-2">Seu Código de Vinculação</h4>
-                            <p className="text-sm text-slate-600 mb-3">Compartilhe este código para que outras igrejas se vinculem a você.</p>
+                            <p className="text-sm text-slate-600 mb-3">Compartilhe este código para te vinculares a uma outra igreja.</p>
                             <div className="bg-slate-100 rounded-lg p-3 text-center">
                                 <code className="text-xl font-bold text-orange-600 tracking-wider font-mono select-all">
                                     {formData.codigoVinculacao}

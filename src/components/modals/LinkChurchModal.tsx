@@ -204,7 +204,7 @@ const LinkChurchModal: React.FC<LinkChurchModalProps> = ({ isOpen, onClose }) =>
                                     </button>
                                 </div>
                                 <p className="text-xs text-slate-500 mt-2">
-                                    Peça o código para a liderança da igreja à qual deseja se vincular.
+                                    Peça o código para a liderança da igreja à qual deseja vincular.
                                 </p>
                             </div>
                         </div>
@@ -256,14 +256,14 @@ const LinkChurchModal: React.FC<LinkChurchModalProps> = ({ isOpen, onClose }) =>
                                     </div>
                                 )}
                                 <p className="text-xs text-slate-500 mt-2">
-                                    A categoria deve ser hierarquicamente inferior à da igreja mãe ({parentChurch.settings?.categoria}).
+                                    A categoria deve ser hierarquicamente inferior à da igreja ({parentChurch.settings?.categoria}).
                                 </p>
                             </div>
 
                             {/* Permissions Selection */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-3">
-                                    Dados Compartilhados com a Igreja Mãe
+                                    Dados Compartilhados com a Igreja
                                 </label>
                                 <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-100">
                                     {(Object.keys(permissions) as Array<keyof typeof permissions>).map((key) => (
