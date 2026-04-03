@@ -12,7 +12,7 @@ export const PushService = {
   /**
    * Envia uma notificação push para usuários específicos da igreja.
    */
-  async sendToUsers({ recipients, message, title = 'Thronus', data = {} }: PushPayload) {
+  async sendToUsers({ recipients, message, title = 'Thronus', data = {}, send_after }: PushPayload) {
     const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
     const apiKey = import.meta.env.VITE_ONESIGNAL_REST_API_KEY;
 
@@ -34,7 +34,7 @@ export const PushService = {
           contents: { en: message, pt: message },
           headings: { en: title, pt: title },
           data: data,
-          send_after: payload.send_after, // Se for indefinido, o OneSignal envia agora
+          send_after: send_after, // Se for indefinido, o OneSignal envia agora
         }),
       });
 

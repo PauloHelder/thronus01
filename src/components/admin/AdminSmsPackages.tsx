@@ -27,7 +27,10 @@ export default function AdminSmsPackages() {
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isProofModalOpen, setIsProofModalOpen] = useState(false);
+    const [selectedProofUrl, setSelectedProofUrl] = useState('');
     const [editingPkg, setEditingPkg] = useState<any>(null);
+    const [showAllHistory, setShowAllHistory] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         messages_count: 0,
@@ -131,11 +134,16 @@ export default function AdminSmsPackages() {
     const fetchOrders = async () => {
         setLoadingOrders(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('sms_transactions')
                 .select('*, churches(name), sms_packages(name, price)')
-                .eq('status', 'pending')
                 .order('created_at', { ascending: false });
+            
+            if (!showAllHistory) {
+                query = query.eq('status', 'pending');
+            }
+
+            const { data, error } = await query;
             
             if (error) throw error;
             setOrders(data || []);
@@ -146,14 +154,23 @@ export default function AdminSmsPackages() {
             setLoadingOrders(false);
         }
     };
+    
+    // Auto-fetch history when toggle changes
+    useEffect(() => {
+        if (activeTab === 'orders') fetchOrders();
+    }, [showAllHistory]);
 
-    const handleApproveOrder = async (id: string, churchName: string) => {
+    const handleApproveOrder = async (id: string, churchId: string, churchName: string) => {
         if (!window.confirm(`Confirmar recebimento do pagamento de '${churchName}' e libertar saldo?`)) return;
         try {
             const { error } = await (supabase.rpc as any)('approve_sms_purchase', {
                 p_transaction_id: id
             });
             if (error) throw error;
+            
+            // Notify Admin
+            notifyChurch(churchId, 'SMS Ativados!', `O seu pagamento foi confirmado e o saldo foi libertado para ${churchName}.`);
+
             toast.success('Pedido aprovado e saldo libertado!');
             fetchOrders();
         } catch (error: any) {
@@ -162,19 +179,44 @@ export default function AdminSmsPackages() {
         }
     };
 
-    const handleRejectOrder = async (id: string) => {
+    const handleRejectOrder = async (id: string, churchId: string) => {
         if (!window.confirm('Tem certeza que deseja rejeitar este pedido?')) return;
         try {
-            const { error } = await supabase
-                .from('sms_transactions')
+            const { error } = await (supabase.from('sms_transactions') as any)
                 .update({ status: 'rejected' })
                 .eq('id', id);
             if (error) throw error;
+            
+            // Notify Admin
+            notifyChurch(churchId, 'Pedido de SMS Rejeitado', 'O seu pedido de compra de SMS foi rejeitado pelo Super Admin.');
+
             toast.success('Pedido rejeitado.');
             fetchOrders();
         } catch (error) {
             console.error(error);
             toast.error('Erro ao rejeitar pedido.');
+        }
+    };
+
+    const notifyChurch = async (churchId: string, title: string, message: string) => {
+        try {
+            const { data: admins } = await supabase
+                .from('users')
+                .select('id')
+                .eq('church_id', churchId)
+                .in('role', ['admin', 'superuser']);
+            
+            if (admins && admins.length > 0) {
+                const recipients = admins.map(a => a.id);
+                const { PushService } = await import('../../services/PushService');
+                await PushService.sendToUsers({
+                    recipients,
+                    message,
+                    title
+                });
+            }
+        } catch (e) {
+            console.error('Falha ao notificar igreja:', e);
         }
     };
 
@@ -362,6 +404,27 @@ export default function AdminSmsPackages() {
             {/* --- TAB: PEDIDOS --- */}
             {activeTab === 'orders' && (
                 <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200">
+                        <div className="flex items-center gap-3">
+                            <Activity className="text-orange-600" size={20} />
+                            <h3 className="font-bold text-slate-800">Controle de Fluxo Financeiro</h3>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                            <button 
+                                onClick={() => setShowAllHistory(false)}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${!showAllHistory ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                Pendentes
+                            </button>
+                            <button 
+                                onClick={() => setShowAllHistory(true)}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${showAllHistory ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                Ver Tudo
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse text-sm">
@@ -369,52 +432,71 @@ export default function AdminSmsPackages() {
                                     <tr className="bg-slate-50 border-b border-gray-200 font-bold text-xs text-slate-500 uppercase tracking-widest px-6">
                                         <th className="px-6 py-4">Data</th>
                                         <th className="px-6 py-4">Igreja</th>
-                                        <th className="px-6 py-4">Pacote Solicitado</th>
-                                        <th className="px-6 py-4">Valor a Confirmar</th>
+                                        <th className="px-6 py-4">Pacote</th>
+                                        <th className="px-6 py-4 text-center">Comprovativo</th>
+                                        <th className="px-6 py-4">Valor</th>
                                         <th className="px-6 py-4 text-center">Status</th>
-                                        <th className="px-6 py-4 text-right">Ação Super Admin</th>
+                                        <th className="px-6 py-4 text-right">Ação</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {loadingOrders ? (
-                                        <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400 font-medium">Carregando pedidos pendentes...</td></tr>
+                                        <tr><td colSpan={7} className="px-6 py-8 text-center text-slate-400 font-medium">Carregando pedidos...</td></tr>
                                     ) : orders.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                            <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                                                 <div className="flex flex-col items-center gap-2">
                                                     <CheckCircle size={40} className="text-green-200 mb-2" />
-                                                    <p className="font-bold">Tudo em dia!</p>
-                                                    <p className="text-xs">Não existem pedidos de SMS aguardando aprovação.</p>
+                                                    <p className="font-bold">Nenhum pedido encontrado.</p>
                                                 </div>
                                             </td>
                                         </tr>
                                     ) : (
                                         orders.map((order) => (
-                                            <tr key={order.id} className="hover:bg-amber-50/30 transition-colors bg-amber-50/5">
-                                                <td className="px-6 py-4 text-slate-500">{new Date(order.created_at).toLocaleString('pt-AO')}</td>
+                                            <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{new Date(order.created_at).toLocaleDateString('pt-AO')}</td>
                                                 <td className="px-6 py-4 font-bold text-slate-800">{(order.churches as any)?.name}</td>
                                                 <td className="px-6 py-4">{(order.sms_packages as any)?.name} ({new Intl.NumberFormat('pt-AO').format(order.amount)} SMS)</td>
-                                                <td className="px-6 py-4 font-black text-orange-600">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format((order.sms_packages as any)?.price || 0)}</td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-700 uppercase">
-                                                        <Clock size={12} /> Pendente
+                                                    {order.proof_url ? (
+                                                        <button 
+                                                            onClick={() => { setSelectedProofUrl(order.proof_url); setIsProofModalOpen(true); }}
+                                                            className="text-orange-600 hover:text-orange-700 font-bold text-[10px] uppercase underline flex items-center justify-center gap-1 mx-auto"
+                                                        >
+                                                            <Activity size={12} /> Ver Anexo
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-slate-300 italic text-[10px]">Sem anexo</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 font-black text-slate-900">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format((order.sms_packages as any)?.price || 0)}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase ${
+                                                        order.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                                                        order.status === 'rejected' ? 'bg-red-100 text-red-700' : 
+                                                        'bg-amber-100 text-amber-700'
+                                                    }`}>
+                                                        {order.status === 'completed' ? <Check size={12} /> : order.status === 'rejected' ? <XCircle size={12} /> : <Clock size={12} />}
+                                                        {order.status === 'completed' ? 'Concluído' : order.status === 'rejected' ? 'Rejeitado' : 'Pendente'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button 
-                                                            onClick={() => handleRejectOrder(order.id)} 
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg font-bold text-xs transition"
-                                                        >
-                                                            <X size={14} /> Rejeitar
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleApproveOrder(order.id, (order.churches as any)?.name)} 
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-xs shadow-md transition"
-                                                        >
-                                                            <Check size={14} /> Aprovar Pagamento
-                                                        </button>
-                                                    </div>
+                                                    {order.status === 'pending' && (
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button 
+                                                                onClick={() => handleRejectOrder(order.id, order.church_id)} 
+                                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" title="Rejeitar"
+                                                            >
+                                                                <X size={18} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleApproveOrder(order.id, order.church_id, (order.churches as any)?.name)} 
+                                                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-md transition"
+                                                            >
+                                                                Aprovar
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))
@@ -592,6 +674,29 @@ export default function AdminSmsPackages() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {isProofModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-6 border-b">
+                            <h3 className="text-xl font-bold text-slate-900">Comprovativo de Pagamento</h3>
+                            <button onClick={() => setIsProofModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition text-slate-400">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 bg-slate-50 flex items-center justify-center">
+                            {selectedProofUrl.toLowerCase().endsWith('.pdf') ? (
+                                <iframe src={selectedProofUrl} className="w-full h-full min-h-[600px] rounded-xl border border-slate-200" />
+                            ) : (
+                                <img src={selectedProofUrl} alt="Comprovativo" className="max-w-full h-auto rounded-xl shadow-lg border border-slate-200" />
+                            )}
+                        </div>
+                        <div className="p-6 border-t bg-white flex justify-end">
+                            <button onClick={() => setIsProofModalOpen(false)} className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition">Fechar</button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -18,6 +18,7 @@ export default function SmsStore() {
     const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
     const [selectedPkg, setSelectedPkg] = useState<any>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [proofFile, setProofFile] = useState<File | null>(null);
 
     useEffect(() => {
         if (user?.churchId) {
@@ -79,13 +80,36 @@ export default function SmsStore() {
         if (!selectedPkg) return;
         setIsSubmitting(true);
         try {
-            const { data, error } = await (supabase.rpc as any)('request_sms_purchase', {
-                p_package_id: selectedPkg.id
+            let proofUrl = null;
+
+            // 1. Upload proof if exists
+            if (proofFile) {
+                const fileExt = proofFile.name.split('.').pop();
+                const fileName = `${user?.churchId}/${Date.now()}.${fileExt}`;
+                
+                const { error: uploadError } = await supabase.storage
+                    .from('sms_proofs')
+                    .upload(fileName, proofFile);
+                
+                if (uploadError) throw uploadError;
+                
+                const { data: { publicUrl } } = supabase.storage
+                    .from('sms_proofs')
+                    .getPublicUrl(fileName);
+                
+                proofUrl = publicUrl;
+            }
+
+            // 2. Request Purchase via RPC
+            const { error } = await (supabase.rpc as any)('request_sms_purchase', {
+                p_package_id: selectedPkg.id,
+                p_proof_url: proofUrl
             });
             if (error) throw error;
             
             toast.success('Pedido registado! O saldo será libertado após confirmação do pagamento.');
             setIsBuyModalOpen(false);
+            setProofFile(null);
             fetchData(); // Refresh history
         } catch (error: any) {
             console.error(error);
@@ -314,6 +338,31 @@ export default function SmsStore() {
                                             <Copy size={18} />
                                         </button>
                                     </div>
+                                    
+                                    {/* Proof Upload Area */}
+                                    <div className="pt-2">
+                                        <label className="block text-[10px] font-black uppercase text-orange-400 mb-2">Anexar Comprovativo (Opcional)</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="file" 
+                                                accept="image/*,.pdf" 
+                                                onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                                                className="hidden" 
+                                                id="proof-upload"
+                                            />
+                                            <label 
+                                                htmlFor="proof-upload" 
+                                                className={`flex items-center justify-center gap-2 w-full p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all ${proofFile ? 'border-green-400 bg-green-50 text-green-700' : 'border-orange-200 hover:border-orange-400 text-orange-600 hover:bg-orange-50'}`}
+                                            >
+                                                {proofFile ? (
+                                                    <><CheckCircle size={18} /> {proofFile.name}</>
+                                                ) : (
+                                                    <><Smartphone size={18} /> Selecionar Ficheiro</>
+                                                )}
+                                            </label>
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-4 text-xs">
                                         <div>
                                             <div className="text-slate-400 mb-1">Banco</div>
