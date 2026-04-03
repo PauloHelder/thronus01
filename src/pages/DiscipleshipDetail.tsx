@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Calendar, Plus, UserPlus, Trash2, Pencil, CheckCircle, XCircle, Clock, LayoutDashboard, Info, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, Plus, UserPlus, Trash2, Pencil, CheckCircle, XCircle, Clock, LayoutDashboard, Info, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { DiscipleshipMeeting } from '../types';
 import { useDiscipleship } from '../hooks/useDiscipleship';
 import { useMembers } from '../hooks/useMembers';
 import AddDiscipleModal from '../components/modals/AddDiscipleModal';
 import AddDiscipleshipMeetingModal from '../components/modals/AddDiscipleshipMeetingModal';
+import SmsSenderModal from '../components/modals/SmsSenderModal';
+import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import { toast } from 'sonner';
 
 const DiscipleshipDetail: React.FC = () => {
@@ -24,9 +26,10 @@ const DiscipleshipDetail: React.FC = () => {
     } = useDiscipleship();
     const { members } = useMembers();
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'discipulos' | 'encontros'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'discipulos' | 'encontros' | 'sms'>('geral');
     const [isAddDiscipleModalOpen, setIsAddDiscipleModalOpen] = useState(false);
     const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
+    const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
     const [editingMeeting, setEditingMeeting] = useState<DiscipleshipMeeting | null>(null);
     const [localError, setLocalError] = useState<string | null>(null);
 
@@ -137,6 +140,7 @@ const DiscipleshipDetail: React.FC = () => {
                         { id: 'geral', label: 'Geral', icon: <LayoutDashboard size={18} /> },
                         { id: 'discipulos', label: 'Discípulos', icon: <Users size={18} /> },
                         { id: 'encontros', label: 'Encontros', icon: <ClipboardCheck size={18} /> },
+                        { id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -234,12 +238,20 @@ const DiscipleshipDetail: React.FC = () => {
                                 <h2 className="text-lg font-semibold text-slate-800">Lista de Discípulos</h2>
                                 <p className="text-sm text-slate-500">Pessoas sob cuidado deste discipulador</p>
                             </div>
-                            <button
-                                onClick={() => setIsAddDiscipleModalOpen(true)}
-                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                            >
-                                <UserPlus size={16} /> Adicionar Discípulo
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setIsSmsModalOpen(true)}
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                    <MessageSquare size={16} /> Enviar SMS
+                                </button>
+                                <button
+                                    onClick={() => setIsAddDiscipleModalOpen(true)}
+                                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                    <UserPlus size={16} /> Adicionar Discípulo
+                                </button>
+                            </div>
                         </div>
 
                         {leader.disciples.length > 0 ? (
@@ -281,15 +293,23 @@ const DiscipleshipDetail: React.FC = () => {
                                 <h2 className="text-lg font-semibold text-slate-800">Encontros de Discipulado</h2>
                                 <p className="text-sm text-slate-500">Histórico de acompanhamento e reuniões</p>
                             </div>
-                            <button
-                                onClick={() => {
-                                    setEditingMeeting(null);
-                                    setIsMeetingModalOpen(true);
-                                }}
-                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                            >
-                                <Plus size={16} /> Novo Encontro
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setIsSmsModalOpen(true)}
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                    <MessageSquare size={16} /> Enviar SMS
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setEditingMeeting(null);
+                                        setIsMeetingModalOpen(true);
+                                    }}
+                                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                    <Plus size={16} /> Novo Encontro
+                                </button>
+                            </div>
                         </div>
 
                         {leader.meetings && leader.meetings.length > 0 ? (
@@ -354,7 +374,22 @@ const DiscipleshipDetail: React.FC = () => {
                         )}
                     </div>
                 )}
+
+                {activeTab === 'sms' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <SmsHistoryTab contextType="discipleship" contextId={leader.id} />
+                    </div>
+                )}
             </div>
+
+            <SmsSenderModal
+                isOpen={isSmsModalOpen}
+                onClose={() => setIsSmsModalOpen(false)}
+                recipients={leader.disciples.map(d => ({ name: d.name, phone: d.phone || '' }))}
+                contextType="discipleship"
+                contextId={leader.id}
+                onSuccess={() => setActiveTab('sms')}
+            />
 
             <AddDiscipleModal
                 isOpen={isAddDiscipleModalOpen}

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Check, X, Calendar, CreditCard, Users, Building, ShieldCheck, BookOpen, UserPlus, Info, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Plan } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import { usePlans } from '../hooks/usePlans';
 import { useSubscriptionUsage } from '../hooks/useSubscriptionUsage';
 
-const ResourceUsageBar: React.FC<{
+export const ResourceUsageBar: React.FC<{
   label: string;
   current: number;
   limit: number | 'unlimited';
@@ -64,6 +65,7 @@ const ResourceUsageBar: React.FC<{
 };
 
 const ChurchSubscription: React.FC = () => {
+    const { hasPermission } = useAuth();
     const { plans, loading: loadingPlans } = usePlans();
     const { data: usageData, loading: loadingUsage, error: usageError } = useSubscriptionUsage();
     
@@ -71,6 +73,16 @@ const ChurchSubscription: React.FC = () => {
     const [duration, setDuration] = useState<1 | 3 | 6 | 12>(1);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [viewMode, setViewMode] = useState<'usage' | 'plans'>('usage');
+
+    if (!hasPermission('subscription_view') && !hasPermission('all')) {
+        return (
+            <div className="p-8 text-center min-h-[60vh] flex flex-col items-center justify-center">
+                <ShieldCheck size={48} className="mx-auto text-gray-300 mb-4" />
+                <h2 className="text-xl font-bold text-slate-800">Acesso Negado</h2>
+                <p className="text-slate-600">Você não tem permissão para gerenciar a assinatura desta igreja.</p>
+            </div>
+        );
+    }
 
     const calculateEndDate = (startDate: Date, months: number): string => {
         const endDate = new Date(startDate);

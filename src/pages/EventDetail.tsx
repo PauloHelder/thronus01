@@ -5,6 +5,9 @@ import { useEvents } from '../hooks/useEvents';
 import { useMembers } from '../hooks/useMembers';
 import { Member } from '../types';
 import EventModal from '../components/modals/EventModal';
+import CommunicationModal from '../components/modals/CommunicationModal';
+import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import { MessageSquare } from 'lucide-react';
 
 const EventDetail: React.FC = () => {
     const { id } = useParams();
@@ -12,6 +15,8 @@ const EventDetail: React.FC = () => {
     const { events, updateEvent, loading: loadingEvents } = useEvents();
     const { members, loading: loadingMembers } = useMembers();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'general' | 'sms'>('general');
+    const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
 
     const event = events.find(e => e.id === id);
 
@@ -96,7 +101,31 @@ const EventDetail: React.FC = () => {
                 </div>
             </div>
 
+            {/* Content Tabs Navigation */}
+            <div className="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 lg:px-6">
+                <div className="flex overflow-x-auto no-scrollbar gap-8">
+                    {[
+                        { id: 'general', label: 'Geral & Participantes', icon: <Users size={18} /> },
+                        { id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> },
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex items-center gap-2 py-4 border-b-2 transition-all font-medium text-sm whitespace-nowrap ${activeTab === tab.id
+                                ? 'border-orange-500 text-orange-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+                                }`}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             <div className="p-4 lg:p-6 space-y-6">
+                {activeTab === 'general' && (
+                    <>
                 {/* Statistics Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
@@ -149,6 +178,12 @@ const EventDetail: React.FC = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-slate-800">Participantes ({attendees.length})</h2>
+                        <button
+                            onClick={() => setIsSmsModalOpen(true)}
+                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
+                        >
+                            <MessageSquare size={16} /> Notificar Participantes
+                        </button>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -210,7 +245,30 @@ const EventDetail: React.FC = () => {
                         </div>
                     )}
                 </div>
+                </>
+                )}
+
+                {activeTab === 'sms' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <SmsHistoryTab contextType="event" contextId={id || ''} />
+                    </div>
+                )}
             </div>
+
+            {id && (
+                <CommunicationModal
+                    isOpen={isSmsModalOpen}
+                    onClose={() => setIsSmsModalOpen(false)}
+                    recipients={attendees.map(p => ({ 
+                        id: p.id, 
+                        name: p.name, 
+                        phone: p.phone || '' 
+                    }))}
+                    contextType="event"
+                    contextId={id}
+                    onSuccess={() => setActiveTab('sms')}
+                />
+            )}
 
             <EventModal
                 isOpen={isEditModalOpen}

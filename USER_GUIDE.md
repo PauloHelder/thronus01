@@ -45,7 +45,7 @@ Registe a frequência e o impacto das suas reuniões:
 Organize a sua igreja em pequenos grupos ou ministérios:
 *   **Criação de Grupos**: Defina o nome, tipo, líder e horário de reunião.
 *   **Membros**: Associe membros a grupos específicos para facilitar o acompanhamento.
-*   **Encontros**: Registe a frequência e o impacto dos encontros.
+*   **Encontros**: Registe tema da aula, data e a frequência dos encontros.
 
 ---
 
@@ -132,8 +132,8 @@ Comunique-se de forma eficaz com a sua congregação:
 ## 👥 Usuários e Permissões
 
 Escale a sua equipa administrativa com segurança:
-*   **Convidar Usuários**: Adicione outros líderes ou funcionários ao sistema.
-*   **Níveis de Acesso**: Defina quem pode ver dízimos, editar membros ou criar eventos.
+*   **Cadastre Usuários**: Adicione cadastrando ou vinvulando usuarios líderes ou funcionários ao sistema.
+*   **Níveis de Acesso**: Defina quem pode ver Finanças, membros, eventos, etc.
 *   **Segurança**: Cada ação é registada para garantir a rastreabilidade dos dados.
 
 ---

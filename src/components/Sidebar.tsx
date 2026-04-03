@@ -151,12 +151,10 @@ const Sidebar: React.FC = () => {
         { to: "/settings", icon: Settings, label: "Configurações", permission: 'settings_view' }
       );
 
-      if (user?.roles?.some(r => ['admin', 'pastor'].includes(r))) {
         items.push(
-            { to: "/subscription", icon: CreditCard, label: "Assinatura" },
-            { to: "/sms-store", icon: MessageSquare, label: "Comprar SMS" }
+            { to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' },
+            { to: "/sms-store", icon: MessageSquare, label: "Comprar SMS", permission: 'subscription_edit' }
         );
-      }
     }
 
     return items.filter(item => !item.permission || checkNavPermission(item.permission));

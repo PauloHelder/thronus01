@@ -14,8 +14,10 @@ import { useFinance } from '../hooks/useFinance';
 import { ClipboardList, AlertCircle, CheckCircle2, Clock, XCircle, DollarSign, Target, Info, LayoutDashboard, Flag, Filter, Search, BarChart3 } from 'lucide-react';
 import { useDepartmentGoals, DepartmentGoal } from '../hooks/useDepartmentGoals';
 import DepartmentGoalModal from '../components/modals/DepartmentGoalModal';
-
+import CommunicationModal from '../components/modals/CommunicationModal';
+import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
+import { MessageSquare, Activity } from 'lucide-react';
 
 const DepartmentDetail: React.FC = () => {
     const { id } = useParams();
@@ -52,10 +54,11 @@ const DepartmentDetail: React.FC = () => {
         deleteGoal
     } = useDepartmentGoals(id);
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'objectivos' | 'escala' | 'requisicoes'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'objectivos' | 'escala' | 'requisicoes' | 'sms'>('geral');
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+    const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
     const [selectedGoal, setSelectedGoal] = useState<DepartmentGoal | null>(null);
     const [editingSchedule, setEditingSchedule] = useState<DepartmentSchedule | null>(null);
@@ -255,6 +258,7 @@ const DepartmentDetail: React.FC = () => {
                         { id: 'objectivos', label: 'Objectivos', icon: <Target size={18} /> },
                         { id: 'escala', label: 'Escala', icon: <Calendar size={18} /> },
                         { id: 'requisicoes', label: 'Requisições', icon: <ClipboardList size={18} /> },
+                        { id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -346,12 +350,20 @@ const DepartmentDetail: React.FC = () => {
                                 <p className="text-sm text-slate-500">Gerencie os membros que fazem parte deste ministério</p>
                             </div>
                             {hasPermission('departments_edit') && (
-                                <button
-                                    onClick={() => setIsAddMemberModalOpen(true)}
-                                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                >
-                                    <UserPlus size={16} /> Adicionar
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setIsSmsModalOpen(true)}
+                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageSquare size={16} /> Enviar SMS
+                                    </button>
+                                    <button
+                                        onClick={() => setIsAddMemberModalOpen(true)}
+                                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <UserPlus size={16} /> Adicionar
+                                    </button>
+                                </div>
                             )}
                         </div>
 
@@ -557,15 +569,23 @@ const DepartmentDetail: React.FC = () => {
                                 <p className="text-sm text-slate-500">Agendamentos e membros escalados para cultos e eventos</p>
                             </div>
                             {hasPermission('departments_edit') && (
-                                <button
-                                    onClick={() => {
-                                        setEditingSchedule(null);
-                                        setIsScheduleModalOpen(true);
-                                    }}
-                                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                >
-                                    <Plus size={16} /> Nova Escala
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setIsSmsModalOpen(true)}
+                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageSquare size={16} /> Notificar Equipe
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setEditingSchedule(null);
+                                            setIsScheduleModalOpen(true);
+                                        }}
+                                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <Plus size={16} /> Nova Escala
+                                    </button>
+                                </div>
                             )}
                         </div>
 
@@ -732,7 +752,28 @@ const DepartmentDetail: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+                {activeTab === 'sms' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <SmsHistoryTab contextType="department" contextId={id || ''} />
+                    </div>
+                )}
             </div>
+
+            {id && (
+                <CommunicationModal
+                    isOpen={isSmsModalOpen}
+                    onClose={() => setIsSmsModalOpen(false)}
+                    recipients={department.members.map(m => ({ 
+                        id: m.id, 
+                        name: m.name, 
+                        phone: m.phone || '' 
+                    }))}
+                    contextType="department"
+                    contextId={id}
+                    onSuccess={() => setActiveTab('sms')}
+                />
+            )}
 
             <AddDepartmentMemberModal
                 isOpen={isAddMemberModalOpen}

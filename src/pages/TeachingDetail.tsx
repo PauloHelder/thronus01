@@ -4,8 +4,11 @@ import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil, BookOpen, C
 import { TeachingClass, TeachingLesson } from '../types';
 import AddStudentModal from '../components/modals/AddStudentModal';
 import AddLessonModal from '../components/modals/AddLessonModal';
+import CommunicationModal from '../components/modals/CommunicationModal';
 import { useTeaching } from '../hooks/useTeaching';
 import { useMembers } from '../hooks/useMembers';
+import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import { MessageSquare, Activity } from 'lucide-react';
 
 const TeachingDetail: React.FC = () => {
     const { id } = useParams();
@@ -13,12 +16,13 @@ const TeachingDetail: React.FC = () => {
     const { fetchClassDetails, addStudentToClass, removeStudentFromClass, addLesson, updateLesson, deleteLesson } = useTeaching();
     const { members } = useMembers();
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'alunos' | 'aulas'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'alunos' | 'aulas' | 'sms'>('geral');
     const [teachingClass, setTeachingClass] = useState<TeachingClass | null>(null);
     const [loading, setLoading] = useState(true);
     const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
     const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
     const [editingLesson, setEditingLesson] = useState<TeachingLesson | null>(null);
+    const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
 
     const loadClass = useCallback(async () => {
         if (!id) return;
@@ -191,6 +195,7 @@ const TeachingDetail: React.FC = () => {
                         { id: 'geral', label: 'Geral', icon: <LayoutDashboard size={18} /> },
                         { id: 'alunos', label: 'Alunos', icon: <Users size={18} /> },
                         { id: 'aulas', label: 'Aulas', icon: <GraduationCap size={18} /> },
+                        { id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -317,12 +322,20 @@ const TeachingDetail: React.FC = () => {
                                 <h2 className="text-lg font-semibold text-slate-800">Alunos Matriculados</h2>
                                 <p className="text-sm text-slate-500">Gestão de estudantes desta turma</p>
                             </div>
-                            <button
-                                onClick={() => setIsAddStudentModalOpen(true)}
-                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                            >
-                                <UserPlus size={16} /> Adicionar Alunos
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setIsSmsModalOpen(true)}
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                    <MessageSquare size={16} /> Enviar SMS
+                                </button>
+                                <button
+                                    onClick={() => setIsAddStudentModalOpen(true)}
+                                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                    <UserPlus size={16} /> Adicionar Alunos
+                                </button>
+                            </div>
                         </div>
 
                         {teachingClass.students.length > 0 ? (
@@ -445,7 +458,31 @@ const TeachingDetail: React.FC = () => {
                         )}
                     </div>
                 )}
+
+                {activeTab === 'sms' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <SmsHistoryTab contextType="teaching" contextId={id || ''} />
+                    </div>
+                )}
             </div>
+
+            {id && (
+                <CommunicationModal
+                    isOpen={isSmsModalOpen}
+                    onClose={() => setIsSmsModalOpen(false)}
+                    recipients={[
+                        ...(teachingClass?.members || []).map(m => ({ id: m.id, name: m.name, phone: m.phone || '' })),
+                        ...(teachingClass?.teacherId ? [{ 
+                            id: teachingClass.teacherId, 
+                            name: teachingClass.teacherName || 'Professor', 
+                            phone: '' 
+                        }] : [])
+                    ]}
+                    contextType="teaching"
+                    contextId={id}
+                    onSuccess={() => setActiveTab('sms')}
+                />
+            )}
 
             <AddStudentModal
                 isOpen={isAddStudentModalOpen}

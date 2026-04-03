@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Plus, Trash2, Wallet, Building, Users, BookOpen, ShieldCheck, Check, Calendar, Pencil, Upload, Palette, Image as ImageIcon } from 'lucide-react';
+import { Save, Plus, Trash2, Wallet, Building, Users, BookOpen, ShieldCheck, Check, Calendar, Pencil, Upload, Palette, Image as ImageIcon, ArrowRight, Info } from 'lucide-react';
 import { TransactionCategory, ChristianStage, TeachingCategory } from '../types';
 import { useServiceTypes } from '../hooks/useServiceTypes';
 import { MOCK_CATEGORIES } from '../mocks/finance';
@@ -24,6 +24,8 @@ const MODULES = [
     { id: 'branches', label: 'Minhas Igrejas' },
     { id: 'users', label: 'Usuários' },
     { id: 'reports', label: 'Relatórios' },
+    { id: 'communication', label: 'Comunicação (SMS)' },
+    { id: 'subscription', label: 'Assinatura e Planos' },
 ];
 
 const ACTIONS = [
@@ -31,7 +33,9 @@ const ACTIONS = [
     { id: 'create', label: 'Criar' },
     { id: 'edit', label: 'Editar' },
     { id: 'delete', label: 'Excluir' },
+    { id: 'send', label: 'Enviar/Executar' },
 ];
+
 
 const Settings: React.FC = () => {
     const { user, hasPermission, hasRole } = useAuth();
@@ -369,7 +373,7 @@ const Settings: React.FC = () => {
                 <button onClick={() => setActiveTab('general')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'general' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Geral</button>
                 <button onClick={() => setActiveTab('financial')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'financial' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Financeiro</button>
                 <button onClick={() => setActiveTab('teaching')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'teaching' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Ensino</button>
-                <button onClick={() => setActiveTab('roles')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'roles' || activeTab === 'permissions' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Permissões</button>
+                <button onClick={() => setActiveTab('roles')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'roles' || activeTab === 'permissions' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Perfis</button>
                 <button onClick={() => setActiveTab('links')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'links' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Vínculos</button>
             </div>
 

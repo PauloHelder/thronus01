@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, User, MapPin, Users, Save, Heart } from 'lucide-react';
-import { Service } from '../types';
+import { ArrowLeft, Calendar, Clock, User, MapPin, Users, Save, Heart, MessageSquare, ClipboardList, Info, Loader2 } from 'lucide-react';
+import { Service, DepartmentSchedule, Member } from '../types';
 import { useServices } from '../hooks/useServices';
+import { supabase } from '../lib/supabase';
+import CommunicationModal from '../components/modals/CommunicationModal';
+import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import { useAuth } from '../contexts/AuthContext';
 
 const ServiceDetail: React.FC = () => {
     const { id } = useParams();
@@ -14,8 +18,13 @@ const ServiceDetail: React.FC = () => {
         adults: { men: 0, women: 0 },
         children: { boys: 0, girls: 0 },
         visitors: { men: 0, women: 0 },
-        newConverts: 0
+        newConverts: { men: 0, women: 0, children: 0 }
     });
+    const [activeTab, setActiveTab] = useState<'stats' | 'team' | 'sms'>('stats');
+    const [relatedSchedules, setRelatedSchedules] = useState<DepartmentSchedule[]>([]);
+    const [teamMembers, setTeamMembers] = useState<Member[]>([]);
+    const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+    const { hasPermission } = useAuth();
 
     useEffect(() => {
         const fetchServiceData = async () => {
@@ -45,7 +54,37 @@ const ServiceDetail: React.FC = () => {
             }
         };
 
+        const fetchRelatedData = async () => {
+            if (!id) return;
+            try {
+                // Fetch schedules linked to this service
+                const { data: schedulesData } = await supabase
+                    .from('department_schedules')
+                    .select('*')
+                    .eq('service_id', id);
+
+                if (schedulesData) {
+                    setRelatedSchedules(schedulesData as DepartmentSchedule[]);
+
+                    // Fetch members assigned to these schedules
+                    const memberIds = Array.from(new Set(schedulesData.flatMap(s => s.assigned_members || [])));
+                    if (memberIds.length > 0) {
+                        const { data: membersData } = await supabase
+                            .from('members')
+                            .select('*')
+                            .in('id', memberIds);
+                        if (membersData) {
+                            setTeamMembers(membersData as any[]);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching related data:', error);
+            }
+        };
+
         fetchServiceData();
+        fetchRelatedData();
     }, [id]);
 
     const totalNewConverts = (statistics.newConverts?.men || 0) +
@@ -157,7 +196,32 @@ const ServiceDetail: React.FC = () => {
                 </div>
             </div>
 
+            {/* Content Tabs Navigation */}
+            <div className="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 lg:px-6">
+                <div className="flex overflow-x-auto no-scrollbar gap-8">
+                    {[
+                        { id: 'stats', label: 'Estatísticas', icon: <Save size={18} /> },
+                        { id: 'team', label: 'Equipe Escalada', icon: <Users size={18} /> },
+                        { id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> },
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex items-center gap-2 py-4 border-b-2 transition-all font-medium text-sm whitespace-nowrap ${activeTab === tab.id
+                                ? 'border-orange-500 text-orange-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+                                }`}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             <div className="p-4 lg:p-6 space-y-6">
+                {activeTab === 'stats' && (
+                    <>
                 {/* Informações do Culto */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <h2 className="text-lg font-semibold text-slate-800 mb-4">Informações do Culto</h2>
@@ -431,8 +495,71 @@ const ServiceDetail: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === 'team' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-800">Equipe Escalada</h2>
+                                <p className="text-sm text-slate-500">Membros atribuídos a este culto através dos departamentos</p>
+                            </div>
+                            <button
+                                onClick={() => setIsSmsModalOpen(true)}
+                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                            >
+                                <MessageSquare size={16} /> Notificar Equipe
+                            </button>
+                        </div>
+
+                        {teamMembers.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {teamMembers.map(member => (
+                                    <div key={member.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                        <img
+                                            src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}
+                                            alt=""
+                                            className="w-10 h-10 rounded-full object-cover shadow-sm"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-slate-800 truncate">{member.name}</p>
+                                            <p className="text-xs text-slate-500 truncate">{member.phone || 'Sem telemóvel'}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-slate-400 border-2 border-dashed border-gray-100 rounded-xl">
+                                <Users size={48} className="mx-auto mb-3 opacity-20" />
+                                <p>Nenhuma equipe escalada para este culto ainda.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'sms' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <SmsHistoryTab contextType="service" contextId={id || ''} />
+                    </div>
+                )}
             </div>
+
+            {id && (
+                <CommunicationModal
+                    isOpen={isSmsModalOpen}
+                    onClose={() => setIsSmsModalOpen(false)}
+                    recipients={teamMembers.map(m => ({ 
+                        id: m.id, 
+                        name: m.name, 
+                        phone: m.phone || '' 
+                    }))}
+                    contextType="service"
+                    contextId={id}
+                    onSuccess={() => setActiveTab('sms')}
+                />
+            )}
         </div>
     );
 };

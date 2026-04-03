@@ -1,9 +1,11 @@
 import React, { useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Printer, Calendar, DollarSign, FileText, Hash, User, Building, CheckCircle } from 'lucide-react';
-import { Transaction } from '../types';
+import { ArrowLeft, Download, Printer, Calendar, DollarSign, FileText, Hash, User, Building, CheckCircle, MessageSquare } from 'lucide-react';
+import { Transaction, Member } from '../types';
 import { MOCK_CATEGORIES } from '../mocks/finance';
 import { MOCK_MEMBERS } from '../mocks/members';
+import CommunicationModal from '../components/modals/CommunicationModal';
+import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 
 // Mock transaction (idealmente viria de um contexto ou API)
 const MOCK_TRANSACTION: Transaction = {
@@ -23,6 +25,8 @@ const TransactionDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const printRef = useRef<HTMLDivElement>(null);
+    const [activeTab, setActiveTab] = React.useState<'receipt' | 'sms'>('receipt');
+    const [isSmsModalOpen, setIsSmsModalOpen] = React.useState(false);
 
     // Simular busca da transação
     const transaction = MOCK_TRANSACTION;
@@ -47,10 +51,6 @@ const TransactionDetail: React.FC = () => {
     const handleDownloadPDF = () => {
         // Implementação futura com biblioteca como jsPDF ou html2pdf
         alert('Funcionalidade de download PDF será implementada em breve!');
-        // Exemplo de implementação:
-        // import html2pdf from 'html2pdf.js';
-        // const element = printRef.current;
-        // html2pdf().from(element).save(`recibo-${transaction.id}.pdf`);
     };
 
     return (
@@ -65,6 +65,25 @@ const TransactionDetail: React.FC = () => {
                         <ArrowLeft size={20} />
                         <span className="font-medium">Voltar para Finanças</span>
                     </button>
+
+                    <div className="flex overflow-x-auto no-scrollbar gap-6 mb-4">
+                        {[
+                            { id: 'receipt', label: 'Comprovante', icon: <FileText size={18} /> },
+                            { id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> },
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`flex items-center gap-2 py-2 border-b-2 transition-all font-medium text-sm whitespace-nowrap ${activeTab === tab.id
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+                                    }`}
+                            >
+                                {tab.icon}
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
 
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
@@ -82,6 +101,13 @@ const TransactionDetail: React.FC = () => {
                                 Imprimir
                             </button>
                             <button
+                                onClick={() => setIsSmsModalOpen(true)}
+                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+                            >
+                                <MessageSquare size={18} />
+                                Notificar
+                            </button>
+                            <button
                                 onClick={handleDownloadPDF}
                                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
                             >
@@ -93,158 +119,183 @@ const TransactionDetail: React.FC = () => {
                 </div>
             </div>
 
-            {/* Invoice Content */}
-            <div className="max-w-4xl mx-auto p-4 lg:p-8">
-                <div ref={printRef} className="bg-white rounded-xl border border-gray-200 shadow-lg p-8 lg:p-12 print:shadow-none print:border-0">
-                    {/* Header do Invoice */}
-                    <div className="flex justify-between items-start mb-8 pb-8 border-b-2 border-gray-200">
-                        <div>
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
-                                    <span className="text-white font-bold text-xl">Tr</span>
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-800">Tronus</h2>
-                                    <p className="text-sm text-slate-500">Gestão de Igrejas</p>
-                                </div>
-                            </div>
-                            <div className="text-sm text-slate-600 space-y-1">
-                                <p>Igreja Exemplo</p>
-                                <p>Rua da Igreja, 123</p>
-                                <p>Luanda, Angola</p>
-                                <p>contato@igreja.ao</p>
-                            </div>
-                        </div>
-
-                        <div className="text-right">
-                            <div className={`inline-block px-4 py-2 rounded-lg mb-4 ${transaction.type === 'Income'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-700'
-                                }`}>
-                                <span className="font-bold text-lg">
-                                    {transaction.type === 'Income' ? 'RECEITA' : 'DESPESA'}
-                                </span>
-                            </div>
-                            <div className="text-sm text-slate-600 space-y-1">
-                                <p className="font-semibold">Data de Emissão</p>
-                                <p>{formatDate(transaction.date)}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Informações da Transação */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div className="space-y-4">
+            {activeTab === 'receipt' && (
+                <div className="max-w-4xl mx-auto p-4 lg:p-8">
+                    <div ref={printRef} className="bg-white rounded-xl border border-gray-200 shadow-lg p-8 lg:p-12 print:shadow-none print:border-0">
+                        {/* Header do Invoice */}
+                        <div className="flex justify-between items-start mb-8 pb-8 border-b-2 border-gray-200">
                             <div>
-                                <p className="text-xs font-semibold text-slate-500 uppercase mb-1">
-                                    {transaction.type === 'Income' ? 'Recebido de' : 'Pago para'}
-                                </p>
-                                <div className="flex items-start gap-2">
-                                    {transaction.source === 'Member' ? (
-                                        <User size={18} className="text-slate-400 mt-0.5" />
-                                    ) : transaction.source === 'Service' ? (
-                                        <Building size={18} className="text-slate-400 mt-0.5" />
-                                    ) : (
-                                        <FileText size={18} className="text-slate-400 mt-0.5" />
-                                    )}
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                                        <span className="text-white font-bold text-xl">Tr</span>
+                                    </div>
                                     <div>
-                                        <p className="font-semibold text-slate-800">{transaction.sourceName}</p>
-                                        <p className="text-sm text-slate-500">
-                                            {transaction.source === 'Member' ? 'Membro' :
-                                                transaction.source === 'Service' ? 'Culto' : 'Outro'}
-                                        </p>
+                                        <h2 className="text-xl font-bold text-slate-800">Tronus</h2>
+                                        <p className="text-sm text-slate-500">Gestão de Igrejas</p>
                                     </div>
+                                </div>
+                                <div className="text-sm text-slate-600 space-y-1">
+                                    <p>Igreja Exemplo</p>
+                                    <p>Rua da Igreja, 123</p>
+                                    <p>Luanda, Angola</p>
+                                    <p>contato@igreja.ao</p>
                                 </div>
                             </div>
 
+                            <div className="text-right">
+                                <div className={`inline-block px-4 py-2 rounded-lg mb-4 ${transaction.type === 'Income'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-red-100 text-red-700'
+                                    }`}>
+                                    <span className="font-bold text-lg">
+                                        {transaction.type === 'Income' ? 'RECEITA' : 'DESPESA'}
+                                    </span>
+                                </div>
+                                <div className="text-sm text-slate-600 space-y-1">
+                                    <p className="font-semibold">Data de Emissão</p>
+                                    <p>{formatDate(transaction.date)}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Informações da Transação */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-xs font-semibold text-slate-500 uppercase mb-1">
+                                        {transaction.type === 'Income' ? 'Recebido de' : 'Pago para'}
+                                    </p>
+                                    <div className="flex items-start gap-2">
+                                        {transaction.source === 'Member' ? (
+                                            <User size={18} className="text-slate-400 mt-0.5" />
+                                        ) : transaction.source === 'Service' ? (
+                                            <Building size={18} className="text-slate-400 mt-0.5" />
+                                        ) : (
+                                            <FileText size={18} className="text-slate-400 mt-0.5" />
+                                        )}
+                                        <div>
+                                            <p className="font-semibold text-slate-800">{transaction.sourceName}</p>
+                                            <p className="text-sm text-slate-500">
+                                                {transaction.source === 'Member' ? 'Membro' :
+                                                    transaction.source === 'Service' ? 'Culto' : 'Outro'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Categoria</p>
+                                    <p className="font-medium text-slate-800">{getCategoryName(transaction.categoryId)}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                {transaction.receiptNumber && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Nº Recibo</p>
+                                        <div className="flex items-center gap-2">
+                                            <Hash size={16} className="text-slate-400" />
+                                            <p className="font-medium text-slate-800">{transaction.receiptNumber}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {transaction.referenceNumber && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Nº Referência</p>
+                                        <div className="flex items-center gap-2">
+                                            <FileText size={16} className="text-slate-400" />
+                                            <p className="font-medium text-slate-800">{transaction.referenceNumber}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Descrição */}
+                        {transaction.description && (
+                            <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Descrição</p>
+                                <p className="text-slate-700">{transaction.description}</p>
+                            </div>
+                        )}
+
+                        {/* Tabela de Valores */}
+                        <div className="mb-8">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b-2 border-gray-200">
+                                        <th className="text-left py-3 text-xs font-semibold text-slate-500 uppercase">Descrição</th>
+                                        <th className="text-right py-3 text-xs font-semibold text-slate-500 uppercase">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr className="border-b border-gray-100">
+                                        <td className="py-4 text-slate-700">{getCategoryName(transaction.categoryId)}</td>
+                                        <td className="py-4 text-right font-medium text-slate-800">{formatCurrency(transaction.amount)}</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr className="border-t-2 border-gray-200">
+                                        <td className="py-4 text-lg font-bold text-slate-800">TOTAL</td>
+                                        <td className={`py-4 text-right text-2xl font-bold ${transaction.type === 'Income' ? 'text-green-600' : 'text-red-600'
+                                            }`}>
+                                            {formatCurrency(transaction.amount)}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        {/* Status e Observações */}
+                        <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg mb-8">
+                            <CheckCircle className="text-green-600" size={20} />
                             <div>
-                                <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Categoria</p>
-                                <p className="font-medium text-slate-800">{getCategoryName(transaction.categoryId)}</p>
+                                <p className="font-semibold text-green-800">Transação Confirmada</p>
+                                <p className="text-sm text-green-600">Registrada em {formatDate(transaction.date)}</p>
                             </div>
                         </div>
 
-                        <div className="space-y-4">
-                            {transaction.receiptNumber && (
-                                <div>
-                                    <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Nº Recibo</p>
-                                    <div className="flex items-center gap-2">
-                                        <Hash size={16} className="text-slate-400" />
-                                        <p className="font-medium text-slate-800">{transaction.receiptNumber}</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {transaction.referenceNumber && (
-                                <div>
-                                    <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Nº Referência</p>
-                                    <div className="flex items-center gap-2">
-                                        <FileText size={16} className="text-slate-400" />
-                                        <p className="font-medium text-slate-800">{transaction.referenceNumber}</p>
-                                    </div>
-                                </div>
-                            )}
+                        {/* Footer */}
+                        <div className="pt-8 border-t border-gray-200 text-center text-sm text-slate-500">
+                            <p>Este documento foi gerado eletronicamente pelo sistema Tronus</p>
+                            <p className="mt-1">Para mais informações, entre em contato com a administração da igreja</p>
                         </div>
                     </div>
 
-                    {/* Descrição */}
-                    {transaction.description && (
-                        <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Descrição</p>
-                            <p className="text-slate-700">{transaction.description}</p>
-                        </div>
-                    )}
-
-                    {/* Tabela de Valores */}
-                    <div className="mb-8">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b-2 border-gray-200">
-                                    <th className="text-left py-3 text-xs font-semibold text-slate-500 uppercase">Descrição</th>
-                                    <th className="text-right py-3 text-xs font-semibold text-slate-500 uppercase">Valor</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr className="border-b border-gray-100">
-                                    <td className="py-4 text-slate-700">{getCategoryName(transaction.categoryId)}</td>
-                                    <td className="py-4 text-right font-medium text-slate-800">{formatCurrency(transaction.amount)}</td>
-                                </tr>
-                            </tbody>
-                            <tfoot>
-                                <tr className="border-t-2 border-gray-200">
-                                    <td className="py-4 text-lg font-bold text-slate-800">TOTAL</td>
-                                    <td className={`py-4 text-right text-2xl font-bold ${transaction.type === 'Income' ? 'text-green-600' : 'text-red-600'
-                                        }`}>
-                                        {formatCurrency(transaction.amount)}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-
-                    {/* Status e Observações */}
-                    <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg mb-8">
-                        <CheckCircle className="text-green-600" size={20} />
-                        <div>
-                            <p className="font-semibold text-green-800">Transação Confirmada</p>
-                            <p className="text-sm text-green-600">Registrada em {formatDate(transaction.date)}</p>
-                        </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="pt-8 border-t border-gray-200 text-center text-sm text-slate-500">
-                        <p>Este documento foi gerado eletronicamente pelo sistema Tronus</p>
-                        <p className="mt-1">Para mais informações, entre em contato com a administração da igreja</p>
+                    {/* Informações Adicionais - Não imprime */}
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg print:hidden">
+                        <p className="text-sm text-blue-800">
+                            <strong>Nota:</strong> Este comprovante pode ser impresso ou salvo em PDF para seus registros.
+                            Para gerar o PDF, clique no botão "Baixar PDF" acima.
+                        </p>
                     </div>
                 </div>
+            )}
 
-                {/* Informações Adicionais - Não imprime */}
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg print:hidden">
-                    <p className="text-sm text-blue-800">
-                        <strong>Nota:</strong> Este comprovante pode ser impresso ou salvo em PDF para seus registros.
-                        Para gerar o PDF, clique no botão "Baixar PDF" acima.
-                    </p>
+            {activeTab === 'sms' && (
+                <div className="max-w-4xl mx-auto p-4 lg:p-8">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-8">
+                        <SmsHistoryTab contextType="finance" contextId={id || ''} />
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {id && (
+                <CommunicationModal
+                    isOpen={isSmsModalOpen}
+                    onClose={() => setIsSmsModalOpen(false)}
+                    recipients={transaction.source === 'Member' && transaction.sourceId ? 
+                        MOCK_MEMBERS.filter(m => m.id === transaction.sourceId).map(m => ({ 
+                            id: m.id, 
+                            name: m.name, 
+                            phone: m.phone || '' 
+                        })) : []}
+                    contextType="finance"
+                    contextId={id}
+                    onSuccess={() => setActiveTab('sms')}
+                />
+            )}
 
             {/* Print Styles */}
             <style>{`
