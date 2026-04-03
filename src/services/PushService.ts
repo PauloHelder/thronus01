@@ -5,6 +5,7 @@ interface PushPayload {
   message: string;
   title?: string;
   data?: any;
+  send_after?: string; // Formato OneSignal: "2025-04-03 14:00:00 GMT-0100"
 }
 
 export const PushService = {
@@ -33,6 +34,7 @@ export const PushService = {
           contents: { en: message, pt: message },
           headings: { en: title, pt: title },
           data: data,
+          send_after: payload.send_after, // Se for indefinido, o OneSignal envia agora
         }),
       });
 
