@@ -13,41 +13,25 @@ export const PushService = {
    * Envia uma notificação push para usuários específicos da igreja.
    */
   async sendToUsers({ recipients, message, title = 'Thronus', data = {}, send_after }: PushPayload) {
-    const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
-    const apiKey = import.meta.env.VITE_ONESIGNAL_REST_API_KEY;
-
-    if (!appId || !apiKey) {
-      console.warn('PushService: OneSignal App ID ou API Key não configurada.');
-      return { success: false, error: 'Configuração de Push ausente.' };
-    }
-
     try {
-      const response = await fetch('https://onesignal.com/api/v1/notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Authorization': `Basic ${apiKey}`,
-        },
-        body: JSON.stringify({
-          app_id: appId,
-          include_external_user_ids: recipients,
-          contents: { en: message, pt: message },
-          headings: { en: title, pt: title },
-          data: data,
-          send_after: send_after, // Se for indefinido, o OneSignal envia agora
-        }),
+      // 1. Chamar a Edge Function segura no Supabase
+      const { data: functionResult, error: functionError } = await (supabase.functions as any).invoke('send-push', {
+        body: {
+          recipients,
+          message,
+          title,
+          data,
+          send_after
+        }
       });
 
-      const result = await response.json();
+      if (functionError) throw functionError;
+      if (functionResult?.success === false) throw new Error(functionResult.error);
 
-      if (result.errors) {
-        throw new Error(result.errors[0]);
-      }
-
-      return { success: true, result };
+      return { success: true, result: functionResult };
     } catch (error: any) {
-      console.error('PushService Error:', error);
-      return { success: false, error: error.message };
+      console.error('PushService Error calling Edge Function:', error);
+      return { success: false, error: error.message || 'Erro ao contactar serviço de notificações.' };
     }
   },
 
@@ -65,7 +49,7 @@ export const PushService = {
     channel: 'sms' | 'push';
     status: 'sent' | 'failed';
   }) {
-    const { error } = await supabase.from('sms_history').insert({
+    const { error } = await (supabase.from('sms_history') as any).insert({
       church_id: payload.church_id,
       sender_id: payload.sender_id,
       content: payload.content,

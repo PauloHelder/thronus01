@@ -77,24 +77,27 @@ const SmsSenderModal: React.FC<SmsSenderModalProps> = ({
 
     setSending(true);
     try {
-      // 1. Chamar a RPC para processar o saldo e guardar no histórico
-      const { error: rpcError } = await (supabase.rpc as any)('process_sms_send', {
-        p_church_id: user?.churchId,
-        p_content: message,
-        p_recipients: validRecipients,
-        p_context_type: contextType,
-        p_context_id: contextId,
-        p_count: validRecipients.length
+      // 1. Chamar a Edge Function para o envio real via TelcoSMS
+      const { data, error: functionError } = await (supabase.functions as any).invoke('send-sms', {
+        body: {
+          phones: validRecipients.map(r => r.phone),
+          message: message,
+          context_type: contextType,
+          context_id: contextId
+        }
       });
 
-      if (rpcError) throw rpcError;
+      if (functionError) throw functionError;
+      if (data?.error) throw new Error(data.error);
 
-      toast.success(`${validRecipients.length} SMS enviadas com sucesso!`);
+      const deliveredCount = data?.delivered_count || validRecipients.length;
+      toast.success(`${deliveredCount} SMS enviadas com sucesso!`);
+      
       if (onSuccess) onSuccess();
       onClose();
     } catch (error: any) {
-      console.error('Error sending SMS:', error);
-      toast.error('Falha ao enviar SMS: ' + (error.message || 'Erro desconhecido'));
+      console.error('Error sending SMS via Edge Function:', error);
+      toast.error('Falha ao enviar SMS: ' + (error.message || 'Erro de rede ou servidor'));
     } finally {
       setSending(false);
     }
