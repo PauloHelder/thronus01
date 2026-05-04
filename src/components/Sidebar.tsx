@@ -30,7 +30,8 @@ import {
   Package,
   Wrench,
   Tag,
-  MessageSquare
+  MessageSquare,
+  Award
 } from 'lucide-react';
 
 interface NavBaseItem {
@@ -76,6 +77,12 @@ const Sidebar: React.FC = () => {
       items: [
         { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
         { to: "/members", icon: Users, label: "Lista de membros", permission: 'members_view', end: true },
+        { to: "/members?filter=adultos", icon: Users, label: "Adultos", permission: 'members_view' },
+        { to: "/members?filter=jovens", icon: Users, label: "Jovens", permission: 'members_view' },
+        { to: "/members?filter=adolescentes", icon: Users, label: "Adolescentes", permission: 'members_view' },
+        { to: "/members?filter=criancas", icon: Users, label: "Crianças", permission: 'members_view' },
+        { to: "/consagracoes", icon: Award, label: "Consagrações", permission: 'members_view' },
+        { to: "/families", icon: Users, label: "Famílias", permission: 'members_view' },
         { to: "/members?filter=aniversariantes", icon: Gift, label: "Aniversariantes", permission: 'members_view' },
         { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
       ]

@@ -14,9 +14,11 @@ import {
     BookOpen,
     TrendingUp,
     Activity,
-    Loader2
+    Loader2,
+    Award
 } from 'lucide-react';
 import MemberModal from '../components/modals/MemberModal';
+import AddFamilyRelationshipModal from '../components/modals/AddFamilyRelationshipModal';
 import { Member } from '../types';
 import { useMembers } from '../hooks/useMembers';
 import { formatDateForInput } from '../utils/dateUtils';
@@ -45,10 +47,13 @@ const MemberDetail: React.FC = () => {
     const [memberDepartments, setMemberDepartments] = useState<string[]>([]);
     const [memberClasses, setMemberClasses] = useState<string[]>([]);
     const [memberGroups, setMemberGroups] = useState<string[]>([]);
+    const [familyRelationships, setFamilyRelationships] = useState<any[]>([]);
+    const [ordinationsHistory, setOrdinationsHistory] = useState<any[]>([]);
 
     const [member, setMember] = useState<ExtendedMember | null>(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isAddFamilyModalOpen, setIsAddFamilyModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -161,13 +166,100 @@ const MemberDetail: React.FC = () => {
                         }
                     }
 
-                    return { lastDate, deptNames, grpNames, clsNames, calculatedAttendance };
+                    // Family Relationships (As source or target)
+                    let familyAsSource = null;
+                    let familyAsTarget = null;
+                    
+                    try {
+                        const { data: sourceData } = await supabase
+                            .from('member_relationships')
+                            .select('id, relationship_type, related:members!related_member_id(id, name, avatar_url, member_code)')
+                            .eq('member_id', id);
+                        familyAsSource = sourceData;
+
+                        const { data: targetData } = await supabase
+                            .from('member_relationships')
+                            .select('id, relationship_type, related:members!member_id(id, name, avatar_url, member_code)')
+                            .eq('related_member_id', id);
+                        familyAsTarget = targetData;
+                    } catch (e) {
+                        console.warn("Tabela member_relationships possivelmente ainda não existe. Por favor, rode a migration.");
+                    }
+
+                    // Map opposite relationships
+                    const getOppositeRelationship = (type: string, currentMemberGender?: string) => {
+                        switch (type) {
+                            case 'Pai':
+                            case 'Mãe':
+                                return 'Filho(a)';
+                            case 'Filho(a)':
+                                return currentMemberGender === 'Male' ? 'Pai' : (currentMemberGender === 'Female' ? 'Mãe' : 'Pai/Mãe');
+                            case 'Avô/Avó':
+                                return 'Neto(a)';
+                            case 'Neto(a)':
+                                return 'Avô/Avó';
+                            case 'Tio(a)':
+                                return 'Sobrinho(a)';
+                            case 'Sobrinho(a)':
+                                return 'Tio(a)';
+                            case 'Cônjuge':
+                            case 'Irmão/Irmã':
+                            case 'Outro':
+                            default:
+                                return type;
+                        }
+                    };
+
+                    // Map relationships symmetrically to display
+                    const relationships = [
+                        ...(familyAsSource || []).map((r: any) => ({
+                            id: r.id,
+                            type: r.relationship_type,
+                            relative: r.related,
+                            direction: 'source'
+                        })),
+                        ...(familyAsTarget || []).map((r: any) => ({
+                            id: r.id,
+                            type: getOppositeRelationship(r.relationship_type, foundMember.gender),
+                            relative: r.related,
+                            direction: 'target'
+                        }))
+                    ];
+
+                    // Ordination History
+                    let ordHistory = [];
+                    try {
+                        const { data: ordData } = await supabase
+                            .from('ordination_members')
+                            .select(`
+                                id,
+                                ordination:ordinations(
+                                    id,
+                                    date,
+                                    category,
+                                    celebrant,
+                                    notes
+                                )
+                            `)
+                            .eq('member_id', id)
+                            .order('ordination(date)', { ascending: false });
+                        
+                        if (ordData) {
+                            ordHistory = ordData.map((o: any) => o.ordination).filter(Boolean);
+                        }
+                    } catch (e) {
+                        console.warn("Tabela ordinations possivelmente ainda não existe.");
+                    }
+
+                    return { lastDate, deptNames, grpNames, clsNames, calculatedAttendance, relationships, ordHistory };
                 };
 
-                fetchRelationships().then(({ lastDate, deptNames, grpNames, clsNames, calculatedAttendance }) => {
+                fetchRelationships().then(({ lastDate, deptNames, grpNames, clsNames, calculatedAttendance, relationships, ordHistory }) => {
                     setMemberDepartments(deptNames);
                     setMemberGroups(grpNames);
                     setMemberClasses(clsNames);
+                    setFamilyRelationships(relationships);
+                    setOrdinationsHistory(ordHistory);
 
                     setMember({
                         ...(foundMember as ExtendedMember),
@@ -216,6 +308,52 @@ const MemberDetail: React.FC = () => {
         } catch (error) {
             console.error('Erro ao excluir membro:', error);
             alert('Erro ao excluir membro. Tente novamente.');
+        }
+    };
+
+    const handleAddFamilyRelationship = async (relatedMemberId: string, relationshipType: string) => {
+        if (!member) return;
+        try {
+            const { data, error } = await supabase
+                .from('member_relationships')
+                .insert({
+                    member_id: member.id,
+                    related_member_id: relatedMemberId,
+                    relationship_type: relationshipType
+                })
+                .select('id, relationship_type, related:members!related_member_id(id, name, avatar_url, member_code)')
+                .single();
+
+            if (error) throw error;
+            
+            if (data) {
+                setFamilyRelationships(prev => [...prev, {
+                    id: data.id,
+                    type: data.relationship_type,
+                    relative: data.related,
+                    direction: 'source'
+                }]);
+            }
+        } catch (error) {
+            console.error('Erro ao adicionar vínculo:', error);
+            alert('Erro ao adicionar vínculo familiar. Tente novamente.');
+        }
+    };
+
+    const handleDeleteFamilyRelationship = async (relId: string) => {
+        if (!window.confirm('Tem certeza que deseja remover este vínculo?')) return;
+        try {
+            const { error } = await supabase
+                .from('member_relationships')
+                .delete()
+                .eq('id', relId);
+
+            if (error) throw error;
+            
+            setFamilyRelationships(prev => prev.filter(r => r.id !== relId));
+        } catch (error) {
+            console.error('Erro ao remover vínculo:', error);
+            alert('Erro ao remover vínculo. Tente novamente.');
         }
     };
 
@@ -324,6 +462,11 @@ const MemberDetail: React.FC = () => {
                                 />
                             </div>
                             <h2 className="text-2xl font-bold text-slate-800 mb-1">{member.name}</h2>
+                            {member.memberCode && (
+                                <p className="text-slate-500 font-medium mb-2 text-sm tracking-wide">
+                                    {member.memberCode}
+                                </p>
+                            )}
                             <p className="text-orange-600 font-medium mb-4">{member.role}</p>
                             <div className={`inline-block px-4 py-2 rounded-full text-sm font-medium ${member.status === 'Active'
                                 ? 'bg-green-100 text-green-700'
@@ -456,6 +599,26 @@ const MemberDetail: React.FC = () => {
                                     {member.isBaptized ? 'Sim' : 'Não'}
                                 </p>
                             </div>
+                            {member.ordinationDate && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 mb-1">
+                                        Data de Consagração
+                                    </label>
+                                    <p className="text-slate-800 font-medium">
+                                        {new Date(member.ordinationDate).toLocaleDateString('pt-BR')}
+                                    </p>
+                                </div>
+                            )}
+                            {member.ordinationCelebrant && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 mb-1">
+                                        Ministro Celebrante
+                                    </label>
+                                    <p className="text-slate-800 font-medium">
+                                        {member.ordinationCelebrant}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -528,10 +691,110 @@ const MemberDetail: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Vínculos Familiares */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <Users className="text-orange-500" size={24} />
+                                Vínculos Familiares
+                            </h3>
+                            <button
+                                onClick={() => setIsAddFamilyModalOpen(true)}
+                                className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-lg font-medium text-sm transition-colors"
+                            >
+                                Adicionar Vínculo
+                            </button>
+                        </div>
+                        
+                        {familyRelationships.length > 0 ? (
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                {familyRelationships.map((rel) => (
+                                    <div key={rel.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl bg-gray-50">
+                                        <div 
+                                            className="flex items-center gap-3 cursor-pointer"
+                                            onClick={() => navigate(`/members/${rel.relative.id}`)}
+                                        >
+                                            <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                                                {rel.relative.avatar_url ? (
+                                                    <img src={rel.relative.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                        <User size={20} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-slate-800 text-sm hover:text-orange-500 transition-colors">
+                                                    {rel.relative.name}
+                                                </p>
+                                                <p className="text-xs text-slate-500">
+                                                    {rel.type} {rel.relative.member_code ? `• ${rel.relative.member_code}` : ''}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleDeleteFamilyRelationship(rel.id)}
+                                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Remover Vínculo"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
+                                <Users className="mx-auto text-gray-300 mb-2" size={32} />
+                                <p className="text-slate-500 text-sm">Nenhum vínculo familiar cadastrado</p>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Notes */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <h3 className="text-xl font-bold text-slate-800 mb-4">Observações</h3>
                         <p className="text-slate-600 leading-relaxed">{member.notes}</p>
+                    </div>
+
+                    {/* Histórico de Consagrações */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <Award className="text-orange-500" size={24} />
+                            Histórico de Consagrações
+                        </h3>
+                        
+                        {ordinationsHistory.length > 0 ? (
+                            <div className="space-y-4">
+                                {ordinationsHistory.map((ord, index) => (
+                                    <div key={ord.id || index} className="flex gap-4 items-start p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
+                                            <Award className="text-orange-600" size={20} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-start">
+                                                <h4 className="font-bold text-slate-800">{ord.category}</h4>
+                                                <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded border border-gray-100">
+                                                    {new Date(ord.date).toLocaleDateString('pt-BR')}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-slate-600 mt-1">
+                                                <span className="font-medium">Celebrante:</span> {ord.celebrant || 'Não informado'}
+                                            </p>
+                                            {ord.notes && (
+                                                <p className="text-sm text-slate-500 mt-2 italic border-l-2 border-slate-200 pl-3">
+                                                    "{ord.notes}"
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-gray-100">
+                                <Award className="mx-auto text-gray-300 mb-2" size={32} />
+                                <p className="text-slate-500 text-sm">Nenhuma consagração registrada no histórico</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Activity Timeline */}
@@ -565,6 +828,15 @@ const MemberDetail: React.FC = () => {
                 onClose={() => setIsEditModalOpen(false)}
                 onSave={handleSaveMember}
                 member={member}
+            />
+
+            {/* Add Family Relationship Modal */}
+            <AddFamilyRelationshipModal
+                isOpen={isAddFamilyModalOpen}
+                onClose={() => setIsAddFamilyModalOpen(false)}
+                onAdd={handleAddFamilyRelationship}
+                members={members}
+                currentMemberId={member.id}
             />
 
             {/* Delete Confirmation Modal */}

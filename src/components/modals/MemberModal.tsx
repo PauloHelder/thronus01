@@ -26,6 +26,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         occupation: '',
         notes: '',
         joinDate: '',
+        ordinationDate: '',
+        ordinationCelebrant: '',
     });
 
     const [avatarUrl, setAvatarUrl] = useState<string>('');
@@ -60,6 +62,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 occupation: member.occupation || '',
                 notes: member.notes || '',
                 joinDate: formatDateForInput(member.joinDate) || '',
+                ordinationDate: formatDateForInput(member.ordinationDate) || '',
+                ordinationCelebrant: member.ordinationCelebrant || '',
             });
             setMemberProvince(member.province || '');
             setAvatarUrl(member.avatar || '');
@@ -86,6 +90,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 occupation: '',
                 notes: '',
                 joinDate: '',
+                ordinationDate: '',
+                ordinationCelebrant: '',
             });
             setMemberProvince('');
             setAvatarUrl('');
@@ -413,7 +419,29 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Data de Consagração <span className="text-xs text-slate-400 font-normal">(Opcional)</span></label>
+                                <input
+                                    type="date"
+                                    value={formData.ordinationDate || ''}
+                                    onChange={(e) => setFormData({ ...formData, ordinationDate: e.target.value })}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Ministro Celebrante <span className="text-xs text-slate-400 font-normal">(Opcional)</span></label>
+                                <input
+                                    type="text"
+                                    placeholder="Nome do ministro"
+                                    value={formData.ordinationCelebrant || ''}
+                                    onChange={(e) => setFormData({ ...formData, ordinationCelebrant: e.target.value })}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Batizado?</label>
                                 <select
@@ -425,18 +453,19 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                     <option value="yes">Sim</option>
                                 </select>
                             </div>
-                            {formData.isBaptized && (
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Data de Batismo</label>
-                                    <input
-                                        type="date"
-                                        value={formData.baptismDate || ''}
-                                        onChange={(e) => setFormData({ ...formData, baptismDate: e.target.value })}
-                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                    />
-                                </div>
-                            )}
                         </div>
+
+                        {formData.isBaptized && (
+                            <div className="mt-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Data de Batismo</label>
+                                <input
+                                    type="date"
+                                    value={formData.baptismDate || ''}
+                                    onChange={(e) => setFormData({ ...formData, baptismDate: e.target.value })}
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Informações Profissionais e Observações */}

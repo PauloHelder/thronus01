@@ -1,5 +1,6 @@
 export interface Member {
   id: string;
+  memberCode?: string;
   name: string;
   email: string;
   phone: string;
@@ -22,6 +23,8 @@ export interface Member {
   occupation?: string;
   notes?: string;
   joinDate?: string;
+  ordinationDate?: string;
+  ordinationCelebrant?: string;
 }
 
 export interface Plan {
@@ -295,4 +298,15 @@ export interface AssetMaintenance {
   performed_by?: string;
   next_maintenance?: string;
   created_at: string;
+}
+
+export interface Ordination {
+  id: string;
+  churchId: string;
+  date: string;
+  category: string;
+  celebrant?: string;
+  notes?: string;
+  members: Partial<Member>[];
+  memberCount: number;
 }

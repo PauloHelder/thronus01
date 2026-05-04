@@ -14,7 +14,9 @@ const Members: React.FC = () => {
   const { user, hasPermission } = useAuth();
   const { members, loading, error, deleteMember, importMembers, addMember, updateMember } = useMembers();
   const [searchParams] = useSearchParams();
-  const isBirthdayFilter = searchParams.get('filter') === 'aniversariantes';
+  const filterParam = searchParams.get('filter');
+  const isBirthdayFilter = filterParam === 'aniversariantes';
+  const isAgeFilter = ['adultos', 'jovens', 'adolescentes', 'criancas'].includes(filterParam || '');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterGender, setFilterGender] = useState<string>('all');
@@ -146,7 +148,28 @@ const Members: React.FC = () => {
       return bDate.getMonth() === parseInt(birthdayMonth);
     })();
 
-    return matchesSearch && matchesStatus && matchesGender && matchesBaptized && matchesRole && matchesMaritalStatus && matchesBirthday;
+    const matchesAgeGroup = !isAgeFilter || (() => {
+      if (!member.birthDate) return false;
+      const bDate = new Date(member.birthDate);
+      const today = new Date();
+      let age = today.getFullYear() - bDate.getFullYear();
+      const m = today.getMonth() - bDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < bDate.getDate())) {
+        age--;
+      }
+      if (filterParam === 'criancas') return age <= 12;
+      if (filterParam === 'adolescentes') return age >= 13 && age <= 17;
+      if (filterParam === 'jovens') return age >= 18 && age <= 29;
+      if (filterParam === 'adultos') return age >= 30;
+      return false;
+    })();
+
+    const matchesConsagracoes = !filterParam || filterParam !== 'consagracoes' || (() => {
+      const ordainedRoles = ['Pastor', 'Presbítero', 'Diácono', 'Missionário', 'Evangelista', 'Bispo', 'Apóstolo'];
+      return ordainedRoles.includes(member.churchRole || '');
+    })();
+
+    return matchesSearch && matchesStatus && matchesGender && matchesBaptized && matchesRole && matchesMaritalStatus && matchesBirthday && matchesAgeGroup && matchesConsagracoes;
   });
 
   // Pagination Logic
@@ -159,14 +182,14 @@ const Members: React.FC = () => {
     setCurrentPage(1);
   }, [searchTerm, filterStatus, filterGender, filterBaptized, filterRole]);
 
-  // Estatísticas
-  const totalMembers = members.length;
-  const activeMembers = members.filter(m => m.status === 'Active').length;
-  const inactiveMembers = members.filter(m => m.status === 'Inactive').length;
-  const visitors = members.filter(m => m.status === 'Visitor').length;
-  const baptizedMembers = members.filter(m => m.isBaptized).length;
-  const maleMembers = members.filter(m => m.gender === 'Male').length;
-  const femaleMembers = members.filter(m => m.gender === 'Female').length;
+  // Estatísticas baseadas nos membros filtrados (respeita o submenu selecionado e filtros)
+  const totalMembers = filteredMembers.length;
+  const activeMembers = filteredMembers.filter(m => m.status === 'Active').length;
+  const inactiveMembers = filteredMembers.filter(m => m.status === 'Inactive').length;
+  const visitors = filteredMembers.filter(m => m.status === 'Visitor').length;
+  const baptizedMembers = filteredMembers.filter(m => m.isBaptized).length;
+  const maleMembers = filteredMembers.filter(m => m.gender === 'Male').length;
+  const femaleMembers = filteredMembers.filter(m => m.gender === 'Female').length;
 
   const statusData = [
     { name: 'Ativos', value: activeMembers, color: '#10b981' },
@@ -179,7 +202,7 @@ const Members: React.FC = () => {
     { name: 'Feminino', value: femaleMembers, color: '#ec4899' }
   ];
 
-  const roleData = members.reduce((acc, member) => {
+  const roleData = filteredMembers.reduce((acc, member) => {
     const role = member.churchRole || 'Não definido';
     const existing = acc.find(item => item.name === role);
     if (existing) {
@@ -218,7 +241,13 @@ const Members: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Membros</h1>
+          <h1 className="text-3xl font-bold text-slate-800">
+            {filterParam === 'aniversariantes' ? 'Aniversariantes' :
+             filterParam === 'adultos' ? 'Adultos' :
+             filterParam === 'jovens' ? 'Jovens' :
+             filterParam === 'adolescentes' ? 'Adolescentes' :
+             filterParam === 'criancas' ? 'Crianças' : 'Membros'}
+          </h1>
           <p className="text-slate-600 mt-1">Gerencie os membros da igreja</p>
         </div>
         <div className="flex gap-2">
@@ -385,6 +414,7 @@ const Members: React.FC = () => {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-xs font-bold text-slate-500 uppercase">
                 <th className="px-6 py-4">Nome</th>
+                <th className="px-6 py-4">Código</th>
                 <th className="px-6 py-4">Contato</th>
                 <th className="px-6 py-4">BI</th>
                 <th className="px-6 py-4">Gênero</th>
@@ -405,6 +435,11 @@ const Members: React.FC = () => {
                         <p className="text-xs text-slate-500">{member.email}</p>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded text-xs font-medium border border-slate-200">
+                      {member.memberCode || '-'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">{member.phone || '-'}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{member.biNumber || '-'}</td>

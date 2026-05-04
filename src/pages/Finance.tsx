@@ -660,6 +660,7 @@ const Finance = () => {
                                     <th className="px-6 py-4">Conta</th>
                                     <th className="px-6 py-4">Categoria</th>
                                     <th className="px-6 py-4 text-right">Valor</th>
+                                    <th className="px-6 py-4 text-right">Saldo</th>
                                     <th className="px-6 py-4 text-center">Ações</th>
                                 </tr>
                             </thead>
@@ -705,6 +706,9 @@ const Finance = () => {
                                             <td className={`px-6 py-4 text-right font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'
                                                 }`}>
                                                 {tx.type === 'income' ? '+' : '-'} {formatCurrency(tx.amount)}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-medium text-slate-600">
+                                                {tx.running_balance !== undefined ? formatCurrency(tx.running_balance) : '-'}
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-2">

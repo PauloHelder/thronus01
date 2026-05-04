@@ -12,6 +12,7 @@ export const useMembers = () => {
     // Helper to transform DB data (snake_case) to App data (camelCase)
     const transformFromDB = (data: any): Member => ({
         id: data.id,
+        memberCode: data.member_code,
         name: data.name,
         email: data.email,
         phone: data.phone,
@@ -33,7 +34,9 @@ export const useMembers = () => {
         biNumber: data.bi_number,
         occupation: data.occupation,
         notes: data.notes,
-        joinDate: data.join_date
+        joinDate: data.join_date,
+        ordinationDate: data.ordination_date,
+        ordinationCelebrant: data.ordination_celebrant
     });
 
     // Helper to transform App data (camelCase) to DB data (snake_case)
@@ -41,6 +44,7 @@ export const useMembers = () => {
         const dbData: any = { ...data };
 
         // Map fields
+        if (data.memberCode !== undefined) { dbData.member_code = data.memberCode; delete dbData.memberCode; }
         if (data.avatar !== undefined) { dbData.avatar_url = data.avatar; delete dbData.avatar; }
         if (data.maritalStatus !== undefined) { dbData.marital_status = data.maritalStatus; delete dbData.maritalStatus; }
         if (data.birthDate !== undefined) {
@@ -58,6 +62,14 @@ export const useMembers = () => {
         if (data.joinDate !== undefined) {
             dbData.join_date = data.joinDate === '' ? null : data.joinDate;
             delete dbData.joinDate;
+        }
+        if (data.ordinationDate !== undefined) {
+            dbData.ordination_date = data.ordinationDate === '' ? null : data.ordinationDate;
+            delete dbData.ordinationDate;
+        }
+        if (data.ordinationCelebrant !== undefined) {
+            dbData.ordination_celebrant = data.ordinationCelebrant;
+            delete dbData.ordinationCelebrant;
         }
 
         return dbData;

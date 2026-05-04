@@ -11,6 +11,9 @@ import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
 import Members from './pages/Members';
 import MemberDetail from './pages/MemberDetail';
+import Families from './pages/Families';
+import Ordinations from './pages/Ordinations';
+import OrdinationDetail from './pages/OrdinationDetail';
 import Services from './pages/Services';
 import ServiceDetail from './pages/ServiceDetail';
 import Groups from './pages/Groups';
@@ -64,6 +67,9 @@ const AppContent: React.FC = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/members" element={<Members />} />
             <Route path="/members/:id" element={<MemberDetail />} />
+            <Route path="/families" element={<Families />} />
+            <Route path="/consagracoes" element={<Ordinations />} />
+            <Route path="/consagracoes/:id" element={<OrdinationDetail />} />
             <Route path="/services" element={<Services />} />
             <Route path="/services/:id" element={<ServiceDetail />} />
             <Route path="/groups" element={<Groups />} />

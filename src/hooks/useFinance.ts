@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -40,6 +40,7 @@ export interface FinancialTransaction {
     notes?: string;
     created_by?: string;
     created_at?: string;
+    running_balance?: number;
     // Joined fields for UI
     category?: { name: string; color: string };
     account?: { name: string };
@@ -156,7 +157,6 @@ export const useFinance = () => {
             }
 
             const { data, error } = await query;
-
             if (error) throw error;
             setTransactions(data || []);
         } catch (err: any) {
@@ -166,6 +166,31 @@ export const useFinance = () => {
             setLoading(false);
         }
     }, [user?.churchId]);
+
+    const transactionsWithBalance = useMemo(() => {
+        if (transactions.length === 0 || accounts.length === 0) return transactions;
+
+        const txsWithBalance = [...transactions];
+        const accMap = new Map<string, number>();
+        accounts.forEach(acc => accMap.set(acc.id, Number(acc.initial_balance) || 0));
+
+        // Sort ASC for calculation (oldest first)
+        const sortedAsc = [...txsWithBalance].sort((a, b) => 
+            new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
+        sortedAsc.forEach(tx => {
+            const currentAccBalance = accMap.get(tx.account_id || '') || 0;
+            const newBalance = tx.type === 'income' 
+                ? currentAccBalance + Number(tx.amount)
+                : currentAccBalance - Number(tx.amount);
+            
+            tx.running_balance = newBalance;
+            accMap.set(tx.account_id || '', newBalance);
+        });
+
+        return txsWithBalance;
+    }, [transactions, accounts]);
 
     const fetchRequests = useCallback(async (departmentId?: string) => {
         if (!user?.churchId) return;
@@ -493,7 +518,7 @@ export const useFinance = () => {
         // Data
         accounts,
         categories,
-        transactions,
+        transactions: transactionsWithBalance,
         requests,
         loading,
         error,
