@@ -407,6 +407,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const hasPermission = (permission: string): boolean => {
         if (!user) return false;
 
+        // Admin and Superuser always have permission
+        if (
+            (user.roles && (user.roles.includes('admin') || user.roles.includes('superuser'))) || 
+            (user.permissions && user.permissions.includes('all'))
+        ) return true;
+
         // Supervisão: Se a igreja atual não é a original, verificar se o recurso está compartilhado
         if (user.originalChurchId && user.churchId !== user.originalChurchId) {
             const shared = user.churchSettings?.shared_permissions || {};
@@ -428,10 +434,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
 
-        if (user.roles.includes('admin') || user.roles.includes('superuser') || user.permissions.includes('all')) return true;
-
         // Simple permission check
-        if (user.permissions.includes(permission)) return true;
+        if (user.permissions && user.permissions.includes(permission)) return true;
 
         return false;
     };

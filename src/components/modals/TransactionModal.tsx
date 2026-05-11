@@ -25,7 +25,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const [activeTab, setActiveTab] = useState<'income' | 'expense'>(initialType);
 
     // Data Sources
-    const [members, setMembers] = useState<{ id: string, name: string }[]>([]);
+    const [members, setMembers] = useState<{ id: string, name: string, member_code: string | null }[]>([]);
     const [services, setServices] = useState<{ id: string, name: string, date: string }[]>([]);
 
     const [formData, setFormData] = useState({
@@ -53,9 +53,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 // Fetch Members
                 const { data: membersData } = await supabase
                     .from('members')
-                    .select('id, name')
+                    .select('id, name, member_code')
                     .order('name');
-                if (membersData) setMembers(membersData.map((m: any) => ({ id: m.id, name: m.name })));
+                if (membersData) setMembers(membersData.map((m: any) => ({ 
+                    id: m.id, 
+                    name: m.name, 
+                    member_code: m.member_code 
+                })));
 
                 // Fetch Services (Last 10)
                 // Join with service_types to get the name
@@ -137,8 +141,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 const categoryName = categories.find(c => c.id === formData.category_id)?.name || 'Transação';
 
                 if (formData.source_type === 'member' && formData.source_id) {
-                    const memberName = members.find(m => m.id === formData.source_id)?.name;
-                    finalDescription = `${categoryName} - ${memberName}`;
+                    const member = members.find(m => m.id === formData.source_id);
+                    finalDescription = `${categoryName} - [${member?.member_code || 'S/C'}] ${member?.name}`;
                 } else if (formData.source_type === 'service' && formData.source_id) {
                     const serviceName = services.find(s => s.id === formData.source_id)?.name;
                     finalDescription = `${categoryName} - ${serviceName}`;
@@ -164,6 +168,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 description: finalDescription,
                 document_number: formData.document_number,
                 notes: finalNotes,
+                member_id: formData.source_type === 'member' ? formData.source_id : null,
                 status: 'paid'
             });
 
@@ -343,7 +348,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                     <input
                                         type="text"
                                         placeholder="Pesquisar membro..."
-                                        value={isMemberDropdownOpen ? memberSearchTerm : (members.find(m => m.id === formData.source_id)?.name || '')}
+                                        value={isMemberDropdownOpen ? memberSearchTerm : (members.find(m => m.id === formData.source_id) ? `[${members.find(m => m.id === formData.source_id)?.member_code || 'S/C'}] ${members.find(m => m.id === formData.source_id)?.name}` : '')}
                                         onFocus={() => setIsMemberDropdownOpen(true)}
                                         onChange={(e) => {
                                             setMemberSearchTerm(e.target.value);
@@ -354,18 +359,22 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                     {isMemberDropdownOpen && (
                                         <div className="absolute z-[60] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                                             {members
-                                                .filter(m => m.name.toLowerCase().includes(memberSearchTerm.toLowerCase()))
+                                                .filter(m => 
+                                                    m.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+                                                    (m.member_code || '').toLowerCase().includes(memberSearchTerm.toLowerCase())
+                                                )
                                                 .map(m => (
                                                     <button
                                                         key={m.id}
                                                         type="button"
                                                         onClick={() => {
                                                             setFormData({ ...formData, source_id: m.id });
-                                                            setMemberSearchTerm(m.name);
+                                                            setMemberSearchTerm(`[${m.member_code || 'S/C'}] ${m.name}`);
                                                             setIsMemberDropdownOpen(false);
                                                         }}
                                                         className="w-full text-left px-4 py-2.5 hover:bg-orange-50 text-sm text-gray-700 border-b border-gray-50 last:border-0"
                                                     >
+                                                        <span className="font-bold text-orange-600 mr-2">[{m.member_code || 'S/C'}]</span>
                                                         {m.name}
                                                     </button>
                                                 ))}

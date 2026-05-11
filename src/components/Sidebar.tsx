@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   ChevronRight,
   ChevronDown,
+  Heart,
   Gift,
   ListChecks,
   Activity,
@@ -83,6 +84,7 @@ const Sidebar: React.FC = () => {
         { to: "/members?filter=criancas", icon: Users, label: "Crianças", permission: 'members_view' },
         { to: "/consagracoes", icon: Award, label: "Consagrações", permission: 'members_view' },
         { to: "/families", icon: Users, label: "Famílias", permission: 'members_view' },
+        { to: "/finance/tithers", icon: Heart, label: "Dizimistas", permission: 'finances_view' },
         { to: "/members?filter=aniversariantes", icon: Gift, label: "Aniversariantes", permission: 'members_view' },
         { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
       ]
@@ -99,6 +101,7 @@ const Sidebar: React.FC = () => {
       items: [
         { to: "/finance/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
         { to: "/finance", icon: Wallet, label: "Finanças", permission: 'finances_view', end: true },
+        { to: "/finance/tithers", icon: Heart, label: "Dizimistas", permission: 'finances_view' },
         { to: "/finance?view=requests", icon: ClipboardList, label: "Requisições", permission: 'finances_view' },
       ]
     },
@@ -141,30 +144,32 @@ const Sidebar: React.FC = () => {
         { to: "/admin?tab=sms-packages", icon: MessageSquare, label: "Pacotes de SMS" },
         { to: "/users", icon: Users, label: "Usuários" }
       );
-    } else {
-      items.push(
-        { to: "/members", icon: Users, label: "Membros", module: 'members', permission: 'members_view' },
-        { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view' },
-        { to: "/groups", icon: Users2, label: "Grupos", permission: 'groups_view' },
-        { to: "/network", icon: Activity, label: "Rede de Igrejas", permission: 'branches_view' },
-        { to: "/finance", icon: Wallet, label: "Finanças", module: 'finance', permission: 'finances_view' },
-        { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado", module: 'discipleship', permission: 'discipleship_view' },
-        { to: "/departments", icon: Network, label: "Departamentos", module: 'departments', permission: 'departments_view' },
-        { to: "/teaching", icon: GraduationCap, label: "Ensino", module: 'teaching', permission: 'teaching_view' },
-        { to: "/assets", icon: Package, label: "Patrimônio", module: 'assets', permission: 'assets_view' },
-        { to: "/events", icon: CalendarDays, label: "Eventos", permission: 'events_view' },
-        { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
-        { to: "/users", icon: Users, label: "Usuários", permission: 'users_view' },
-        { to: "/settings", icon: Settings, label: "Configurações", permission: 'settings_view' }
-      );
-
-        items.push(
-            { to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' },
-            { to: "/sms-store", icon: MessageSquare, label: "Comprar SMS", permission: 'subscription_edit' }
-        );
     }
 
-    return items.filter(item => !item.permission || checkNavPermission(item.permission));
+    // Common Church Items
+    items.push(
+      { to: "/finance", icon: Wallet, label: "Finanças", module: 'finance', permission: 'finances_view' },
+      { to: "/members", icon: Users, label: "Membros", module: 'members', permission: 'members_view' },
+      { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view' },
+      { to: "/groups", icon: Users2, label: "Grupos", permission: 'groups_view' },
+      { to: "/network", icon: Activity, label: "Rede de Igrejas", permission: 'branches_view' },
+      { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado", module: 'discipleship', permission: 'discipleship_view' },
+      { to: "/departments", icon: Network, label: "Departamentos", module: 'departments', permission: 'departments_view' },
+      { to: "/teaching", icon: GraduationCap, label: "Ensino", module: 'teaching', permission: 'teaching_view' },
+      { to: "/assets", icon: Package, label: "Patrimônio", module: 'assets', permission: 'assets_view' },
+      { to: "/events", icon: CalendarDays, label: "Eventos", permission: 'events_view' },
+      { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
+      { to: "/users", icon: Users, label: "Usuários", permission: 'users_view' },
+      { to: "/settings", icon: Settings, label: "Configurações", permission: 'settings_view' }
+    );
+
+    // Subscription & Store
+    items.push(
+      { to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' },
+      { to: "/sms-store", icon: MessageSquare, label: "Comprar SMS", permission: 'subscription_edit' }
+    );
+
+    return items.filter(item => hasRole('superuser') || hasRole('admin') || !item.permission || checkNavPermission(item.permission));
   };
 
   return (
@@ -253,7 +258,7 @@ const Sidebar: React.FC = () => {
               </div>
 
               {subMenus[activeModule].items
-                .filter(item => !item.permission || checkNavPermission(item.permission))
+                .filter(item => hasRole('superuser') || hasRole('admin') || !item.permission || checkNavPermission(item.permission))
                 .map((item) => (
                   <NavLink
                     key={item.to + item.label}
@@ -291,10 +296,9 @@ const Sidebar: React.FC = () => {
                   to={item.to || '#'}
                   onClick={(e) => {
                     if (item.module) {
-                      e.preventDefault();
                       setActiveModule(item.module);
                     }
-                    if (window.innerWidth < 1024 && !item.module) closeSidebar();
+                    if (window.innerWidth < 1024) closeSidebar();
                   }}
                   className={({ isActive }) => {
                     const hasQuery = item.to?.includes('?');

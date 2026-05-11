@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
     Plus,
+    TrendingUp,
     TrendingDown,
+    Activity,
+    Wallet,
     DollarSign,
     Filter,
     Calendar,
@@ -18,7 +21,8 @@ import {
     AlertCircle,
     Building2,
     Check,
-    ClipboardList
+    ClipboardList,
+    FileSpreadsheet
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useFinance, FinancialTransaction, FinancialRequest } from '../hooks/useFinance';
@@ -29,6 +33,7 @@ import TransactionDetailsModal from '../components/modals/TransactionDetailsModa
 import { useAuth } from '../contexts/AuthContext';
 import { useDepartments } from '../hooks/useDepartments';
 import FinanceRequestModal from '../components/modals/FinanceRequestModal';
+import ImportFinanceModal from '../components/modals/ImportFinanceModal';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import { toast } from 'sonner';
 
@@ -55,6 +60,9 @@ const Finance = () => {
         updateRequest,
         deleteRequest
     } = useFinance();
+
+    // Debug log to help identify why the page might be blank for some users
+    console.log('[Finance] State:', { userId: user?.id, churchId: user?.churchId, canView, loading });
 
     const { departments } = useDepartments();
 
@@ -88,6 +96,7 @@ const Finance = () => {
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [viewingTransaction, setViewingTransaction] = useState<FinancialTransaction | undefined>(undefined);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     const handleViewTransaction = (transaction: FinancialTransaction) => {
         setViewingTransaction(transaction);
@@ -139,6 +148,18 @@ const Finance = () => {
         const date = new Date(dateStr);
         return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
     };
+
+    // Summary Calculations
+    const totals = useMemo(() => {
+        return filteredTransactions.reduce((acc, curr) => {
+            if (curr.type === 'income') acc.income += Number(curr.amount);
+            else acc.expense += Number(curr.amount);
+            return acc;
+        }, { income: 0, expense: 0 });
+    }, [filteredTransactions]);
+
+    const balance = totals.income - totals.expense;
+    const totalAccountBalance = accounts.reduce((acc, curr) => acc + Number(curr.current_balance || 0), 0);
 
     const handleOpenTransactionModal = (transaction?: FinancialTransaction) => {
         setSelectedTransaction(transaction);
@@ -304,8 +325,9 @@ const Finance = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
+                <p className="text-slate-500 font-medium animate-pulse">Carregando dados financeiros...</p>
             </div>
         );
     }
@@ -374,6 +396,13 @@ const Finance = () => {
                             </div>
                         )}
                     </div>
+                    <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors font-medium shadow-sm"
+                    >
+                        <FileSpreadsheet size={18} className="text-slate-400" />
+                        Importar
+                    </button>
                     {currentView === 'requests' ? (
                         <button
                             onClick={() => handleOpenRequestModal()}
@@ -391,6 +420,55 @@ const Finance = () => {
                             Nova Transação
                         </button>
                     )}
+                </div>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-green-50 text-green-600 rounded-xl">
+                            <TrendingUp size={24} />
+                        </div>
+                        <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">Receitas</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">Total Receitas</p>
+                    <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totals.income)}</h3>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                            <TrendingDown size={24} />
+                        </div>
+                        <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">Despesas</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">Total Despesas</p>
+                    <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totals.expense)}</h3>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                            <Activity size={24} />
+                        </div>
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Balanço</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">Balanço do Período</p>
+                    <h3 className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(balance)}
+                    </h3>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
+                            <Wallet size={24} />
+                        </div>
+                        <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Patrimônio</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-500">Saldo Total em Contas</p>
+                    <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totalAccountBalance)}</h3>
                 </div>
             </div>
 
@@ -795,6 +873,14 @@ const Finance = () => {
                 categories={categories}
                 departments={departments}
                 request={selectedRequest}
+            />
+
+            <ImportFinanceModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                accounts={accounts}
+                categories={categories}
+                onImport={addTransaction}
             />
 
             {/* Payment Confirmation Modal */}

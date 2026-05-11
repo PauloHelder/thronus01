@@ -38,6 +38,7 @@ export interface FinancialTransaction {
     payment_method?: string;
     document_number?: string;
     notes?: string;
+    member_id?: string;
     created_by?: string;
     created_at?: string;
     running_balance?: number;
@@ -164,6 +165,29 @@ export const useFinance = () => {
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    }, [user?.churchId]);
+
+    const fetchMemberTransactions = useCallback(async (memberId: string) => {
+        if (!user?.churchId) return [];
+        try {
+            const { data, error } = await supabase
+                .from('financial_transactions' as any)
+                .select(`
+                    *,
+                    category:financial_categories(name, color),
+                    account:financial_accounts(name)
+                `)
+                .eq('church_id', user.churchId)
+                .eq('member_id', memberId)
+                .is('deleted_at', null)
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        } catch (err: any) {
+            console.error('Error fetching member transactions:', err);
+            return [];
         }
     }, [user?.churchId]);
 
@@ -504,15 +528,40 @@ export const useFinance = () => {
     // ==========================================
 
     useEffect(() => {
-        if (user?.churchId) {
-            Promise.all([
-                fetchAccounts(),
-                fetchCategories(),
-                fetchTransactions(),
-                fetchRequests()
-            ]).finally(() => setLoading(false));
-        }
-    }, [user?.churchId, fetchAccounts, fetchCategories, fetchTransactions, fetchRequests]);
+        let mounted = true;
+        
+        const load = async () => {
+            if (user?.churchId) {
+                try {
+                    await Promise.all([
+                        fetchAccounts(),
+                        fetchCategories(),
+                        fetchTransactions(),
+                        fetchRequests()
+                    ]);
+                } catch (err) {
+                    console.error('Error in initial load:', err);
+                } finally {
+                    if (mounted) setLoading(false);
+                }
+            } else if (user === null || (user && !user.churchId)) {
+                // No user session or no church selected
+                if (mounted) setLoading(false);
+            }
+        };
+
+        load();
+        
+        // Fail-safe: stop loading after 5 seconds no matter what
+        const timeout = setTimeout(() => {
+            if (mounted) setLoading(false);
+        }, 5000);
+
+        return () => {
+            mounted = false;
+            clearTimeout(timeout);
+        };
+    }, [user, user?.churchId, fetchAccounts, fetchCategories, fetchTransactions, fetchRequests]);
 
     return {
         // Data
@@ -544,6 +593,7 @@ export const useFinance = () => {
         // Actions - Categories
         addCategory,
         updateCategory,
-        deleteCategory
+        deleteCategory,
+        fetchMemberTransactions
     };
 };

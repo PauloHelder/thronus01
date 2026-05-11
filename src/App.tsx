@@ -24,6 +24,8 @@ import Finance from './pages/Finance'; // Novo módulo
 import FinanceDashboard from './pages/FinanceDashboard';
 import Finances from './pages/Finances'; // Antigo (manter por enquanto se necessário, ou remover)
 import TransactionDetail from './pages/TransactionDetail';
+import Tithers from './pages/Tithers';
+import TitherDetail from './pages/TitherDetail';
 import Departments from './pages/Departments';
 import DepartmentDetail from './pages/DepartmentDetail';
 import Discipleship from './pages/Discipleship';
@@ -82,6 +84,8 @@ const AppContent: React.FC = () => {
             <Route path="/finance/dashboard" element={<FinanceDashboard />} />
             <Route path="/finances" element={<Finances />} /> {/* Manter compatibilidade se links antigos existirem */}
             <Route path="/finances/:id" element={<TransactionDetail />} />
+            <Route path="/finance/tithers" element={<Tithers />} />
+            <Route path="/finance/tithers/:id" element={<TitherDetail />} />
 
             <Route path="/departments" element={<Departments />} />
             <Route path="/departments/:id" element={<DepartmentDetail />} />
