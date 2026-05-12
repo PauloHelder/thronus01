@@ -277,6 +277,32 @@ export const useFinance = () => {
         }
     };
 
+    const bulkAddTransactions = async (transactions: any[]) => {
+        if (!user?.churchId) return false;
+        try {
+            const payloads = transactions.map(tx => {
+                const { category, account, running_balance, ...clean } = tx;
+                return {
+                    ...clean,
+                    church_id: user.churchId,
+                    created_by: user.id
+                };
+            });
+
+            const { error } = await (supabase
+                .from('financial_transactions' as any)
+                .insert(payloads) as any);
+
+            if (error) throw error;
+            await Promise.all([fetchTransactions(), fetchAccounts()]);
+            return true;
+        } catch (err: any) {
+            console.error('Error bulk adding transactions:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
     const updateTransaction = async (id: string, updates: Partial<FinancialTransaction>) => {
         try {
             // Remove joined fields to avoid Supabase 400 errors
@@ -622,6 +648,7 @@ export const useFinance = () => {
         updateTransaction,
         deleteTransaction,
         deleteMultipleTransactions,
+        bulkAddTransactions,
 
         // Actions - Requests
         fetchRequests,

@@ -55,6 +55,7 @@ const Finance = () => {
         updateTransaction,
         deleteTransaction,
         deleteMultipleTransactions,
+        bulkAddTransactions,
         addAccount,
         addCategory,
         addRequest,
@@ -989,7 +990,7 @@ const Finance = () => {
                 onClose={() => setIsImportModalOpen(false)}
                 accounts={accounts}
                 categories={categories}
-                onImport={addTransaction}
+                onImportBulk={bulkAddTransactions}
             />
 
             {/* Payment Confirmation Modal */}

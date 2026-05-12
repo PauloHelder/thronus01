@@ -11,7 +11,7 @@ interface ImportFinanceModalProps {
     onClose: () => void;
     accounts: FinancialAccount[];
     categories: FinancialCategory[];
-    onImport: (transactions: any) => Promise<boolean>;
+    onImportBulk: (transactions: any[]) => Promise<boolean>;
 }
 
 const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
@@ -19,7 +19,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
     onClose,
     accounts,
     categories,
-    onImport
+    onImportBulk
 }) => {
     const [file, setFile] = useState<File | null>(null);
     const [previewData, setPreviewData] = useState<any[]>([]);
@@ -166,9 +166,8 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
 
         setLoading(true);
         try {
-            let successCount = 0;
+            const transactionsToSave = [];
             const categoryCache: Record<string, string> = {};
-
             for (const tx of validTransactions) {
                 let finalCategoryId = tx.category_id;
 
@@ -197,7 +196,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                     }
                 }
 
-                const transactionToSave = {
+                transactionsToSave.push({
                     description: tx.description,
                     amount: tx.amount,
                     type: tx.type,
@@ -210,14 +209,13 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                     status: 'paid',
                     document_number: tx.document_number?.toString(),
                     notes: tx.member_code ? `Código Membro: ${tx.member_code}` : ''
-                };
-
-                const success = await onImport(transactionToSave);
-                if (success) successCount++;
+                });
             }
 
-            if (successCount > 0) {
-                toast.success(`${successCount} transações importadas com sucesso!`);
+            const success = await onImportBulk(transactionsToSave);
+
+            if (success) {
+                toast.success(`${transactionsToSave.length} transações importadas com sucesso!`);
                 onClose();
             } else {
                 toast.error('Erro ao importar transações.');
