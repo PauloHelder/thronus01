@@ -41,6 +41,7 @@ export function useServices() {
                 status: dbService.status,
                 date: dbService.date,
                 startTime: dbService.start_time,
+                theme: dbService.theme || '',
                 preacher: dbService.preacher_name || '',
                 substitutePreacher: dbService.substitute_preacher_name || '',
                 leader: dbService.leader_name || '',
@@ -91,6 +92,7 @@ export function useServices() {
                 status: service.status,
                 date: service.date,
                 start_time: service.startTime,
+                theme: service.theme || null,
                 preacher_name: service.preacher || null,
                 substitute_preacher_name: service.substitutePreacher || null,
                 leader_name: service.leader || null,
@@ -149,6 +151,7 @@ export function useServices() {
                 status: insertedData.status,
                 date: insertedData.date,
                 startTime: insertedData.start_time,
+                theme: insertedData.theme || '',
                 preacher: insertedData.preacher_name || '',
                 substitutePreacher: insertedData.substitute_preacher_name || '',
                 leader: insertedData.leader_name || '',
@@ -193,6 +196,7 @@ export function useServices() {
             if (service.status) dbService.status = service.status;
             if (service.date) dbService.date = service.date;
             if (service.startTime) dbService.start_time = service.startTime;
+            if (service.theme !== undefined) dbService.theme = service.theme || null;
             if (service.location !== undefined) dbService.location = service.location || null;
             if (service.description !== undefined) dbService.description = service.description || null;
             if (service.preacher !== undefined) dbService.preacher_name = service.preacher || null;
@@ -253,6 +257,7 @@ export function useServices() {
                 status: updatedData.status,
                 date: updatedData.date,
                 startTime: updatedData.start_time,
+                theme: updatedData.theme || '',
                 preacher: updatedData.preacher_name || '',
                 substitutePreacher: updatedData.substitute_preacher_name || '',
                 leader: updatedData.leader_name || '',
@@ -330,6 +335,7 @@ export function useServices() {
                 status: serviceData.status,
                 date: serviceData.date,
                 startTime: serviceData.start_time,
+                theme: serviceData.theme || '',
                 preacher: serviceData.preacher_name || '',
                 substitutePreacher: serviceData.substitute_preacher_name || '',
                 leader: serviceData.leader_name || '',

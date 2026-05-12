@@ -190,6 +190,7 @@ export interface Service {
   status: 'Agendado' | 'Concluído' | 'Cancelado';
   date: string;
   startTime: string;
+  theme?: string;
   preacher: string;
   substitutePreacher?: string;
   leader: string;

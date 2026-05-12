@@ -24,6 +24,8 @@ const ServiceDetail: React.FC = () => {
     const [relatedSchedules, setRelatedSchedules] = useState<DepartmentSchedule[]>([]);
     const [teamMembers, setTeamMembers] = useState<Member[]>([]);
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+    const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+    const [selectedSchedule, setSelectedSchedule] = useState<{deptName: string, members: Member[]} | null>(null);
     const { hasPermission } = useAuth();
 
     useEffect(() => {
@@ -57,26 +59,41 @@ const ServiceDetail: React.FC = () => {
         const fetchRelatedData = async () => {
             if (!id) return;
             try {
-                // Fetch schedules linked to this service
+                // Fetch schedules linked to this service with department info and assignments
                 const { data: schedulesData } = await supabase
-                    .from('department_schedules')
-                    .select('*')
+                    .from('department_schedules' as any)
+                    .select(`
+                        *,
+                        departments:departments(name),
+                        assignments:department_schedule_assignments(
+                            member:members(id, name, avatar_url, phone)
+                        )
+                    `)
                     .eq('service_id', id);
 
                 if (schedulesData) {
-                    setRelatedSchedules(schedulesData as DepartmentSchedule[]);
+                    const mappedSchedules = (schedulesData as any[]).map(s => ({
+                        id: s.id,
+                        departmentId: s.department_id,
+                        departmentName: s.departments?.name || 'Departamento',
+                        type: s.type,
+                        serviceId: s.service_id,
+                        date: s.date,
+                        notes: s.notes,
+                        assignedMembers: s.assignments?.map((a: any) => a.member?.id) || [],
+                        members: s.assignments?.map((a: any) => ({
+                            id: a.member?.id,
+                            name: a.member?.name,
+                            avatar: a.member?.avatar_url,
+                            phone: a.member?.phone
+                        })).filter((m: any) => m.id) || []
+                    }));
+                    setRelatedSchedules(mappedSchedules as any);
 
-                    // Fetch members assigned to these schedules
-                    const memberIds = Array.from(new Set(schedulesData.flatMap(s => s.assigned_members || [])));
-                    if (memberIds.length > 0) {
-                        const { data: membersData } = await supabase
-                            .from('members')
-                            .select('*')
-                            .in('id', memberIds);
-                        if (membersData) {
-                            setTeamMembers(membersData as any[]);
-                        }
-                    }
+                    // Fetch all unique members for the SMS modal
+                    const allMembers = mappedSchedules.flatMap(s => s.members);
+                    const uniqueMembers = Array.from(new Map(allMembers.map(m => [m.id, m])).values());
+                    setTeamMembers(uniqueMembers);
                 }
             } catch (error) {
                 console.error('Error fetching related data:', error);
@@ -225,6 +242,14 @@ const ServiceDetail: React.FC = () => {
                 {/* Informações do Culto */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <h2 className="text-lg font-semibold text-slate-800 mb-4">Informações do Culto</h2>
+                    
+                    {service.theme && (
+                        <div className="mb-6 p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                            <label className="block text-xs font-bold text-orange-600 uppercase tracking-wider mb-1">Tema da Ministração</label>
+                            <p className="text-xl font-bold text-slate-800 italic">"{service.theme}"</p>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-slate-600 mb-1">Local</label>
@@ -517,37 +542,58 @@ const ServiceDetail: React.FC = () => {
                     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h2 className="text-lg font-semibold text-slate-800">Equipe Escalada</h2>
-                                <p className="text-sm text-slate-500">Membros atribuídos a este culto através dos departamentos</p>
+                                <h2 className="text-lg font-semibold text-slate-800">Escalas por Departamento</h2>
+                                <p className="text-sm text-slate-500">Departamentos que criaram escala para este culto</p>
                             </div>
                             <button
                                 onClick={() => setIsSmsModalOpen(true)}
                                 className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
                             >
-                                <MessageSquare size={16} /> Notificar Equipe
+                                <MessageSquare size={16} /> Notificar Todos
                             </button>
                         </div>
 
-                        {teamMembers.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {teamMembers.map(member => (
-                                    <div key={member.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                        <img
-                                            src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}
-                                            alt=""
-                                            className="w-10 h-10 rounded-full object-cover shadow-sm"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-slate-800 truncate">{member.name}</p>
-                                            <p className="text-xs text-slate-500 truncate">{member.phone || 'Sem telemóvel'}</p>
+                        {relatedSchedules.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {relatedSchedules.map((schedule: any) => (
+                                    <div key={schedule.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4 flex flex-col justify-between">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
+                                                    <Users size={20} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-800">{schedule.departmentName}</h3>
+                                                    <p className="text-xs text-slate-500">{schedule.members?.length || 0} pessoas escaladas</p>
+                                                </div>
+                                            </div>
                                         </div>
+                                        
+                                        {schedule.notes && (
+                                            <p className="text-sm text-slate-600 mb-4 line-clamp-2 italic">
+                                                "{schedule.notes}"
+                                            </p>
+                                        )}
+
+                                        <button
+                                            onClick={() => {
+                                                setSelectedSchedule({
+                                                    deptName: schedule.departmentName,
+                                                    members: schedule.members
+                                                });
+                                                setIsTeamModalOpen(true);
+                                            }}
+                                            className="w-full py-2 bg-white border border-gray-200 hover:border-orange-500 hover:text-orange-600 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Users size={16} /> Ver Equipe
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                         ) : (
                             <div className="text-center py-12 text-slate-400 border-2 border-dashed border-gray-100 rounded-xl">
                                 <Users size={48} className="mx-auto mb-3 opacity-20" />
-                                <p>Nenhuma equipe escalada para este culto ainda.</p>
+                                <p>Nenhuma escala registrada para este culto.</p>
                             </div>
                         )}
                     </div>
@@ -573,6 +619,56 @@ const ServiceDetail: React.FC = () => {
                     contextId={id}
                     onSuccess={() => setActiveTab('sms')}
                 />
+            )}
+            {/* Modal de Equipe */}
+            {isTeamModalOpen && selectedSchedule && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="bg-orange-500 p-6 text-white flex justify-between items-center">
+                            <div>
+                                <h3 className="text-xl font-bold">{selectedSchedule.deptName}</h3>
+                                <p className="text-orange-100 text-sm">Equipe Escalada</p>
+                            </div>
+                            <button 
+                                onClick={() => setIsTeamModalOpen(false)}
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                            >
+                                <ArrowLeft size={20} className="rotate-90" />
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-[60vh] overflow-y-auto">
+                            {selectedSchedule.members.length > 0 ? (
+                                <div className="space-y-4">
+                                    {selectedSchedule.members.map((member) => (
+                                        <div key={member.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                            <img
+                                                src={member.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}
+                                                alt=""
+                                                className="w-12 h-12 rounded-full object-cover shadow-sm"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-slate-800">{member.name}</p>
+                                                <p className="text-sm text-slate-500">{member.phone || 'Sem telemóvel'}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-slate-400">
+                                    <p>Nenhum membro escalado individualmente.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-6 bg-gray-50 border-t border-gray-100">
+                            <button
+                                onClick={() => setIsTeamModalOpen(false)}
+                                className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors"
+                            >
+                                Fechar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -20,6 +20,7 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
         status: 'Agendado',
         date: '',
         startTime: '',
+        theme: '',
         preacher: '',
         substitutePreacher: '',
         leader: '',
@@ -37,6 +38,7 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                 status: service.status,
                 date: service.date,
                 startTime: service.startTime,
+                theme: service.theme || '',
                 preacher: service.preacher,
                 substitutePreacher: service.substitutePreacher || '',
                 leader: service.leader,
@@ -159,6 +161,17 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Tema da Ministração <span className="text-xs text-slate-400">(opcional)</span></label>
+                        <input
+                            type="text"
+                            value={formData.theme}
+                            onChange={(e) => setFormData({ ...formData, theme: e.target.value })}
+                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                            placeholder="Ex: O Poder da Oração"
+                        />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

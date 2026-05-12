@@ -262,6 +262,9 @@ const Services: React.FC = () => {
                             <div className="flex items-start justify-between mb-3">
                                 <div>
                                     <h3 className="font-bold text-slate-800">{service.typeName}</h3>
+                                    {service.theme && (
+                                        <p className="text-xs font-semibold text-orange-600 italic">"{service.theme}"</p>
+                                    )}
                                     <p className="text-xs text-slate-500">{formatDate(service.date)}</p>
                                 </div>
                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
@@ -336,6 +339,7 @@ const Services: React.FC = () => {
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200 text-xs font-bold text-slate-500 uppercase">
                                     <th className="px-6 py-4">Tipo de Culto</th>
+                                    <th className="px-6 py-4">Tema</th>
                                     <th className="px-6 py-4">Data</th>
                                     <th className="px-6 py-4">Horário</th>
                                     <th className="px-6 py-4">Pregador</th>
@@ -357,8 +361,11 @@ const Services: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div>
                                                 <p className="font-medium text-slate-800">{service.typeName}</p>
-                                                <p className="text-xs text-slate-500">{service.description}</p>
+                                                <p className="text-xs text-slate-500 line-clamp-1">{service.description}</p>
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-700 text-sm italic">
+                                            {service.theme ? `"${service.theme}"` : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600 text-sm">{formatDate(service.date)}</td>
                                         <td className="px-6 py-4">
