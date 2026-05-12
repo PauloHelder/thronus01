@@ -194,6 +194,30 @@ export const useFinance = () => {
         }
     }, [user?.churchId]);
 
+    const fetchServiceTransactions = useCallback(async (serviceId: string) => {
+        if (!user?.churchId) return [];
+        try {
+            const { data, error } = await supabase
+                .from('financial_transactions' as any)
+                .select(`
+                    *,
+                    category:financial_categories(name, color),
+                    account:financial_accounts(name)
+                `)
+                .eq('church_id', user.churchId)
+                .eq('source_id', serviceId)
+                .eq('source_type', 'service')
+                .is('deleted_at', null)
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        } catch (err: any) {
+            console.error('Error fetching service transactions:', err);
+            return [];
+        }
+    }, [user?.churchId]);
+
     const transactionsWithBalance = useMemo(() => {
         if (transactions.length === 0 || accounts.length === 0) return transactions;
 
@@ -739,6 +763,7 @@ export const useFinance = () => {
         addCategory,
         updateCategory,
         deleteCategory,
-        fetchMemberTransactions
+        fetchMemberTransactions,
+        fetchServiceTransactions
     };
 };

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, User, MapPin, Users, Save, Heart, MessageSquare, ClipboardList, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, User, MapPin, Users, Save, Heart, MessageSquare, ClipboardList, Info, Loader2, Banknote, Plus, Trash2 } from 'lucide-react';
 import { Service, DepartmentSchedule, Member } from '../types';
 import { useServices } from '../hooks/useServices';
 import { supabase } from '../lib/supabase';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
+import { useFinance, FinancialTransaction } from '../hooks/useFinance';
 
 const ServiceDetail: React.FC = () => {
     const { id } = useParams();
@@ -20,7 +21,9 @@ const ServiceDetail: React.FC = () => {
         visitors: { men: 0, women: 0 },
         newConverts: { men: 0, women: 0, children: 0 }
     });
-    const [activeTab, setActiveTab] = useState<'stats' | 'team' | 'sms'>('stats');
+    const [activeTab, setActiveTab] = useState<'stats' | 'team' | 'sms' | 'offertory'>('stats');
+    const [serviceTransactions, setServiceTransactions] = useState<FinancialTransaction[]>([]);
+    const { fetchServiceTransactions, addTransaction, accounts, categories } = useFinance();
     const [relatedSchedules, setRelatedSchedules] = useState<DepartmentSchedule[]>([]);
     const [teamMembers, setTeamMembers] = useState<Member[]>([]);
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
@@ -103,6 +106,64 @@ const ServiceDetail: React.FC = () => {
         fetchServiceData();
         fetchRelatedData();
     }, [id]);
+
+    useEffect(() => {
+        const fetchTxs = async () => {
+            if (id && activeTab === 'offertory') {
+                const txs = await fetchServiceTransactions(id);
+                setServiceTransactions(txs);
+            }
+        };
+        fetchTxs();
+    }, [id, activeTab, fetchServiceTransactions]);
+
+    const [isAddTxModalOpen, setIsAddTxModalOpen] = useState(false);
+    const [newTx, setNewTx] = useState({
+        description: '',
+        amount: '',
+        type: 'income' as 'income' | 'expense',
+        category_id: '',
+        account_id: '',
+        status: 'paid' as 'paid' | 'pending'
+    });
+
+    const handleAddTransaction = async () => {
+        if (!id || !newTx.description || !newTx.amount || !newTx.account_id) {
+            alert('Preencha os campos obrigatórios (Descrição, Valor e Conta)');
+            return;
+        }
+
+        try {
+            const success = await addTransaction({
+                description: newTx.description,
+                amount: Number(newTx.amount),
+                type: newTx.type,
+                date: service?.date || new Date().toISOString().split('T')[0],
+                category_id: newTx.category_id || undefined,
+                account_id: newTx.account_id,
+                status: newTx.status,
+                source_type: 'service',
+                source_id: id
+            });
+
+            if (success) {
+                const txs = await fetchServiceTransactions(id);
+                setServiceTransactions(txs);
+                setIsAddTxModalOpen(false);
+                setNewTx({
+                    description: '',
+                    amount: '',
+                    type: 'income',
+                    category_id: '',
+                    account_id: '',
+                    status: 'paid'
+                });
+            }
+        } catch (error) {
+            console.error('Error adding transaction:', error);
+            alert('Erro ao adicionar transação');
+        }
+    };
 
     const totalNewConverts = (statistics.newConverts?.men || 0) +
         (statistics.newConverts?.women || 0) +
@@ -219,6 +280,7 @@ const ServiceDetail: React.FC = () => {
                     {[
                         { id: 'stats', label: 'Estatísticas', icon: <Save size={18} /> },
                         { id: 'team', label: 'Equipe Escalada', icon: <Users size={18} /> },
+                        { id: 'offertory', label: 'Ofertório', icon: <Banknote size={18} /> },
                         { id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> },
                     ].map((tab) => (
                         <button
@@ -599,6 +661,93 @@ const ServiceDetail: React.FC = () => {
                     </div>
                 )}
 
+                {activeTab === 'offertory' && (
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <Banknote className="text-orange-500" />
+                                Movimentações do Culto
+                            </h2>
+                            <button 
+                                onClick={() => setIsAddTxModalOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors shadow-sm"
+                            >
+                                <Plus size={18} />
+                                Lançar Oferta/Despesa
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Entradas</p>
+                                <p className="text-2xl font-bold text-green-600">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                        serviceTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0)
+                                    )}
+                                </p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Saídas</p>
+                                <p className="text-2xl font-bold text-red-600">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                        serviceTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0)
+                                    )}
+                                </p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Saldo do Culto</p>
+                                <p className="text-2xl font-bold text-slate-800">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                        serviceTransactions.reduce((acc, t) => acc + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                        <tr className="text-xs font-bold text-slate-500 uppercase">
+                                            <th className="px-6 py-4">Descrição</th>
+                                            <th className="px-6 py-4">Categoria</th>
+                                            <th className="px-6 py-4">Conta</th>
+                                            <th className="px-6 py-4 text-right">Valor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {serviceTransactions.length > 0 ? (
+                                            serviceTransactions.map((tx) => (
+                                                <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <p className="font-medium text-slate-800">{tx.description}</p>
+                                                        <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString('pt-BR')}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                                        {tx.category?.name || 'Geral'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                                        {tx.account?.name || '-'}
+                                                    </td>
+                                                    <td className={`px-6 py-4 text-right font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {tx.type === 'income' ? '+' : '-'} {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
+                                                    Nenhum lançamento financeiro para este culto.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'sms' && (
                     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                         <SmsHistoryTab contextType="service" contextId={id || ''} />
@@ -665,6 +814,98 @@ const ServiceDetail: React.FC = () => {
                                 className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors"
                             >
                                 Fechar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Novo Lançamento */}
+            {isAddTxModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+                        <div className="bg-orange-500 p-6 text-white">
+                            <h3 className="text-xl font-bold">Lançar Oferta/Despesa</h3>
+                            <p className="text-orange-100 text-sm">Este lançamento será vinculado a este culto</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+                                <input 
+                                    type="text"
+                                    value={newTx.description}
+                                    onChange={(e) => setNewTx({...newTx, description: e.target.value})}
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    placeholder="Ex: Oferta de Domingo / Pagamento Músico"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Valor</label>
+                                    <input 
+                                        type="number"
+                                        value={newTx.amount}
+                                        onChange={(e) => setNewTx({...newTx, amount: e.target.value})}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                        placeholder="0,00"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                                    <select 
+                                        value={newTx.type}
+                                        onChange={(e) => setNewTx({...newTx, type: e.target.value as any})}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        <option value="income">Entrada (Oferta/Dízimo)</option>
+                                        <option value="expense">Saída (Despesa)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Conta</label>
+                                    <select 
+                                        value={newTx.account_id}
+                                        onChange={(e) => setNewTx({...newTx, account_id: e.target.value})}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        <option value="">Selecione uma conta</option>
+                                        {accounts.map(acc => (
+                                            <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
+                                    <select 
+                                        value={newTx.category_id}
+                                        onChange={(e) => setNewTx({...newTx, category_id: e.target.value})}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        <option value="">Selecione uma categoria</option>
+                                        {categories
+                                            .filter(c => c.type === newTx.type)
+                                            .map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
+                            <button
+                                onClick={() => setIsAddTxModalOpen(false)}
+                                className="flex-1 py-2 text-slate-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleAddTransaction}
+                                className="flex-1 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30"
+                            >
+                                Confirmar Lançamento
                             </button>
                         </div>
                     </div>
