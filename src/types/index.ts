@@ -191,7 +191,9 @@ export interface Service {
   date: string;
   startTime: string;
   preacher: string;
+  substitutePreacher?: string;
   leader: string;
+  substituteLeader?: string;
   location: string;
   description?: string;
   statistics?: {

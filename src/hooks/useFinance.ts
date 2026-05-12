@@ -303,6 +303,77 @@ export const useFinance = () => {
         }
     };
 
+    const transferFunds = async (data: {
+        fromAccountId: string;
+        toAccountId: string;
+        amount: number;
+        date: string;
+        description: string;
+    }) => {
+        if (!user?.churchId) return false;
+        try {
+            // Find or create a 'Transferência' category
+            let transferCategory = categories.find(c => c.name.toLowerCase() === 'transferência');
+            
+            if (!transferCategory) {
+                const { data: newCat, error: catError } = await supabase
+                    .from('financial_categories')
+                    .insert({
+                        name: 'Transferência',
+                        type: 'expense',
+                        color: '#6366F1',
+                        church_id: user.churchId
+                    })
+                    .select()
+                    .single();
+                
+                if (catError) throw catError;
+                transferCategory = newCat;
+            }
+
+            const transferGroupId = `TRF-${Date.now()}`;
+
+            const transactions = [
+                {
+                    description: `${data.description} (Origem)`,
+                    amount: data.amount,
+                    type: 'expense',
+                    date: data.date,
+                    category_id: transferCategory?.id,
+                    account_id: data.fromAccountId,
+                    church_id: user.churchId,
+                    created_by: user.id,
+                    status: 'paid',
+                    notes: `Transferência para outra conta. Grupo: ${transferGroupId}`
+                },
+                {
+                    description: `${data.description} (Destino)`,
+                    amount: data.amount,
+                    type: 'income',
+                    date: data.date,
+                    category_id: transferCategory?.id,
+                    account_id: data.toAccountId,
+                    church_id: user.churchId,
+                    created_by: user.id,
+                    status: 'paid',
+                    notes: `Recebido via transferência. Grupo: ${transferGroupId}`
+                }
+            ];
+
+            const { error } = await (supabase
+                .from('financial_transactions' as any)
+                .insert(transactions) as any);
+
+            if (error) throw error;
+            await Promise.all([fetchTransactions(), fetchAccounts()]);
+            return true;
+        } catch (err: any) {
+            console.error('Error transferring funds:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
     const updateTransaction = async (id: string, updates: Partial<FinancialTransaction>) => {
         try {
             // Remove joined fields to avoid Supabase 400 errors
@@ -649,6 +720,7 @@ export const useFinance = () => {
         deleteTransaction,
         deleteMultipleTransactions,
         bulkAddTransactions,
+        transferFunds,
 
         // Actions - Requests
         fetchRequests,

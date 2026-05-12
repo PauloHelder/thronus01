@@ -42,7 +42,9 @@ export function useServices() {
                 date: dbService.date,
                 startTime: dbService.start_time,
                 preacher: dbService.preacher_name || '',
+                substitutePreacher: dbService.substitute_preacher_name || '',
                 leader: dbService.leader_name || '',
+                substituteLeader: dbService.substitute_leader_name || '',
                 location: dbService.location || '',
                 description: dbService.description || '',
                 statistics: {
@@ -90,7 +92,9 @@ export function useServices() {
                 date: service.date,
                 start_time: service.startTime,
                 preacher_name: service.preacher || null,
+                substitute_preacher_name: service.substitutePreacher || null,
                 leader_name: service.leader || null,
+                substitute_leader_name: service.substituteLeader || null,
                 location: service.location || null,
                 description: service.description || null,
                 stats_adults_men: service.statistics?.adults.men || 0,
@@ -146,7 +150,9 @@ export function useServices() {
                 date: insertedData.date,
                 startTime: insertedData.start_time,
                 preacher: insertedData.preacher_name || '',
+                substitutePreacher: insertedData.substitute_preacher_name || '',
                 leader: insertedData.leader_name || '',
+                substituteLeader: insertedData.substitute_leader_name || '',
                 location: insertedData.location || '',
                 description: insertedData.description || '',
                 statistics: {
@@ -190,7 +196,9 @@ export function useServices() {
             if (service.location !== undefined) dbService.location = service.location || null;
             if (service.description !== undefined) dbService.description = service.description || null;
             if (service.preacher !== undefined) dbService.preacher_name = service.preacher || null;
+            if (service.substitutePreacher !== undefined) dbService.substitute_preacher_name = service.substitutePreacher || null;
             if (service.leader !== undefined) dbService.leader_name = service.leader || null;
+            if (service.substituteLeader !== undefined) dbService.substitute_leader_name = service.substituteLeader || null;
 
             if (service.statistics) {
                 dbService.stats_adults_men = service.statistics.adults.men || 0;
@@ -246,7 +254,9 @@ export function useServices() {
                 date: updatedData.date,
                 startTime: updatedData.start_time,
                 preacher: updatedData.preacher_name || '',
+                substitutePreacher: updatedData.substitute_preacher_name || '',
                 leader: updatedData.leader_name || '',
+                substituteLeader: updatedData.substitute_leader_name || '',
                 location: updatedData.location || '',
                 description: updatedData.description || '',
                 statistics: {
@@ -321,7 +331,9 @@ export function useServices() {
                 date: serviceData.date,
                 startTime: serviceData.start_time,
                 preacher: serviceData.preacher_name || '',
+                substitutePreacher: serviceData.substitute_preacher_name || '',
                 leader: serviceData.leader_name || '',
+                substituteLeader: serviceData.substitute_leader_name || '',
                 location: serviceData.location || '',
                 description: serviceData.description || '',
                 statistics: {

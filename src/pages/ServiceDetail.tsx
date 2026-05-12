@@ -241,10 +241,24 @@ const ServiceDetail: React.FC = () => {
                             </div>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-slate-600 mb-1">Pregador Suplente</label>
+                            <div className="flex items-center gap-2 text-slate-800">
+                                <User size={16} className="text-slate-400" />
+                                <span>{service.substitutePreacher || 'Não definido'}</span>
+                            </div>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-slate-600 mb-1">Dirigente</label>
                             <div className="flex items-center gap-2 text-slate-800">
                                 <User size={16} />
                                 <span>{service.leader || 'Não definido'}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-600 mb-1">Dirigente Suplente</label>
+                            <div className="flex items-center gap-2 text-slate-800">
+                                <User size={16} className="text-slate-400" />
+                                <span>{service.substituteLeader || 'Não definido'}</span>
                             </div>
                         </div>
                         {service.description && (

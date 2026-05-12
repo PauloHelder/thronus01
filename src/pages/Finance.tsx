@@ -20,9 +20,9 @@ import {
     Clock,
     AlertCircle,
     Building2,
-    Check,
     ClipboardList,
-    FileSpreadsheet
+    FileSpreadsheet,
+    ArrowRightLeft
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useFinance, FinancialTransaction, FinancialRequest } from '../hooks/useFinance';
@@ -34,6 +34,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDepartments } from '../hooks/useDepartments';
 import FinanceRequestModal from '../components/modals/FinanceRequestModal';
 import ImportFinanceModal from '../components/modals/ImportFinanceModal';
+import TransferModal from '../components/modals/TransferModal';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import { formatAOA } from '../utils/currency';
 import { toast } from 'sonner';
@@ -56,6 +57,7 @@ const Finance = () => {
         deleteTransaction,
         deleteMultipleTransactions,
         bulkAddTransactions,
+        transferFunds,
         addAccount,
         addCategory,
         addRequest,
@@ -101,6 +103,7 @@ const Finance = () => {
     const [viewingTransaction, setViewingTransaction] = useState<FinancialTransaction | undefined>(undefined);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     
     // Selection state
     const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
@@ -461,6 +464,15 @@ const Finance = () => {
                         <FileSpreadsheet size={18} className="text-slate-400" />
                         Importar
                     </button>
+                    {currentView === 'transactions' && (
+                        <button
+                            onClick={() => setIsTransferModalOpen(true)}
+                            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+                        >
+                            <ArrowRightLeft size={18} />
+                            Transferir
+                        </button>
+                    )}
                     {currentView === 'requests' ? (
                         <button
                             onClick={() => handleOpenRequestModal()}
@@ -991,6 +1003,13 @@ const Finance = () => {
                 accounts={accounts}
                 categories={categories}
                 onImportBulk={bulkAddTransactions}
+            />
+
+            <TransferModal
+                isOpen={isTransferModalOpen}
+                onClose={() => setIsTransferModalOpen(false)}
+                accounts={accounts}
+                onTransfer={transferFunds}
             />
 
             {/* Payment Confirmation Modal */}

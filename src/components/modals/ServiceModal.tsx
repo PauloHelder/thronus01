@@ -21,7 +21,9 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
         date: '',
         startTime: '',
         preacher: '',
+        substitutePreacher: '',
         leader: '',
+        substituteLeader: '',
         location: 'Templo Local',
         description: '',
     });
@@ -36,7 +38,9 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                 date: service.date,
                 startTime: service.startTime,
                 preacher: service.preacher,
+                substitutePreacher: service.substitutePreacher || '',
                 leader: service.leader,
+                substituteLeader: service.substituteLeader || '',
                 location: service.location,
                 description: service.description || '',
                 statistics: service.statistics,
@@ -169,6 +173,19 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                             />
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Pregador Suplente <span className="text-xs text-slate-400">(opcional)</span></label>
+                            <input
+                                type="text"
+                                value={formData.substitutePreacher}
+                                onChange={(e) => setFormData({ ...formData, substitutePreacher: e.target.value })}
+                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                placeholder="Nome do pregador suplente"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Dirigente <span className="text-xs text-slate-400">(opcional)</span></label>
                             <input
                                 type="text"
@@ -176,6 +193,16 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                                 onChange={(e) => setFormData({ ...formData, leader: e.target.value })}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                                 placeholder="Nome do dirigente"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Dirigente Suplente <span className="text-xs text-slate-400">(opcional)</span></label>
+                            <input
+                                type="text"
+                                value={formData.substituteLeader}
+                                onChange={(e) => setFormData({ ...formData, substituteLeader: e.target.value })}
+                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                placeholder="Nome do dirigente suplente"
                             />
                         </div>
                     </div>
