@@ -10,7 +10,7 @@ import AccountModal from '../components/modals/AccountModal';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
-import { formatKz } from '../utils/currency';
+import { formatAOA } from '../utils/currency';
 
 const MODULES = [
     { id: 'members', label: 'Membros' },
@@ -566,7 +566,7 @@ const Settings: React.FC = () => {
                                     </div>
                                     <p className="text-sm text-slate-500 mb-1">{account.bank || 'Carteira'}</p>
                                     <p className="font-mono font-medium text-slate-700">
-                                        {formatKz(account.balance)}
+                                        {formatAOA(account.balance)}
                                     </p>
                                 </div>
                             ))}

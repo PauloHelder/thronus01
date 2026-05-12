@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useFinance } from '../hooks/useFinance';
 import { useAuth } from '../contexts/AuthContext';
-import { formatKz } from '../utils/currency';
+import { formatAOA } from '../utils/currency';
 
 const FinanceDashboard = () => {
     const { hasPermission } = useAuth();
@@ -70,7 +70,7 @@ const FinanceDashboard = () => {
         ];
     }, [totals]);
 
-    const formatCurrency = (value: number) => formatKz(value);
+    const formatCurrency = (value: number) => formatAOA(value);
 
     const getAccountIcon = (type: string) => {
         switch (type) {

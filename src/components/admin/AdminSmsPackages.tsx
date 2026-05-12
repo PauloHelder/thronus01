@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Edit, Trash2, MessageSquare, Save, X, CheckCircle, XCircle, Building, Server, ArrowUpDown, Activity, CreditCard, Clock, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatKz } from '../../utils/currency';
+import { formatAOA } from '../../utils/currency';
 
 export default function AdminSmsPackages() {
     const [activeTab, setActiveTab] = useState<'catalog' | 'churches' | 'orders'>('catalog');
@@ -380,7 +380,7 @@ export default function AdminSmsPackages() {
                                             <tr key={pkg.id} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-6 py-4 font-bold text-slate-800">{pkg.name}</td>
                                                 <td className="px-6 py-4 text-slate-600">{new Intl.NumberFormat('pt-AO').format(pkg.messages_count)} un.</td>
-                                                <td className="px-6 py-4 font-black text-slate-900">{formatKz(pkg.price)}</td>
+                                                <td className="px-6 py-4 font-black text-slate-900">{formatAOA(pkg.price)}</td>
                                                 <td className="px-6 py-4">
                                                     {pkg.active ? 
                                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-green-100 text-green-700 uppercase"><CheckCircle size={12} /> Ativo</span> : 
@@ -470,7 +470,7 @@ export default function AdminSmsPackages() {
                                                         <span className="text-slate-300 italic text-[10px]">Sem anexo</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 font-black text-slate-900">{formatKz((order.sms_packages as any)?.price || 0)}</td>
+                                                <td className="px-6 py-4 font-black text-slate-900">{formatAOA((order.sms_packages as any)?.price || 0)}</td>
                                                 <td className="px-6 py-4 text-center">
                                                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase ${
                                                         order.status === 'completed' ? 'bg-green-100 text-green-700' : 
@@ -526,7 +526,7 @@ export default function AdminSmsPackages() {
                                     </div>
                                     {telcoBalance && !telcoBalance.error && (
                                         <p className="text-orange-500 text-xs mt-2 font-bold bg-orange-500/10 inline-block px-2 py-0.5 rounded">
-                                            Valor em Conta: {formatKz(telcoBalance.balance_real)}
+                                            Valor em Conta: {formatAOA(telcoBalance.balance_real)}
                                         </p>
                                     )}
                                 </div>

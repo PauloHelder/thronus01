@@ -38,7 +38,9 @@ export interface FinancialTransaction {
     payment_method?: string;
     document_number?: string;
     notes?: string;
-    member_id?: string;
+    source_type?: string;
+    source_id?: string;
+    other_source_name?: string;
     created_by?: string;
     created_at?: string;
     running_balance?: number;
@@ -179,7 +181,8 @@ export const useFinance = () => {
                     account:financial_accounts(name)
                 `)
                 .eq('church_id', user.churchId)
-                .eq('member_id', memberId)
+                .eq('source_id', memberId)
+                .eq('source_type', 'member')
                 .is('deleted_at', null)
                 .order('date', { ascending: false });
 
@@ -253,8 +256,8 @@ export const useFinance = () => {
     const addTransaction = async (transaction: Omit<FinancialTransaction, 'id' | 'church_id' | 'created_at'>) => {
         if (!user?.churchId) return false;
         try {
-            // Remove joined fields and non-existent columns to avoid Supabase 400 errors
-            const { category, account, running_balance, member_id, ...cleanTransaction } = transaction as any;
+            // Remove joined fields to avoid Supabase 400 errors
+            const { category, account, running_balance, ...cleanTransaction } = transaction as any;
 
             const { error } = await (supabase
                 .from('financial_transactions' as any)
@@ -276,8 +279,8 @@ export const useFinance = () => {
 
     const updateTransaction = async (id: string, updates: Partial<FinancialTransaction>) => {
         try {
-            // Remove joined fields and non-existent columns to avoid Supabase 400 errors
-            const { category, account, running_balance, member_id, ...cleanUpdates } = updates as any;
+            // Remove joined fields to avoid Supabase 400 errors
+            const { category, account, running_balance, ...cleanUpdates } = updates as any;
 
             const { error } = await (supabase
                 .from('financial_transactions' as any)
@@ -307,6 +310,41 @@ export const useFinance = () => {
             return true;
         } catch (err: any) {
             console.error('Error deleting transaction:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    const deleteMultipleTransactions = async (ids: string[]) => {
+        try {
+            const { error } = await (supabase
+                .from('financial_transactions' as any)
+                .update({ deleted_at: new Date().toISOString() })
+                .in('id', ids) as any);
+
+            if (error) throw error;
+            setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+            await fetchAccounts();
+            return true;
+        } catch (err: any) {
+            console.error('Error deleting multiple transactions:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    const deleteMultipleRequests = async (ids: string[]) => {
+        try {
+            const { error } = await (supabase
+                .from('financial_requests' as any)
+                .update({ deleted_at: new Date().toISOString() })
+                .in('id', ids) as any);
+
+            if (error) throw error;
+            setRequests(prev => prev.filter(r => !ids.includes(r.id)));
+            return true;
+        } catch (err: any) {
+            console.error('Error deleting multiple requests:', err);
             setError(err.message);
             return false;
         }
@@ -583,6 +621,7 @@ export const useFinance = () => {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        deleteMultipleTransactions,
 
         // Actions - Requests
         fetchRequests,
@@ -590,6 +629,7 @@ export const useFinance = () => {
         payRequest,
         updateRequest,
         deleteRequest,
+        deleteMultipleRequests,
 
         // Actions - Accounts
         addAccount,

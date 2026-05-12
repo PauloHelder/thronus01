@@ -152,9 +152,7 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Valor Estimado</label>
                             <div className="relative">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                    <DollarSign size={18} />
-                                </div>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">AOA</span>
                                 <input
                                     required
                                     type="number"

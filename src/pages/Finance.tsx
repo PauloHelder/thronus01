@@ -35,7 +35,7 @@ import { useDepartments } from '../hooks/useDepartments';
 import FinanceRequestModal from '../components/modals/FinanceRequestModal';
 import ImportFinanceModal from '../components/modals/ImportFinanceModal';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
-import { formatKz } from '../utils/currency';
+import { formatAOA } from '../utils/currency';
 import { toast } from 'sonner';
 
 const Finance = () => {
@@ -54,12 +54,14 @@ const Finance = () => {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        deleteMultipleTransactions,
         addAccount,
         addCategory,
         addRequest,
         payRequest,
         updateRequest,
-        deleteRequest
+        deleteRequest,
+        deleteMultipleRequests
     } = useFinance();
 
     // Debug log to help identify why the page might be blank for some users
@@ -98,6 +100,10 @@ const Finance = () => {
     const [viewingTransaction, setViewingTransaction] = useState<FinancialTransaction | undefined>(undefined);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    
+    // Selection state
+    const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
+    const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
 
     const handleViewTransaction = (transaction: FinancialTransaction) => {
         setViewingTransaction(transaction);
@@ -138,7 +144,7 @@ const Finance = () => {
         });
     }, [requests, requestStatusFilter, requestDeptFilter, requestSearch]);
 
-    const formatCurrency = (value: number) => formatKz(value);
+    const formatCurrency = (value: number) => formatAOA(value);
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -303,6 +309,61 @@ const Finance = () => {
             case 'rejected': return 'bg-red-50 text-red-700 border-red-200';
             case 'paid': return 'bg-blue-50 text-blue-700 border-blue-200';
             default: return 'bg-orange-50 text-orange-700 border-orange-200';
+        }
+    };
+
+    // Bulk Delete Handlers
+    const handleBulkDeleteTransactions = async () => {
+        if (!selectedTransactions.length) return;
+        if (window.confirm(`Deseja realmente apagar ${selectedTransactions.length} transações selecionadas?`)) {
+            const success = await deleteMultipleTransactions(selectedTransactions);
+            if (success) {
+                toast.success('Transações apagadas com sucesso!');
+                setSelectedTransactions([]);
+            } else {
+                toast.error('Erro ao apagar transações.');
+            }
+        }
+    };
+
+    const handleBulkDeleteRequests = async () => {
+        if (!selectedRequests.length) return;
+        if (window.confirm(`Deseja realmente apagar ${selectedRequests.length} requisições selecionadas?`)) {
+            const success = await deleteMultipleRequests(selectedRequests);
+            if (success) {
+                toast.success('Requisições apagadas com sucesso!');
+                setSelectedRequests([]);
+            } else {
+                toast.error('Erro ao apagar requisições.');
+            }
+        }
+    };
+
+    const toggleTransactionSelection = (id: string) => {
+        setSelectedTransactions(prev => 
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const toggleRequestSelection = (id: string) => {
+        setSelectedRequests(prev => 
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const toggleAllTransactions = () => {
+        if (selectedTransactions.length === filteredTransactions.length) {
+            setSelectedTransactions([]);
+        } else {
+            setSelectedTransactions(filteredTransactions.map(t => t.id));
+        }
+    };
+
+    const toggleAllRequests = () => {
+        if (selectedRequests.length === filteredRequests.length) {
+            setSelectedRequests([]);
+        } else {
+            setSelectedRequests(filteredRequests.map(r => r.id));
         }
     };
 
@@ -478,6 +539,15 @@ const Finance = () => {
                                 Requisições de Budget
                             </h3>
                             <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                {selectedRequests.length > 0 && (
+                                    <button
+                                        onClick={handleBulkDeleteRequests}
+                                        className="px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-bold flex items-center gap-2 border border-red-200 transition-all animate-in fade-in zoom-in duration-200"
+                                    >
+                                        <Trash2 size={16} />
+                                        Apagar {selectedRequests.length}
+                                    </button>
+                                )}
                                 <div className="relative flex-1 md:w-64 min-w-[200px]">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                     <input
@@ -517,6 +587,14 @@ const Finance = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-slate-500 uppercase">
+                                    <th className="px-6 py-4 w-10">
+                                        <input 
+                                            type="checkbox" 
+                                            className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                                            checked={filteredRequests.length > 0 && selectedRequests.length === filteredRequests.length}
+                                            onChange={toggleAllRequests}
+                                        />
+                                    </th>
                                     <th className="px-6 py-4">Data</th>
                                     <th className="px-6 py-4">Departamento</th>
                                     <th className="px-6 py-4">Título / Descrição</th>
@@ -534,8 +612,17 @@ const Finance = () => {
                                     </tr>
                                 ) : (
                                     filteredRequests.map((request) => (
-                                        <tr key={request.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 text-sm text-slate-600">
+                                        <tr key={request.id} className={`hover:bg-gray-50 transition-colors ${selectedRequests.includes(request.id) ? 'bg-orange-50/50' : ''}`}>
+                                            <td className="px-6 py-4">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                                                    checked={selectedRequests.includes(request.id)}
+                                                    onChange={() => toggleRequestSelection(request.id)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-slate-600" onClick={() => toggleRequestSelection(request.id)}>
                                                 {new Date(request.created_at).toLocaleDateString()}
                                             </td>
                                             <td className="px-6 py-4">
@@ -618,6 +705,15 @@ const Finance = () => {
                         <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-4">
                             <h3 className="font-bold text-lg text-slate-800">Transações</h3>
                             <div className="flex gap-2 w-full md:w-auto">
+                                {selectedTransactions.length > 0 && (
+                                    <button
+                                        onClick={handleBulkDeleteTransactions}
+                                        className="px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-bold flex items-center gap-2 border border-red-200 transition-all animate-in fade-in zoom-in duration-200"
+                                    >
+                                        <Trash2 size={16} />
+                                        Apagar {selectedTransactions.length}
+                                    </button>
+                                )}
                                 <div className="relative flex-1 md:w-64">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                     <input
@@ -729,6 +825,14 @@ const Finance = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-slate-500 uppercase">
+                                    <th className="px-6 py-4 w-10">
+                                        <input 
+                                            type="checkbox" 
+                                            className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                                            checked={filteredTransactions.length > 0 && selectedTransactions.length === filteredTransactions.length}
+                                            onChange={toggleAllTransactions}
+                                        />
+                                    </th>
                                     <th className="px-6 py-4">Data</th>
                                     <th className="px-6 py-4">Descrição</th>
                                     <th className="px-6 py-4">Conta</th>
@@ -750,8 +854,17 @@ const Finance = () => {
                                     </tr>
                                 ) : (
                                     filteredTransactions.map((tx) => (
-                                        <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 text-slate-700 whitespace-nowrap">
+                                        <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${selectedTransactions.includes(tx.id) ? 'bg-orange-50/50' : ''}`}>
+                                            <td className="px-6 py-4">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                                                    checked={selectedTransactions.includes(tx.id)}
+                                                    onChange={() => toggleTransactionSelection(tx.id)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-700 whitespace-nowrap" onClick={() => toggleTransactionSelection(tx.id)}>
                                                 <div className="flex items-center gap-2 font-medium">
                                                     <Calendar size={16} className="text-slate-400" />
                                                     <span>{formatDate(tx.date)}</span>

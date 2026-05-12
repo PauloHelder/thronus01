@@ -7,7 +7,7 @@ import TransactionModal from '../components/modals/TransactionModal';
 import { useFinance, FinancialTransaction } from '../hooks/useFinance';
 import { useAuth } from '../contexts/AuthContext';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
-import { formatKz } from '../utils/currency';
+import { formatAOA } from '../utils/currency';
 import { toast } from 'sonner';
 
 const Finances: React.FC = () => {
@@ -95,7 +95,7 @@ const Finances: React.FC = () => {
         return categories.find(c => c.id === id)?.name || 'Desconhecido';
     };
 
-    const formatCurrency = (value: number) => formatKz(value);
+    const formatCurrency = (value: number) => formatAOA(value);
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return '-';

@@ -24,7 +24,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatKz } from '../utils/currency';
+import { formatAOA } from '../utils/currency';
 
 const BranchDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -324,7 +324,7 @@ const BranchDetails: React.FC = () => {
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo Mês</p>
                         <p className="text-xl font-black text-slate-800">
-                            {permissions.view_finances ? formatKz(stats.balance || 0) : '---'}
+                            {permissions.view_finances ? formatAOA(stats.balance || 0) : '---'}
                         </p>
                     </div>
                 </div>
@@ -630,19 +630,19 @@ const BranchDetails: React.FC = () => {
                             <div className="bg-green-50 p-6 rounded-xl border border-green-100">
                                 <p className="text-green-600 text-sm font-bold uppercase">Total de Entradas</p>
                                 <p className="text-3xl font-black text-green-900 mt-1">
-                                    {formatKz(stats.totalIncome || 0)}
+                                    {formatAOA(stats.totalIncome || 0)}
                                 </p>
                             </div>
                             <div className="bg-red-50 p-6 rounded-xl border border-red-100">
                                 <p className="text-red-600 text-sm font-bold uppercase">Total de Saídas</p>
                                 <p className="text-3xl font-black text-red-900 mt-1">
-                                    {formatKz(stats.totalExpense || 0)}
+                                    {formatAOA(stats.totalExpense || 0)}
                                 </p>
                             </div>
                             <div className={`${(stats.balance || 0) >= 0 ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'} p-6 rounded-xl border`}>
                                 <p className={`${(stats.balance || 0) >= 0 ? 'text-blue-600' : 'text-orange-600'} text-sm font-bold uppercase`}>Saldo Atual</p>
                                 <p className={`text-3xl font-black ${(stats.balance || 0) >= 0 ? 'text-blue-900' : 'text-orange-900'} mt-1`}>
-                                    {formatKz(stats.balance || 0)}
+                                    {formatAOA(stats.balance || 0)}
                                 </p>
                             </div>
                         </div>

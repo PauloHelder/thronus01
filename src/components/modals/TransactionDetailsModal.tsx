@@ -2,7 +2,7 @@ import React from 'react';
 import { X, Calendar, Hash, FileText, Printer, Building2, CheckCircle2 } from 'lucide-react';
 import { FinancialTransaction } from '../../hooks/useFinance';
 import { useAuth } from '../../contexts/AuthContext';
-import { formatKz } from '../../utils/currency';
+import { formatAOA } from '../../utils/currency';
 
 interface TransactionDetailsModalProps {
     isOpen: boolean;
@@ -23,7 +23,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({
     const themeColor = isIncome ? 'text-green-600' : 'text-red-600';
     const borderColor = isIncome ? 'border-green-200' : 'border-red-200';
 
-    const formatCurrency = (value: number) => formatKz(value);
+    const formatCurrency = (value: number) => formatAOA(value);
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('pt-BR', {

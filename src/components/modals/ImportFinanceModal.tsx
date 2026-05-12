@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { FinancialAccount, FinancialCategory, FinancialTransaction } from '../../hooks/useFinance';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
-import { formatKz } from '../../utils/currency';
+import { formatAOA } from '../../utils/currency';
 
 interface ImportFinanceModalProps {
     isOpen: boolean;
@@ -64,24 +64,33 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
 
                 // Map and validate
                 const mappedData = json.map((row: any) => {
-                    const typeStr = (row['tipo'] || row['Tipo'] || '').toString().toLowerCase();
-                    const type = (typeStr.includes('entrada') || typeStr.includes('receita') || typeStr.includes('estrada')) 
-                        ? 'income' 
-                        : 'expense';
+                    const entrada = parseFloat(row['Entrada'] || 0);
+                    const saida = parseFloat(row['Saída'] || row['Saida'] || 0);
+                    const amount = Math.abs(entrada > 0 ? entrada : saida);
+                    const type = entrada > 0 ? 'income' : 'expense';
 
-                    const categoryName = row['Categoria'] || row['categoria'];
+                    let categoryName = row['Categoria'] || row['categoria'];
+                    const memberCode = (row['Cod_Membro'] || row['cod_membro'] || '').toString().trim();
+                    
+                    // Force 'Dízimo' if there is a member code and it's an income
+                    if (memberCode && type === 'income') {
+                        categoryName = 'Dízimo';
+                    }
+
                     const category = categories.find(c => 
                         c.name.toLowerCase() === (categoryName || '').toString().toLowerCase() && 
                         c.type === type
                     );
 
-                    const memberCode = (row['Codigo'] || row['codigo'] || row['Código'] || '').toString();
-                    const member = members.find(m => m.member_code?.toString() === memberCode);
+                    const member = members.find(m => 
+                        m.member_code?.toString().trim() === memberCode ||
+                        m.name.toLowerCase() === (row['Descricao'] || '').toString().toLowerCase()
+                    );
 
                     return {
                         date: row['Data'] || row['data'] || new Date().toISOString(),
                         description: row['Descricao'] || row['Descrição'] || row['descricao'] || 'Importado',
-                        amount: Math.abs(parseFloat(row['Valor'] || row['valor'] || 0)),
+                        amount: amount,
                         type: type,
                         category_id: category?.id,
                         category_name: categoryName,
@@ -89,7 +98,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                         member_code: memberCode,
                         member_id: member?.id,
                         status: 'paid',
-                        isValid: !!(row['Data'] || row['data']) && !!(row['Valor'] || row['valor'])
+                        isValid: !!(row['Data'] || row['data']) && amount > 0
                     };
                 });
 
@@ -111,18 +120,18 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                 'Referencia': 'REF001',
                 'Descricao': 'Exemplo de Receita',
                 'Categoria': 'Dízimo',
-                'Codigo': 'M001',
-                'tipo': 'Entrada',
-                'Valor': 1500.00
+                'Cod_Membro': 'M001',
+                'Entrada': 1500.00,
+                'Saída': 0
             },
             {
                 'Data': new Date().toISOString().split('T')[0],
                 'Referencia': 'REF002',
                 'Descricao': 'Exemplo de Despesa',
                 'Categoria': 'Energia Elétrica',
-                'Codigo': '',
-                'tipo': 'Saida',
-                'Valor': 250.00
+                'Cod_Membro': '',
+                'Entrada': 0,
+                'Saída': 2500.00
             }
         ];
 
@@ -131,7 +140,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
         XLSX.utils.book_append_sheet(wb, ws, 'Modelo_Importacao');
 
         ws['!cols'] = [
-            { wch: 12 }, { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
+            { wch: 12 }, { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
         ];
 
         XLSX.writeFile(wb, 'modelo_importacao_financeira.xlsx');
@@ -157,28 +166,59 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
 
         setLoading(true);
         try {
-            const transactionsToSave = validTransactions.map(tx => ({
-                description: tx.description,
-                amount: tx.amount,
-                type: tx.type,
-                date: tx.date instanceof Date ? tx.date.toISOString().split('T')[0] : tx.date,
-                category_id: tx.category_id,
-                account_id: selectedAccountId,
-                member_id: tx.member_id,
-                status: 'paid',
-                document_number: tx.document_number?.toString(),
-                notes: tx.member_code ? `Código Membro: ${tx.member_code}` : ''
-            }));
-
             let successCount = 0;
-            for (const tx of transactionsToSave) {
-                const success = await onImport(tx);
+            const categoryCache: Record<string, string> = {};
+
+            for (const tx of validTransactions) {
+                let finalCategoryId = tx.category_id;
+
+                // Auto-create category if missing
+                if (!finalCategoryId && tx.category_name) {
+                    const cacheKey = `${tx.category_name.toLowerCase()}_${tx.type}`;
+                    if (categoryCache[cacheKey]) {
+                        finalCategoryId = categoryCache[cacheKey];
+                    } else {
+                        // Create the category
+                        const { data: newCat, error: catError } = await supabase
+                            .from('financial_categories')
+                            .insert({
+                                name: tx.category_name,
+                                type: tx.type,
+                                color: tx.type === 'income' ? '#10B981' : '#EF4444',
+                                church_id: (await supabase.auth.getUser()).data.user?.user_metadata?.churchId || ''
+                            })
+                            .select()
+                            .single();
+                        
+                        if (!catError && newCat) {
+                            finalCategoryId = newCat.id;
+                            categoryCache[cacheKey] = newCat.id;
+                        }
+                    }
+                }
+
+                const transactionToSave = {
+                    description: tx.description,
+                    amount: tx.amount,
+                    type: tx.type,
+                    date: tx.date instanceof Date ? tx.date.toISOString().split('T')[0] : tx.date,
+                    category_id: finalCategoryId,
+                    account_id: selectedAccountId,
+                    source_type: tx.member_id ? 'member' : 'other',
+                    source_id: tx.member_id || null,
+                    other_source_name: !tx.member_id ? (tx.member_code || null) : null,
+                    status: 'paid',
+                    document_number: tx.document_number?.toString(),
+                    notes: tx.member_code ? `Código Membro: ${tx.member_code}` : ''
+                };
+
+                const success = await onImport(transactionToSave);
                 if (success) successCount++;
             }
 
             if (successCount > 0) {
                 toast.success(`${successCount} transações importadas com sucesso!`);
-                if (typeof onClose === 'function') onClose();
+                onClose();
             } else {
                 toast.error('Erro ao importar transações.');
             }
@@ -190,7 +230,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
         }
     };
 
-    const formatCurrency = (value: number) => formatKz(value);
+    const formatCurrency = (value: number) => formatAOA(value);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">

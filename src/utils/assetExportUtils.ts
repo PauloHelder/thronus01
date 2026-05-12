@@ -2,7 +2,7 @@
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { Asset, AssetCategory } from '../types/database.types';
-import { formatKz } from './currency';
+import { formatAOA } from './currency';
 
 interface AssetExportData {
     assets: Asset[];
@@ -16,7 +16,7 @@ interface AssetExportData {
     };
 }
 
-const formatCurrency = (value: number) => formatKz(value);
+const formatCurrency = (value: number) => formatAOA(value);
 
 const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';

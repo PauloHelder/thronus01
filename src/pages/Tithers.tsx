@@ -20,7 +20,7 @@ import { useMembers } from '../hooks/useMembers';
 import { useFinance } from '../hooks/useFinance';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
-import { formatKz } from '../utils/currency';
+import { formatAOA } from '../utils/currency';
 
 const Tithers: React.FC = () => {
     const navigate = useNavigate();
@@ -56,7 +56,7 @@ const Tithers: React.FC = () => {
 
         return members.map(member => {
             const memberTithes = titheTransactions.filter(tx => 
-                tx.member_id === member.id || 
+                (tx.source_id === member.id && tx.source_type === 'member') || 
                 tx.description.toLowerCase().includes(member.name.toLowerCase()) ||
                 (member.memberCode && tx.description.includes(member.memberCode))
             );
@@ -94,7 +94,7 @@ const Tithers: React.FC = () => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedTithers = filteredTithers.slice(startIndex, startIndex + itemsPerPage);
 
-    const formatCurrency = (value: number) => formatKz(value);
+    const formatCurrency = (value: number) => formatAOA(value);
 
     const handleExport = async () => {
         try {

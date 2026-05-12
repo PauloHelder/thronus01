@@ -18,7 +18,7 @@ import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
 import { MessageSquare, Activity } from 'lucide-react';
-import { formatKz } from '../utils/currency';
+import { formatAOA } from '../utils/currency';
 
 const DepartmentDetail: React.FC = () => {
     const { id } = useParams();
@@ -193,7 +193,7 @@ const DepartmentDetail: React.FC = () => {
         }
     };
 
-    const formatCurrency = (value: number) => formatKz(value);
+    const formatCurrency = (value: number) => formatAOA(value);
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return '';

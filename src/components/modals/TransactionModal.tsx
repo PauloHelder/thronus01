@@ -95,9 +95,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 date: transaction.date,
                 category_id: transaction.category_id || '',
                 account_id: transaction.account_id || '',
-                source_type: 'other', // TODO: Infer logic
-                source_id: '',
-                other_source_name: '',
+                source_type: (transaction as any).source_type || 'other',
+                source_id: (transaction as any).source_id || '',
+                other_source_name: (transaction as any).other_source_name || '',
                 document_number: transaction.document_number || '',
                 reference_number: '',
                 description: transaction.description || '',
@@ -119,6 +119,21 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         }
     }, [transaction, isOpen, accounts, initialType]);
 
+    // Auto-select member source if category is Tithe
+    useEffect(() => {
+        if (formData.category_id && categories.length > 0) {
+            const selectedCat = categories.find(c => c.id === formData.category_id);
+            if (selectedCat && (selectedCat.name.toLowerCase().includes('dízimo') || selectedCat.name.toLowerCase().includes('dizimo'))) {
+                if (formData.source_type !== 'member') {
+                    setFormData(prev => ({
+                        ...prev,
+                        source_type: 'member'
+                    }));
+                }
+            }
+        }
+    }, [formData.category_id, categories]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -135,23 +150,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             }
             if (!finalAccountId) throw new Error('É necessário ter uma conta cadastrada.');
 
-            // Construct Description
+            // Use description as typed by user, or empty
             let finalDescription = formData.description;
-            if (!finalDescription) {
-                const categoryName = categories.find(c => c.id === formData.category_id)?.name || 'Transação';
-
-                if (formData.source_type === 'member' && formData.source_id) {
-                    const member = members.find(m => m.id === formData.source_id);
-                    finalDescription = `${categoryName} - [${member?.member_code || 'S/C'}] ${member?.name}`;
-                } else if (formData.source_type === 'service' && formData.source_id) {
-                    const serviceName = services.find(s => s.id === formData.source_id)?.name;
-                    finalDescription = `${categoryName} - ${serviceName}`;
-                } else if (formData.source_type === 'other' && formData.other_source_name) {
-                    finalDescription = `${categoryName} - ${formData.other_source_name}`;
-                } else {
-                    finalDescription = categoryName;
-                }
-            }
 
             // Construct Notes
             let finalNotes = '';
@@ -168,7 +168,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 description: finalDescription,
                 document_number: formData.document_number,
                 notes: finalNotes,
-                member_id: formData.source_type === 'member' ? formData.source_id : null,
+                source_type: formData.source_type,
+                source_id: (formData.source_type === 'member' || formData.source_type === 'service') ? (formData.source_id || null) : null,
+                other_source_name: formData.source_type === 'other' ? formData.other_source_name : null,
                 status: 'paid'
             });
 
@@ -248,7 +250,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1.5">Valor</label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">$</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">AOA</span>
                                     <input
                                         type="number"
                                         step="0.01"

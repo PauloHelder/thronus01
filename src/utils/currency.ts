@@ -1,12 +1,12 @@
 /**
- * Centralized currency formatter for Angolan Kwanza (Kz).
- * Always displays as "Kz 1.000,00" — never "AOA".
+ * Centralized currency formatter for Angolan Kwanza (AOA).
+ * Always displays as "AOA 1.000,00"
  */
-export const formatKz = (value: number, opts?: { decimals?: boolean }): string => {
+export const formatAOA = (value: number, opts?: { decimals?: boolean }): string => {
   const decimals = opts?.decimals !== false; // default: show decimals
   const formatted = new Intl.NumberFormat('pt-AO', {
     minimumFractionDigits: decimals ? 2 : 0,
     maximumFractionDigits: decimals ? 2 : 0,
   }).format(value);
-  return `Kz ${formatted}`;
+  return `AOA ${formatted}`;
 };

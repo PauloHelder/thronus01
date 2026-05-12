@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAssets } from '../hooks/useAssets';
-import { formatKz } from '../utils/currency';
+import { formatAOA } from '../utils/currency';
 import { useDepartments } from '../hooks/useDepartments';
 import { useMembers } from '../hooks/useMembers';
 import { Asset, AssetCategory } from '../types/database.types';
@@ -116,7 +116,7 @@ const Assets = () => {
         };
     }, [assets, calculateDepreciation]);
 
-    const formatCurrency = (value: number) => formatKz(value || 0);
+    const formatCurrency = (value: number) => formatAOA(value || 0);
 
     const formatDate = (dateString?: string) => {
         if (!dateString) return '---';
