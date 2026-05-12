@@ -2,6 +2,7 @@
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { FinancialTransaction, FinancialCategory } from '../hooks/useFinance';
+import { formatKz } from './currency';
 
 interface ExportData {
     transactions: FinancialTransaction[];
@@ -21,9 +22,7 @@ interface ExportData {
     };
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value);
-};
+const formatCurrency = (value: number) => formatKz(value);
 
 const formatDate = (dateStr: string) => {
     if (!dateStr) return '-';

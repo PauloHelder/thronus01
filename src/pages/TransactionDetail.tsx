@@ -6,6 +6,7 @@ import { MOCK_CATEGORIES } from '../mocks/finance';
 import { MOCK_MEMBERS } from '../mocks/members';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import { formatKz } from '../utils/currency';
 
 // Mock transaction (idealmente viria de um contexto ou API)
 const MOCK_TRANSACTION: Transaction = {
@@ -35,9 +36,7 @@ const TransactionDetail: React.FC = () => {
         return MOCK_CATEGORIES.find(c => c.id === categoryId)?.name || 'Desconhecido';
     };
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value);
-    };
+    const formatCurrency = (value: number) => formatKz(value);
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr + 'T00:00:00');

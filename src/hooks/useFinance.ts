@@ -253,10 +253,13 @@ export const useFinance = () => {
     const addTransaction = async (transaction: Omit<FinancialTransaction, 'id' | 'church_id' | 'created_at'>) => {
         if (!user?.churchId) return false;
         try {
+            // Remove joined fields and non-existent columns to avoid Supabase 400 errors
+            const { category, account, running_balance, member_id, ...cleanTransaction } = transaction as any;
+
             const { error } = await (supabase
                 .from('financial_transactions' as any)
                 .insert({
-                    ...transaction,
+                    ...cleanTransaction,
                     church_id: user.churchId,
                     created_by: user.id
                 }) as any);
@@ -273,9 +276,12 @@ export const useFinance = () => {
 
     const updateTransaction = async (id: string, updates: Partial<FinancialTransaction>) => {
         try {
+            // Remove joined fields and non-existent columns to avoid Supabase 400 errors
+            const { category, account, running_balance, member_id, ...cleanUpdates } = updates as any;
+
             const { error } = await (supabase
                 .from('financial_transactions' as any)
-                .update(updates)
+                .update(cleanUpdates)
                 .eq('id', id) as any);
 
             if (error) throw error;

@@ -8,6 +8,7 @@ import PlanModal from '../../components/modals/PlanModal';
 import AdminSmsPackages from '../../components/admin/AdminSmsPackages';
 import { useDenominations } from '../../hooks/useDenominations';
 import { toast } from 'sonner';
+import { formatKz } from '../../utils/currency';
 
 const getDaysRemaining = (endDate: string | null | undefined): number | null => {
     if (!endDate) return null;
@@ -192,9 +193,7 @@ const AdminDashboard: React.FC = () => {
         fetchData();
     };
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value);
-    };
+    const formatCurrency = (value: number) => formatKz(value);
 
     const formatPeriod = (period: string) => {
         const map: Record<string, string> = {
@@ -302,7 +301,7 @@ const AdminDashboard: React.FC = () => {
                                 <div className="min-w-0 z-10 relative">
                                     <p className="text-xs md:text-sm text-emerald-700 font-medium truncate">Projeção Ativa</p>
                                     <h3 className="text-lg md:text-xl font-bold text-slate-800 break-words">
-                                        {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(stats.paidRevenue)}
+                                        {formatKz(stats.paidRevenue)}
                                     </h3>
                                 </div>
                             </div>
@@ -314,7 +313,7 @@ const AdminDashboard: React.FC = () => {
                                 <div className="min-w-0 z-10 relative">
                                     <p className="text-xs md:text-sm text-red-700 font-medium truncate">Projeção Pela Metade</p>
                                     <h3 className="text-lg md:text-xl font-bold text-slate-800 break-words">
-                                        {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(stats.unpaidRevenue)}
+                                        {formatKz(stats.unpaidRevenue)}
                                     </h3>
                                 </div>
                             </div>

@@ -84,7 +84,6 @@ const Sidebar: React.FC = () => {
         { to: "/members?filter=criancas", icon: Users, label: "Crianças", permission: 'members_view' },
         { to: "/consagracoes", icon: Award, label: "Consagrações", permission: 'members_view' },
         { to: "/families", icon: Users, label: "Famílias", permission: 'members_view' },
-        { to: "/finance/tithers", icon: Heart, label: "Dizimistas", permission: 'finances_view' },
         { to: "/members?filter=aniversariantes", icon: Gift, label: "Aniversariantes", permission: 'members_view' },
         { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
       ]

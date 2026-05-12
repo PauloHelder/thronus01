@@ -2,6 +2,7 @@
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { Asset, AssetCategory } from '../types/database.types';
+import { formatKz } from './currency';
 
 interface AssetExportData {
     assets: Asset[];
@@ -15,9 +16,7 @@ interface AssetExportData {
     };
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value);
-};
+const formatCurrency = (value: number) => formatKz(value);
 
 const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';
@@ -208,7 +207,7 @@ export const exportAssetsToPDF = ({ assets, churchName, filters }: AssetExportDa
 
         doc.text(getConditionLabel(asset.condition), 140, y);
         doc.text(getStatusLabel(asset.status), 165, y);
-        doc.text(formatCurrency(asset.purchase_price || 0).replace('AOA', ''), pageWidth - 16, y, { align: 'right' });
+        doc.text(formatCurrency(asset.purchase_price || 0), pageWidth - 16, y, { align: 'right' });
 
         doc.setDrawColor(COLORS.gray100[0], COLORS.gray100[1], COLORS.gray100[2]);
         doc.line(14, y + 3, pageWidth - 14, y + 3);

@@ -20,6 +20,7 @@ import { useMembers } from '../hooks/useMembers';
 import { useFinance } from '../hooks/useFinance';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatKz } from '../utils/currency';
 
 const Tithers: React.FC = () => {
     const navigate = useNavigate();
@@ -93,12 +94,7 @@ const Tithers: React.FC = () => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedTithers = filteredTithers.slice(startIndex, startIndex + itemsPerPage);
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-AO', {
-            style: 'currency',
-            currency: 'AOA'
-        }).format(value);
-    };
+    const formatCurrency = (value: number) => formatKz(value);
 
     const handleExport = async () => {
         try {

@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { FinancialAccount, FinancialCategory, FinancialTransaction } from '../../hooks/useFinance';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
+import { formatKz } from '../../utils/currency';
 
 interface ImportFinanceModalProps {
     isOpen: boolean;
@@ -189,12 +190,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
         }
     };
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-AO', {
-            style: 'currency',
-            currency: 'AOA'
-        }).format(value);
-    };
+    const formatCurrency = (value: number) => formatKz(value);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">

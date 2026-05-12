@@ -35,6 +35,7 @@ import { useDepartments } from '../hooks/useDepartments';
 import FinanceRequestModal from '../components/modals/FinanceRequestModal';
 import ImportFinanceModal from '../components/modals/ImportFinanceModal';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
+import { formatKz } from '../utils/currency';
 import { toast } from 'sonner';
 
 const Finance = () => {
@@ -137,12 +138,7 @@ const Finance = () => {
         });
     }, [requests, requestStatusFilter, requestDeptFilter, requestSearch]);
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-AO', {
-            style: 'currency',
-            currency: 'AOA'
-        }).format(value);
-    };
+    const formatCurrency = (value: number) => formatKz(value);
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { MessageSquare, CreditCard, Activity, CheckCircle, Smartphone, X, History, Clock, XCircle, ChevronRight, Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatKz } from '../../utils/currency';
 
 export default function SmsStore() {
     const { user } = useAuth();
@@ -204,7 +205,7 @@ export default function SmsStore() {
                                         </div>
                                         <div className="flex items-center gap-2 text-sm text-slate-600">
                                             <CheckCircle size={16} className="text-green-500" />
-                                            <span>Preço por SMS: {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(pkg.price / pkg.messages_count)}</span>
+                                            <span>Preço por SMS: {formatKz(pkg.price / pkg.messages_count)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -212,7 +213,7 @@ export default function SmsStore() {
                                 <div className="mt-auto pt-8 flex items-center justify-between border-t border-slate-50 mt-8">
                                     <div className="flex flex-col">
                                         <span className="text-[10px] uppercase font-bold text-slate-400">Preço Total</span>
-                                        <span className="text-xl font-black text-slate-900">{new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(pkg.price)}</span>
+                                        <span className="text-xl font-black text-slate-900">{formatKz(pkg.price)}</span>
                                     </div>
                                     <button
                                         onClick={() => handleOpenBuy(pkg)}
@@ -319,7 +320,7 @@ export default function SmsStore() {
                                     </div>
                                 </div>
                                 <div className="text-lg font-black text-slate-900">
-                                    {new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(selectedPkg.price)}
+                                    {formatKz(selectedPkg.price)}
                                 </div>
                             </div>
 

@@ -17,6 +17,7 @@ import { useFinance, FinancialTransaction } from '../hooks/useFinance';
 import { useMembers } from '../hooks/useMembers';
 import { Member } from '../types';
 import { toast } from 'sonner';
+import { formatKz } from '../utils/currency';
 
 const TitherDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -66,12 +67,7 @@ const TitherDetail: React.FC = () => {
         );
     }, [transactions, searchTerm]);
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-AO', {
-            style: 'currency',
-            currency: 'AOA'
-        }).format(value);
-    };
+    const formatCurrency = (value: number) => formatKz(value);
 
     const totalContributed = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
     const avgContribution = transactions.length > 0 ? totalContributed / transactions.length : 0;
