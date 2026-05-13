@@ -109,6 +109,15 @@ const Finance = () => {
     const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
     const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 15;
+
+    // Reset to page 1 when filters or view change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [filterType, filterCategory, filterAccount, searchTerm, startDate, endDate, requestStatusFilter, requestDeptFilter, requestSearch, currentView]);
+
     const handleViewTransaction = (transaction: FinancialTransaction) => {
         setViewingTransaction(transaction);
         setIsDetailsModalOpen(true);
@@ -133,6 +142,14 @@ const Finance = () => {
         });
     }, [transactions, filterType, filterCategory, filterAccount, searchTerm, startDate, endDate]);
 
+    // Paginated Transactions
+    const paginatedTransactions = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredTransactions.slice(start, start + itemsPerPage);
+    }, [filteredTransactions, currentPage, itemsPerPage]);
+
+    const totalTransactionPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+
     // Filter Requests
     const filteredRequests = useMemo(() => {
         return requests.filter(r => {
@@ -147,6 +164,19 @@ const Finance = () => {
             return matchesStatus && matchesDept && matchesSearch;
         });
     }, [requests, requestStatusFilter, requestDeptFilter, requestSearch]);
+
+    // Paginated Requests
+    const paginatedRequests = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredRequests.slice(start, start + itemsPerPage);
+    }, [filteredRequests, currentPage, itemsPerPage]);
+
+    const totalRequestPages = Math.ceil(filteredRequests.length / itemsPerPage);
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const formatCurrency = (value: number) => formatAOA(value);
 
@@ -624,7 +654,7 @@ const Finance = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredRequests.map((request) => (
+                                    paginatedRequests.map((request) => (
                                         <tr key={request.id} className={`hover:bg-gray-50 transition-colors ${selectedRequests.includes(request.id) ? 'bg-orange-50/50' : ''}`}>
                                             <td className="px-6 py-4">
                                                 <input 
@@ -666,14 +696,14 @@ const Finance = () => {
                                                                 className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
                                                                 title="Aprovar"
                                                             >
-                                                                <Check size={16} />
+                                                                <CheckCircle2 size={16} />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleUpdateStatus(request.id, 'rejected')}
                                                                 className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
                                                                 title="Negar"
                                                             >
-                                                                <X size={16} />
+                                                                <XCircle size={16} />
                                                             </button>
                                                         </>
                                                     )}
@@ -682,7 +712,7 @@ const Finance = () => {
                                                             onClick={() => handlePayRequestClick(request)}
                                                             className="px-3 py-1 bg-blue-500 text-white hover:bg-blue-600 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1"
                                                         >
-                                                            <Check size={12} /> Efetuar Pagamento
+                                                            <CheckCircle2 size={12} /> Efetuar Pagamento
                                                         </button>
                                                     )}
                                                     {request.status === 'pending' && (
@@ -710,6 +740,51 @@ const Finance = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Requests Pagination Footer */}
+                    {filteredRequests.length > 0 && (
+                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
+                            <span className="text-slate-600 order-2 sm:order-1">
+                                Mostrando <span className="font-semibold text-slate-800">{paginatedRequests.length}</span> de <span className="font-semibold text-slate-800">{filteredRequests.length}</span> requisições
+                            </span>
+                            
+                            {totalRequestPages > 1 && (
+                                <div className="flex items-center gap-1 order-1 sm:order-2">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1 border border-gray-200 rounded bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1">
+                                        {[...Array(totalRequestPages)].map((_, i) => (
+                                            <button
+                                                key={i + 1}
+                                                onClick={() => handlePageChange(i + 1)}
+                                                className={`w-8 h-8 rounded flex items-center justify-center font-medium transition-all ${
+                                                    currentPage === i + 1 
+                                                        ? 'bg-orange-500 text-white shadow-sm' 
+                                                        : 'bg-white border border-gray-200 text-slate-600 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                {i + 1}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalRequestPages}
+                                        className="px-3 py-1 border border-gray-200 rounded bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                    >
+                                        Próxima
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             ) : (
                 /* Transactions View */
@@ -866,7 +941,7 @@ const Finance = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredTransactions.map((tx) => (
+                                    paginatedTransactions.map((tx) => (
                                         <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${selectedTransactions.includes(tx.id) ? 'bg-orange-50/50' : ''}`}>
                                             <td className="px-6 py-4">
                                                 <input 
@@ -946,12 +1021,48 @@ const Finance = () => {
                         </table>
                     </div>
 
-                    {/* Footer Summary */}
+                    {/* Transactions Pagination Footer */}
                     {filteredTransactions.length > 0 && (
-                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center text-sm">
-                            <span className="text-slate-600">
-                                Mostrando <span className="font-semibold text-slate-800">{filteredTransactions.length}</span> transação(ões)
+                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
+                            <span className="text-slate-600 order-2 sm:order-1">
+                                Mostrando <span className="font-semibold text-slate-800">{paginatedTransactions.length}</span> de <span className="font-semibold text-slate-800">{filteredTransactions.length}</span> transações
                             </span>
+
+                            {totalTransactionPages > 1 && (
+                                <div className="flex items-center gap-1 order-1 sm:order-2">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1 border border-gray-200 rounded bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1">
+                                        {[...Array(totalTransactionPages)].map((_, i) => (
+                                            <button
+                                                key={i + 1}
+                                                onClick={() => handlePageChange(i + 1)}
+                                                className={`w-8 h-8 rounded flex items-center justify-center font-medium transition-all ${
+                                                    currentPage === i + 1 
+                                                        ? 'bg-orange-500 text-white shadow-sm' 
+                                                        : 'bg-white border border-gray-200 text-slate-600 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                {i + 1}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalTransactionPages}
+                                        className="px-3 py-1 border border-gray-200 rounded bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                    >
+                                        Próxima
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

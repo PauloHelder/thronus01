@@ -34,6 +34,13 @@ const Finances: React.FC = () => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [showFilters, setShowFilters] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 15;
+
+    // Reset to page 1 when filters change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [filterType, filterCategory, filterAccount, searchTerm, startDate, endDate]);
 
     const handleViewDetails = (transactionId: string) => {
         // navigate(`/finances/${transactionId}`);
@@ -136,6 +143,19 @@ const Finances: React.FC = () => {
 
         return matchesType && matchesCategory && matchesAccount && matchesSearch && matchesStartDate && matchesEndDate;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Pagination logic
+    const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+    const paginatedTransactions = filteredTransactions.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        // Scroll to top of table or table container if needed
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const handleExport = (format: 'pdf' | 'excel') => {
         const summary = {
@@ -428,7 +448,7 @@ const Finances: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {filteredTransactions.map((tx) => (
+                            {paginatedTransactions.map((tx) => (
                                 <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4 text-slate-700 whitespace-nowrap">
                                         <div className="flex items-center gap-2 font-medium">
@@ -492,14 +512,68 @@ const Finances: React.FC = () => {
                     )}
                 </div>
 
-                {/* Resumo dos Resultados Filtrados */}
+                {/* Resumo e Paginação */}
                 {
                     filteredTransactions.length > 0 && (
-                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center text-sm">
-                            <span className="text-slate-600">
-                                Mostrando <span className="font-semibold text-slate-800">{filteredTransactions.length}</span> transação(ões)
+                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
+                            <span className="text-slate-600 order-2 sm:order-1 text-center sm:text-left">
+                                Mostrando <span className="font-semibold text-slate-800">{paginatedTransactions.length}</span> de <span className="font-semibold text-slate-800">{filteredTransactions.length}</span> transações
                             </span>
-                            <div className="flex gap-6">
+                            
+                            {/* Pagination Controls */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center gap-1 order-1 sm:order-2">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className="p-2 border border-gray-200 rounded-lg bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1">
+                                        {[...Array(totalPages)].map((_, i) => {
+                                            const page = i + 1;
+                                            // Show limited pages if too many
+                                            if (
+                                                page === 1 || 
+                                                page === totalPages || 
+                                                (page >= currentPage - 1 && page <= currentPage + 1)
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => handlePageChange(page)}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-all ${
+                                                            currentPage === page 
+                                                                ? 'bg-orange-500 text-white shadow-sm' 
+                                                                : 'bg-white border border-gray-200 text-slate-600 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            } else if (
+                                                page === currentPage - 2 || 
+                                                page === currentPage + 2
+                                            ) {
+                                                return <span key={page} className="px-1 text-slate-400">...</span>;
+                                            }
+                                            return null;
+                                        })}
+                                    </div>
+
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className="p-2 border border-gray-200 rounded-lg bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Próxima
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="flex gap-4 order-3 sm:order-3 text-xs md:text-sm">
                                 <span className="text-green-600 font-medium">
                                     Receitas: {formatCurrency(filteredTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0))}
                                 </span>
