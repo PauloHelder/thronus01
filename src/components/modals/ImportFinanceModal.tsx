@@ -116,7 +116,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
     const downloadTemplate = () => {
         const templateData = [
             {
-                'Data': new Date().toISOString().split('T')[0],
+                'Data': `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
                 'Referencia': 'REF001',
                 'Descricao': 'Exemplo de Receita',
                 'Categoria': 'Dízimo',
@@ -125,7 +125,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                 'Saída': 0
             },
             {
-                'Data': new Date().toISOString().split('T')[0],
+                'Data': `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
                 'Referencia': 'REF002',
                 'Descricao': 'Exemplo de Despesa',
                 'Categoria': 'Energia Elétrica',
@@ -200,7 +200,9 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                     description: tx.description,
                     amount: tx.amount,
                     type: tx.type,
-                    date: tx.date instanceof Date ? tx.date.toISOString().split('T')[0] : tx.date,
+                    date: tx.date instanceof Date 
+                        ? `${tx.date.getFullYear()}-${String(tx.date.getMonth() + 1).padStart(2, '0')}-${String(tx.date.getDate()).padStart(2, '0')}`
+                        : tx.date,
                     category_id: finalCategoryId,
                     account_id: selectedAccountId,
                     source_type: tx.member_id ? 'member' : 'other',

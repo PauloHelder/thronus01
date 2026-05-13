@@ -181,7 +181,9 @@ const Finance = () => {
     const formatCurrency = (value: number) => formatAOA(value);
 
     const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr);
+        if (!dateStr) return '-';
+        // Append time to prevent UTC shift when parsing YYYY-MM-DD
+        const date = new Date(dateStr + 'T00:00:00');
         return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
@@ -753,31 +755,43 @@ const Finance = () => {
                                     <button
                                         onClick={() => handlePageChange(currentPage - 1)}
                                         disabled={currentPage === 1}
-                                        className="px-3 py-1 border border-gray-200 rounded bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                                     >
                                         Anterior
                                     </button>
                                     
                                     <div className="flex items-center gap-1">
-                                        {[...Array(totalRequestPages)].map((_, i) => (
-                                            <button
-                                                key={i + 1}
-                                                onClick={() => handlePageChange(i + 1)}
-                                                className={`w-8 h-8 rounded flex items-center justify-center font-medium transition-all ${
-                                                    currentPage === i + 1 
-                                                        ? 'bg-orange-500 text-white shadow-sm' 
-                                                        : 'bg-white border border-gray-200 text-slate-600 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                {i + 1}
-                                            </button>
-                                        ))}
+                                        {[...Array(totalRequestPages)].map((_, i) => {
+                                            const page = i + 1;
+                                            if (
+                                                page === 1 || 
+                                                page === totalRequestPages || 
+                                                (page >= currentPage - 1 && page <= currentPage + 1)
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => handlePageChange(page)}
+                                                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold transition-all ${
+                                                            currentPage === page 
+                                                                ? 'bg-orange-500 text-white shadow-md shadow-orange-200' 
+                                                                : 'bg-white border border-gray-200 text-slate-600 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            } else if (page === currentPage - 2 || page === currentPage + 2) {
+                                                return <span key={page} className="px-1 text-slate-400">...</span>;
+                                            }
+                                            return null;
+                                        })}
                                     </div>
 
                                     <button
                                         onClick={() => handlePageChange(currentPage + 1)}
                                         disabled={currentPage === totalRequestPages}
-                                        className="px-3 py-1 border border-gray-200 rounded bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                                     >
                                         Próxima
                                     </button>
@@ -933,7 +947,7 @@ const Finance = () => {
                             <tbody className="divide-y divide-gray-100">
                                 {filteredTransactions.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                        <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                                             <div className="flex flex-col items-center justify-center">
                                                 <Calendar size={48} className="mb-2 text-gray-300" />
                                                 <p>Nenhuma transação encontrada.</p>
@@ -1033,31 +1047,43 @@ const Finance = () => {
                                     <button
                                         onClick={() => handlePageChange(currentPage - 1)}
                                         disabled={currentPage === 1}
-                                        className="px-3 py-1 border border-gray-200 rounded bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                                     >
                                         Anterior
                                     </button>
                                     
                                     <div className="flex items-center gap-1">
-                                        {[...Array(totalTransactionPages)].map((_, i) => (
-                                            <button
-                                                key={i + 1}
-                                                onClick={() => handlePageChange(i + 1)}
-                                                className={`w-8 h-8 rounded flex items-center justify-center font-medium transition-all ${
-                                                    currentPage === i + 1 
-                                                        ? 'bg-orange-500 text-white shadow-sm' 
-                                                        : 'bg-white border border-gray-200 text-slate-600 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                {i + 1}
-                                            </button>
-                                        ))}
+                                        {[...Array(totalTransactionPages)].map((_, i) => {
+                                            const page = i + 1;
+                                            if (
+                                                page === 1 || 
+                                                page === totalTransactionPages || 
+                                                (page >= currentPage - 1 && page <= currentPage + 1)
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => handlePageChange(page)}
+                                                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold transition-all ${
+                                                            currentPage === page 
+                                                                ? 'bg-orange-500 text-white shadow-md shadow-orange-200' 
+                                                                : 'bg-white border border-gray-200 text-slate-600 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            } else if (page === currentPage - 2 || page === currentPage + 2) {
+                                                return <span key={page} className="px-1 text-slate-400">...</span>;
+                                            }
+                                            return null;
+                                        })}
                                     </div>
 
                                     <button
                                         onClick={() => handlePageChange(currentPage + 1)}
                                         disabled={currentPage === totalTransactionPages}
-                                        className="px-3 py-1 border border-gray-200 rounded bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                                     >
                                         Próxima
                                     </button>
