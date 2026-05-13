@@ -201,7 +201,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                     amount: tx.amount,
                     type: tx.type,
                     date: tx.date instanceof Date 
-                        ? `${tx.date.getFullYear()}-${String(tx.date.getMonth() + 1).padStart(2, '0')}-${String(tx.date.getDate()).padStart(2, '0')}`
+                        ? `${tx.date.getUTCFullYear()}-${String(tx.date.getUTCMonth() + 1).padStart(2, '0')}-${String(tx.date.getUTCDate()).padStart(2, '0')}`
                         : tx.date,
                     category_id: finalCategoryId,
                     account_id: selectedAccountId,
