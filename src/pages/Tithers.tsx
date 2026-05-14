@@ -96,7 +96,7 @@ const Tithers: React.FC = () => {
 
     const formatCurrency = (value: number) => formatAOA(value);
 
-    const handleExport = async () => {
+    const handleExportExcel = async () => {
         try {
             const XLSX = await import('xlsx');
             const exportData = filteredTithers.map(t => ({
@@ -111,9 +111,69 @@ const Tithers: React.FC = () => {
             const ws = XLSX.utils.json_to_sheet(exportData);
             XLSX.utils.book_append_sheet(wb, ws, "Dizimistas");
             XLSX.writeFile(wb, "dizimistas_tronus.xlsx");
-            toast.success('Lista exportada com sucesso!');
+            toast.success('Lista Excel exportada com sucesso!');
         } catch (error) {
-            toast.error('Erro ao exportar lista.');
+            toast.error('Erro ao exportar lista Excel.');
+        }
+    };
+
+    const handleExportPDF = async () => {
+        try {
+            const { jsPDF } = await import('jspdf');
+            const doc = new jsPDF();
+            
+            doc.setFontSize(18);
+            doc.setTextColor(249, 115, 22);
+            doc.text('Relatório Geral de Dizimistas', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 105, 28, { align: 'center' });
+
+            // Stats row
+            doc.setFillColor(248, 250, 252);
+            doc.roundedRect(14, 35, 182, 15, 2, 2, 'F');
+            doc.setTextColor(30, 41, 59);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Total Acumulado: ${formatCurrency(totalTitheVolume)}`, 20, 45);
+            doc.text(`Dizimistas Ativos: ${activeTithersCount}`, 130, 45);
+
+            let y = 60;
+            doc.setFontSize(9);
+            doc.setFillColor(241, 245, 249);
+            doc.rect(14, y, 182, 8, 'F');
+            doc.text('Membro', 20, y + 5);
+            doc.text('Código', 90, y + 5);
+            doc.text('Última Contrib.', 120, y + 5);
+            doc.text('Total Acumulado', 160, y + 5);
+            
+            y += 8;
+            doc.setFont('helvetica', 'normal');
+
+            filteredTithers.forEach((t, index) => {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                if (index % 2 === 0) {
+                    doc.setFillColor(252, 253, 254);
+                    doc.rect(14, y, 182, 8, 'F');
+                }
+                
+                doc.text(t.name.substring(0, 35), 20, y + 5);
+                doc.text(t.memberCode || '-', 90, y + 5);
+                doc.text(t.lastTithedDate ? new Date(t.lastTithedDate).toLocaleDateString('pt-BR') : 'Nunca', 120, y + 5);
+                doc.text(formatCurrency(t.totalTithes), 160, y + 5);
+                
+                y += 8;
+            });
+
+            doc.save("relatorio_dizimistas_geral.pdf");
+            toast.success('Relatório PDF exportado com sucesso!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao exportar PDF.');
         }
     };
 
@@ -141,11 +201,18 @@ const Tithers: React.FC = () => {
                 </div>
                 <div className="flex gap-2">
                     <button
-                        onClick={handleExport}
+                        onClick={handleExportExcel}
                         className="px-4 py-2 bg-white border border-gray-200 text-slate-700 hover:bg-gray-50 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-sm"
                     >
                         <Download size={18} />
-                        Exportar Relatório
+                        Excel
+                    </button>
+                    <button
+                        onClick={handleExportPDF}
+                        className="px-4 py-2 bg-orange-500 text-white hover:bg-orange-600 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-md shadow-orange-100"
+                    >
+                        <Download size={18} />
+                        PDF
                     </button>
                 </div>
             </div>

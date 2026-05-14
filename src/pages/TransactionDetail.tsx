@@ -7,6 +7,7 @@ import { MOCK_MEMBERS } from '../mocks/members';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import { formatAOA } from '../utils/currency';
+import { useAuth } from '../contexts/AuthContext';
 
 // Mock transaction (idealmente viria de um contexto ou API)
 const MOCK_TRANSACTION: Transaction = {
@@ -28,6 +29,7 @@ const TransactionDetail: React.FC = () => {
     const printRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = React.useState<'receipt' | 'sms'>('receipt');
     const [isSmsModalOpen, setIsSmsModalOpen] = React.useState(false);
+    const { hasRole } = useAuth();
 
     // Simular busca da transação
     const transaction = MOCK_TRANSACTION;
@@ -68,7 +70,7 @@ const TransactionDetail: React.FC = () => {
                     <div className="flex overflow-x-auto no-scrollbar gap-6 mb-4">
                         {[
                             { id: 'receipt', label: 'Comprovante', icon: <FileText size={18} /> },
-                            { id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> },
+                            ...(hasRole('superuser') ? [{ id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> }] : []),
                         ].map((tab) => (
                             <button
                                 key={tab.id}
@@ -99,13 +101,15 @@ const TransactionDetail: React.FC = () => {
                                 <Printer size={18} />
                                 Imprimir
                             </button>
-                            <button
-                                onClick={() => setIsSmsModalOpen(true)}
-                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
-                            >
-                                <MessageSquare size={18} />
-                                Notificar
-                            </button>
+                            {hasRole('superuser') && (
+                                <button
+                                    onClick={() => setIsSmsModalOpen(true)}
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+                                >
+                                    <MessageSquare size={18} />
+                                    Notificar
+                                </button>
+                            )}
                             <button
                                 onClick={handleDownloadPDF}
                                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"

@@ -62,18 +62,28 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
         ['Total Despesas', formatCurrency(summary.totalExpense)],
         ['Saldo Líquido', formatCurrency(summary.balance)],
         [],
-        ['DATA', 'DESCRIÇÃO', 'CONTA', 'CATEGORIA', 'TIPO', 'VALOR (AOA)', 'STATUS']
+        ['DATA', 'DESCRIÇÃO', 'REFERÊNCIA', 'CATEGORIA', 'MEMBRO', 'ENTRADA', 'SAÍDA']
     ];
 
-    const transactionRows = transactions.map(tx => [
-        formatDate(tx.date),
-        tx.description,
-        tx.account?.name || '-',
-        getCategoryName(tx.category_id),
-        tx.type === 'income' ? 'Receita' : 'Despesa',
-        tx.amount,
-        tx.status === 'paid' ? 'Efetivado' : 'Pendente'
-    ]);
+    const transactionRows = transactions.map(tx => {
+        // Try to get member code from notes if it follows the import pattern
+        let memberInfo = '-';
+        if (tx.source_type === 'member') {
+            memberInfo = tx.other_source_name || '-';
+        } else if (tx.notes && tx.notes.includes('Código Membro:')) {
+            memberInfo = tx.notes.replace('Código Membro:', '').trim();
+        }
+
+        return [
+            formatDate(tx.date),
+            tx.description,
+            tx.document_number || '-',
+            getCategoryName(tx.category_id),
+            memberInfo,
+            tx.type === 'income' ? tx.amount : 0,
+            tx.type === 'expense' ? tx.amount : 0
+        ];
+    });
 
     const finalData = [...headerRows, ...transactionRows];
 
@@ -83,11 +93,11 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
     ws['!cols'] = [
         { wch: 15 }, // Data
         { wch: 40 }, // Descrição
-        { wch: 20 }, // Conta
+        { wch: 20 }, // Referência
         { wch: 20 }, // Categoria
-        { wch: 15 }, // Tipo
-        { wch: 15 }, // Valor
-        { wch: 15 }, // Status
+        { wch: 20 }, // Membro
+        { wch: 15 }, // Entrada
+        { wch: 15 }, // Saída
     ];
 
     const wb = XLSX.utils.book_new();
@@ -192,9 +202,9 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
 
     doc.text('DATA', 16, y);
     doc.text('DESCRIÇÃO', 35, y);
-    doc.text('CONTA', 95, y);
-    doc.text('CATEGORIA', 125, y);
-    doc.text('TIPO', 155, y);
+    doc.text('REFERÊNCIA', 85, y);
+    doc.text('CATEGORIA', 115, y);
+    doc.text('MEMBRO', 145, y);
     doc.text('VALOR (AOA)', pageWidth - 16, y, { align: 'right' });
 
     y += 10;
@@ -241,19 +251,26 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
         doc.text(formatDate(tx.date), 16, y);
 
         let desc = tx.description || '';
-        if (desc.length > 32) desc = desc.substring(0, 30) + '...';
+        if (desc.length > 25) desc = desc.substring(0, 23) + '...';
         doc.text(desc, 35, y);
 
-        let accName = tx.account?.name || '-';
-        if (accName.length > 15) accName = accName.substring(0, 13) + '..';
-        doc.text(accName, 95, y);
+        let ref = tx.document_number || '-';
+        if (ref.length > 12) ref = ref.substring(0, 10) + '..';
+        doc.text(ref, 85, y);
 
         let catName = getCategoryName(tx.category_id);
         if (catName.length > 15) catName = catName.substring(0, 13) + '..';
-        doc.text(catName, 125, y);
+        doc.text(catName, 115, y);
 
-        const typeLabel = tx.type === 'income' ? 'Rec' : 'Desp';
-        doc.text(typeLabel, 155, y);
+        // Member Info
+        let memberInfo = '-';
+        if (tx.source_type === 'member') {
+            memberInfo = tx.other_source_name || '-';
+        } else if (tx.notes && tx.notes.includes('Código Membro:')) {
+            memberInfo = tx.notes.replace('Código Membro:', '').trim();
+        }
+        if (memberInfo.length > 15) memberInfo = memberInfo.substring(0, 13) + '..';
+        doc.text(memberInfo, 145, y);
 
         // Color for value
         if (tx.type === 'income') {

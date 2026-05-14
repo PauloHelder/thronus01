@@ -162,11 +162,13 @@ const Sidebar: React.FC = () => {
       { to: "/settings", icon: Settings, label: "Configurações", permission: 'settings_view' }
     );
 
-    // Subscription & Store
-    items.push(
-      { to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' },
-      { to: "/sms-store", icon: MessageSquare, label: "Comprar SMS", permission: 'subscription_edit' }
-    );
+    // Subscription & Store - ONLY FOR SUPERUSER
+    if (hasRole('superuser')) {
+      items.push(
+        { to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' },
+        { to: "/sms-store", icon: MessageSquare, label: "Comprar SMS", permission: 'subscription_edit' }
+      );
+    }
 
     return items.filter(item => hasRole('superuser') || hasRole('admin') || !item.permission || checkNavPermission(item.permission));
   };

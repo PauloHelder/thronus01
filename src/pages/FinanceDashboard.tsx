@@ -236,7 +236,7 @@ const FinanceDashboard = () => {
                                 <div className="relative z-10">
                                     <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-0.5">{account.name}</h4>
                                     <div className="flex items-baseline gap-1">
-                                        <span className="text-xs font-bold text-slate-600">Kz</span>
+                                        <span className="text-xs font-bold text-slate-600">AOA</span>
                                         <span className="text-lg font-black text-slate-800 leading-none">
                                             {showValues ? account.current_balance.toLocaleString('pt-AO', { minimumFractionDigits: 2 }) : '••••••'}
                                         </span>

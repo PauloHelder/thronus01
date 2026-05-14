@@ -62,15 +62,49 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                 const worksheet = workbook.Sheets[sheetName];
                 const json = XLSX.utils.sheet_to_json(worksheet);
 
+                // Helper to find values in a row with multiple possible keys (case-insensitive)
+                const getVal = (row: any, ...possibleKeys: string[]) => {
+                    const rowKeys = Object.keys(row);
+                    for (const pk of possibleKeys) {
+                        const foundKey = rowKeys.find(rk => rk.toLowerCase() === pk.toLowerCase() || 
+                            rk.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === pk.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+                        if (foundKey) return row[foundKey];
+                    }
+                    return undefined;
+                };
+
                 // Map and validate
                 const mappedData = json.map((row: any) => {
-                    const entrada = parseFloat(row['Entrada'] || 0);
-                    const saida = parseFloat(row['Saída'] || row['Saida'] || 0);
-                    const amount = Math.abs(entrada > 0 ? entrada : saida);
-                    const type = entrada > 0 ? 'income' : 'expense';
+                    const rawEntrada = getVal(row, 'Entrada', 'Income', 'Receita', 'Crédito', 'Credito', 'C');
+                    const rawSaida = getVal(row, 'Saída', 'Saida', 'Expense', 'Despesa', 'Gasto', 'Débito', 'Debito', 'D');
+                    const rawValor = getVal(row, 'Valor', 'Quantia', 'Montante', 'Amount', 'Total');
+                    const rawTipo = getVal(row, 'Tipo', 'Sinal', 'Type', 'Operação', 'Operacao');
 
-                    let categoryName = row['Categoria'] || row['categoria'];
-                    const memberCode = (row['Cod_Membro'] || row['cod_membro'] || '').toString().trim();
+                    let amount = 0;
+                    let type: 'income' | 'expense' = 'income';
+
+                    // logic to determine amount and type
+                    if (rawEntrada !== undefined && rawEntrada !== 0 && rawEntrada !== '') {
+                        amount = Math.abs(parseFloat(rawEntrada));
+                        type = 'income';
+                    } else if (rawSaida !== undefined && rawSaida !== 0 && rawSaida !== '') {
+                        amount = Math.abs(parseFloat(rawSaida));
+                        type = 'expense';
+                    } else if (rawValor !== undefined) {
+                        amount = Math.abs(parseFloat(rawValor));
+                        // Check type column if exists
+                        const typeStr = (rawTipo || '').toString().toLowerCase();
+                        if (typeStr.includes('s') || typeStr.includes('d') || typeStr.includes('exp') || typeStr.includes('gasto')) {
+                            type = 'expense';
+                        } else {
+                            type = 'income';
+                        }
+                    }
+
+                    let categoryName = getVal(row, 'Categoria', 'Category', 'Tipo', 'Grupo');
+                    const description = getVal(row, 'Descrição', 'Descricao', 'Description', 'Detalhes', 'Histórico', 'Historico', 'Nome') || 'Importado';
+                    const memberCode = (getVal(row, 'Cod_Membro', 'Cod_membro', 'Membro', 'Member', 'ID', 'Codigo', 'Sócio', 'Socio') || '').toString().trim();
+                    const rawDate = getVal(row, 'Data', 'data', 'Date', 'date', 'Competência', 'Competencia');
                     
                     // Force 'Dízimo' if there is a member code and it's an income
                     if (memberCode && type === 'income') {
@@ -84,21 +118,21 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
 
                     const member = members.find(m => 
                         m.member_code?.toString().trim() === memberCode ||
-                        m.name.toLowerCase() === (row['Descricao'] || '').toString().toLowerCase()
+                        (description && m.name.toLowerCase() === description.toString().toLowerCase())
                     );
 
                     return {
-                        date: row['Data'] || row['data'] || new Date().toISOString(),
-                        description: row['Descricao'] || row['Descrição'] || row['descricao'] || 'Importado',
+                        date: rawDate || new Date().toISOString(),
+                        description: description,
                         amount: amount,
                         type: type,
                         category_id: category?.id,
                         category_name: categoryName,
-                        document_number: row['Referencia'] || row['referencia'] || row['Referência'],
+                        document_number: getVal(row, 'Referência', 'Referencia', 'Reference', 'REF', 'Doc', 'Documento', 'Nº', 'Numero'),
                         member_code: memberCode,
                         member_id: member?.id,
                         status: 'paid',
-                        isValid: !!(row['Data'] || row['data']) && amount > 0
+                        isValid: !!rawDate && amount > 0
                     };
                 });
 
@@ -246,12 +280,14 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                             <p className="text-sm text-slate-500">Importe dados financeiros via Excel ou CSV</p>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => typeof onClose === 'function' && onClose()}
-                        className="p-2 hover:bg-gray-100 rounded-full text-slate-400 transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
+                    {!loading && (
+                        <button 
+                            onClick={() => typeof onClose === 'function' && onClose()}
+                            className="p-2 hover:bg-gray-100 rounded-full text-slate-400 transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1 space-y-6">
@@ -395,23 +431,26 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
 
                 {/* Footer */}
                 <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <button
-                        onClick={() => typeof onClose === 'function' && onClose()}
-                        className="px-6 py-2.5 text-slate-600 hover:text-slate-800 font-semibold transition-colors"
-                    >
-                        Cancelar
-                    </button>
+                    {loading ? (
+                        <div className="flex items-center gap-2 text-orange-600 font-bold animate-pulse">
+                            <Loader2 className="animate-spin" size={20} />
+                            <span>Importação em curso...</span>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => typeof onClose === 'function' && onClose()}
+                            className="px-6 py-2.5 text-slate-600 hover:text-slate-800 font-semibold transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                    )}
+                    
                     <button
                         onClick={handleImport}
                         disabled={loading || previewData.length === 0 || !selectedAccountId}
                         className="px-8 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-orange-200 transition-all flex items-center gap-2"
                     >
-                        {loading ? (
-                            <>
-                                <Loader2 className="animate-spin" size={18} />
-                                Importando...
-                            </>
-                        ) : (
+                        {loading ? 'Aguarde...' : (
                             <>
                                 <Check size={18} />
                                 Confirmar Importação

@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil } from 'lucide-react';
+import { 
+    ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil,
+    ClipboardList, AlertCircle, CheckCircle2, Clock, XCircle, 
+    DollarSign, Target, Info, LayoutDashboard, Flag, Filter, 
+    Search, BarChart3, MessageSquare, Activity, MessageCircle 
+} from 'lucide-react';
 import { Department, DepartmentSchedule } from '../types';
 import { useDepartments } from '../hooks/useDepartments';
 import { useMembers } from '../hooks/useMembers';
@@ -11,19 +16,19 @@ import AddDepartmentMemberModal from '../components/modals/AddDepartmentMemberMo
 import CreateScheduleModal from '../components/modals/CreateScheduleModal';
 import FinanceRequestModal from '../components/modals/FinanceRequestModal';
 import { useFinance } from '../hooks/useFinance';
-import { ClipboardList, AlertCircle, CheckCircle2, Clock, XCircle, DollarSign, Target, Info, LayoutDashboard, Flag, Filter, Search, BarChart3 } from 'lucide-react';
 import { useDepartmentGoals, DepartmentGoal } from '../hooks/useDepartmentGoals';
 import DepartmentGoalModal from '../components/modals/DepartmentGoalModal';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
-import { MessageSquare, Activity } from 'lucide-react';
+import { useWhatsapp } from '../hooks/useWhatsapp';
 import { formatAOA } from '../utils/currency';
 
 const DepartmentDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { user, hasPermission } = useAuth();
+    const { user, hasPermission, hasRole } = useAuth();
     const {
         selectedDepartment: department,
         loading,
@@ -55,12 +60,13 @@ const DepartmentDetail: React.FC = () => {
         deleteGoal
     } = useDepartmentGoals(id);
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'objectivos' | 'escala' | 'requisicoes' | 'sms'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'objectivos' | 'escala' | 'requisicoes' | 'sms' | 'whatsapp'>('geral');
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+    const { isConnected: whatsappConnected } = useWhatsapp();
     const [selectedGoal, setSelectedGoal] = useState<DepartmentGoal | null>(null);
     const [editingSchedule, setEditingSchedule] = useState<DepartmentSchedule | null>(null);
     const [editingRequest, setEditingRequest] = useState<any>(null);
@@ -257,7 +263,8 @@ const DepartmentDetail: React.FC = () => {
                         { id: 'objectivos', label: 'Objectivos', icon: <Target size={18} /> },
                         { id: 'escala', label: 'Escala', icon: <Calendar size={18} /> },
                         { id: 'requisicoes', label: 'Requisições', icon: <ClipboardList size={18} /> },
-                        { id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> },
+                        ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
+                        ...(hasRole('superuser') ? [{ id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> }] : []),
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -350,12 +357,22 @@ const DepartmentDetail: React.FC = () => {
                             </div>
                             {hasPermission('departments_edit') && (
                                 <div className="flex gap-2">
+                                {hasPermission('whatsapp_send') && whatsappConnected && (
+                                    <button
+                                        onClick={() => setIsSmsModalOpen(true)}
+                                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageCircle size={16} /> Enviar Mensagem
+                                    </button>
+                                )}
+                                {hasRole('superuser') && (
                                     <button
                                         onClick={() => setIsSmsModalOpen(true)}
                                         className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
                                     >
                                         <MessageSquare size={16} /> Enviar SMS
                                     </button>
+                                )}
                                     <button
                                         onClick={() => setIsAddMemberModalOpen(true)}
                                         className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
@@ -569,12 +586,14 @@ const DepartmentDetail: React.FC = () => {
                             </div>
                             {hasPermission('departments_edit') && (
                                 <div className="flex gap-2">
+                                {hasRole('superuser') && (
                                     <button
                                         onClick={() => setIsSmsModalOpen(true)}
                                         className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
                                     >
                                         <MessageSquare size={16} /> Notificar Equipe
                                     </button>
+                                )}
                                     <button
                                         onClick={() => {
                                             setEditingSchedule(null);
@@ -757,6 +776,12 @@ const DepartmentDetail: React.FC = () => {
                         <SmsHistoryTab contextType="department" contextId={id || ''} />
                     </div>
                 )}
+
+                {activeTab === 'whatsapp' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <WhatsappHistoryTab contextType="department" contextId={id || ''} />
+                    </div>
+                )}
             </div>
 
             {id && (
@@ -770,7 +795,10 @@ const DepartmentDetail: React.FC = () => {
                     }))}
                     contextType="department"
                     contextId={id}
-                    onSuccess={() => setActiveTab('sms')}
+                    onSuccess={() => {
+                        if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
+                        else setActiveTab('sms');
+                    }}
                 />
             )}
 

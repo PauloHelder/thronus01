@@ -1,19 +1,20 @@
-import React from 'react';
-import { HelpCircle, BookOpen, MessageSquare, Info, Shield, CheckCircle, ChevronRight, Layout, Users, Calendar, DollarSign, Smartphone } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function HelpCenter() {
+    const { hasRole } = useAuth();
+
     const categories = [
         { title: 'Primeiros Passos', icon: <Layout className="text-orange-500" />, desc: 'Como configurar a sua igreja e navegar no painel.' },
         { title: 'Gestão de Membros', icon: <Users className="text-blue-500" />, desc: 'Como adicionar, editar e organizar a sua congregação.' },
         { title: 'Eventos e Cultos', icon: <Calendar className="text-purple-500" />, desc: 'Registro de estatísticas e calendários de serviços.' },
-        { title: 'Loja de SMS', icon: <Smartphone className="text-green-500" />, desc: 'Dicas sobre pacotes e envio de comunicações.' },
+        ...(hasRole('superuser') ? [{ title: 'Loja de SMS', icon: <Smartphone className="text-green-500" />, desc: 'Dicas sobre pacotes e envio de comunicações.' }] : []),
         { title: 'Finanças', icon: <DollarSign className="text-amber-500" />, desc: 'Controle de entradas, saídas e relatórios.' },
         { title: 'Segurança e Dados', icon: <Shield className="text-red-500" />, desc: 'Como protegemos as informações da sua igreja.' },
     ];
 
     const faqs = [
         { q: 'Como adiciono um novo membro?', a: 'Vá ao menu "Membros", clique no botão "+" e preencha os dados necessários. O código do membro é gerado automaticamente.' },
-        { q: 'Onde vejo o meu saldo de SMS?', a: 'O saldo está sempre visível no Dashboard e também no menu lateral em "SMS".' },
+        ...(hasRole('superuser') ? [{ q: 'Onde vejo o meu saldo de SMS?', a: 'O saldo está sempre visível no Dashboard e também no menu lateral em "SMS".' }] : []),
         { q: 'Como mudo o nome da minha igreja?', a: 'Aceda a "Perfil da Igreja" no menu lateral e atualize as informações no separador Detalhes.' },
         { q: 'Os dados estão seguros?', a: 'Sim. Utilizamos a infraestrutura Supabase com isolamento de dados (RLS) para garantir que ninguém aceda à informação da sua igreja.' },
     ];

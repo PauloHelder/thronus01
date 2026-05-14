@@ -15,10 +15,12 @@ import {
     TrendingUp,
     Activity,
     Loader2,
-    Award
+    Award,
+    MessageCircle
 } from 'lucide-react';
 import MemberModal from '../components/modals/MemberModal';
 import AddFamilyRelationshipModal from '../components/modals/AddFamilyRelationshipModal';
+import CommunicationModal from '../components/modals/CommunicationModal';
 import { Member } from '../types';
 import { useMembers } from '../hooks/useMembers';
 import { formatDateForInput } from '../utils/dateUtils';
@@ -54,6 +56,7 @@ const MemberDetail: React.FC = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isAddFamilyModalOpen, setIsAddFamilyModalOpen] = useState(false);
+    const [isCommModalOpen, setIsCommModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -490,9 +493,22 @@ const MemberDetail: React.FC = () => {
                             </div>
                             <div className="flex items-start gap-3">
                                 <Phone className="text-orange-500 flex-shrink-0 mt-1" size={20} />
-                                <div>
-                                    <p className="text-sm text-slate-600">Telefone</p>
-                                    <p className="text-slate-800 font-medium">{member.phone || 'Não informado'}</p>
+                                <div className="flex-1">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="text-sm text-slate-600">Telefone</p>
+                                            <p className="text-slate-800 font-medium">{member.phone || 'Não informado'}</p>
+                                        </div>
+                                        {member.phone && (
+                                            <button 
+                                                onClick={() => setIsCommModalOpen(true)}
+                                                className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+                                                title="Enviar WhatsApp"
+                                            >
+                                                <MessageCircle size={18} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">
@@ -865,6 +881,15 @@ const MemberDetail: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Communication Modal */}
+            <CommunicationModal
+                isOpen={isCommModalOpen}
+                onClose={() => setIsCommModalOpen(false)}
+                recipients={member ? [{ id: member.id, name: member.name, phone: member.phone || '' }] : []}
+                contextType="discipleship"
+                contextId={member?.id || ''}
+            />
         </div>
     );
 };

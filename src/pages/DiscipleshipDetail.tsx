@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Calendar, Plus, UserPlus, Trash2, Pencil, CheckCircle, XCircle, Clock, LayoutDashboard, Info, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, Plus, UserPlus, Trash2, Pencil, CheckCircle, XCircle, Clock, LayoutDashboard, Info, ClipboardCheck, MessageSquare, MessageCircle } from 'lucide-react';
 import { DiscipleshipMeeting } from '../types';
 import { useDiscipleship } from '../hooks/useDiscipleship';
 import { useMembers } from '../hooks/useMembers';
 import AddDiscipleModal from '../components/modals/AddDiscipleModal';
 import AddDiscipleshipMeetingModal from '../components/modals/AddDiscipleshipMeetingModal';
-import SmsSenderModal from '../components/modals/SmsSenderModal';
+import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
 
 const DiscipleshipDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { hasRole, hasPermission } = useAuth();
     const {
         selectedLeader: leader,
         loading,
@@ -26,10 +29,10 @@ const DiscipleshipDetail: React.FC = () => {
     } = useDiscipleship();
     const { members } = useMembers();
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'discipulos' | 'encontros' | 'sms'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'discipulos' | 'encontros' | 'sms' | 'whatsapp'>('geral');
+    const [isCommunicationModalOpen, setIsCommunicationModalOpen] = useState(false);
     const [isAddDiscipleModalOpen, setIsAddDiscipleModalOpen] = useState(false);
     const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
-    const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
     const [editingMeeting, setEditingMeeting] = useState<DiscipleshipMeeting | null>(null);
     const [localError, setLocalError] = useState<string | null>(null);
 
@@ -132,15 +135,50 @@ const DiscipleshipDetail: React.FC = () => {
 
     return (
         <div className="h-full overflow-y-auto bg-gray-50">
-            {/* Header */}
-            {/* Content Tabs Navigation */}
+            <div className="bg-white border-b border-gray-200 p-4 lg:p-6">
+                <button
+                    onClick={() => navigate('/discipleship')}
+                    className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-4 transition-colors"
+                >
+                    <ArrowLeft size={20} />
+                    <span className="font-medium">Voltar para Discipulado</span>
+                </button>
+
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
+                            <Users size={32} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800">{leader.member.name}</h1>
+                            <p className="text-slate-500">Líder de Discipulado</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        {hasPermission('whatsapp_send') && (
+                            <button
+                                onClick={() => setIsCommunicationModalOpen(true)}
+                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                            >
+                                <MessageSquare size={16} /> Enviar Mensagem
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setIsAddDiscipleModalOpen(true)}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                        >
+                            <UserPlus size={16} /> Adicionar Discípulo
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div className="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 lg:px-6">
                 <div className="flex overflow-x-auto no-scrollbar gap-8">
                     {[
                         { id: 'geral', label: 'Geral', icon: <LayoutDashboard size={18} /> },
                         { id: 'discipulos', label: 'Discípulos', icon: <Users size={18} /> },
                         { id: 'encontros', label: 'Encontros', icon: <ClipboardCheck size={18} /> },
-                        { id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -154,6 +192,32 @@ const DiscipleshipDetail: React.FC = () => {
                             {tab.label}
                         </button>
                     ))}
+                    {hasPermission('whatsapp_send') && (
+                        <button
+                            key="whatsapp"
+                            onClick={() => setActiveTab('whatsapp')}
+                            className={`flex items-center gap-2 py-4 border-b-2 transition-all font-medium text-sm whitespace-nowrap ${activeTab === 'whatsapp'
+                                ? 'border-green-500 text-green-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+                                }`}
+                        >
+                            <MessageCircle size={18} />
+                            WhatsApp
+                        </button>
+                    )}
+                    {hasRole('superuser') && (
+                        <button
+                            key="sms"
+                            onClick={() => setActiveTab('sms')}
+                            className={`flex items-center gap-2 py-4 border-b-2 transition-all font-medium text-sm whitespace-nowrap ${activeTab === 'sms'
+                                ? 'border-orange-500 text-orange-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+                                }`}
+                        >
+                            <MessageSquare size={18} />
+                            SMS
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -239,12 +303,14 @@ const DiscipleshipDetail: React.FC = () => {
                                 <p className="text-sm text-slate-500">Pessoas sob cuidado deste discipulador</p>
                             </div>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => setIsSmsModalOpen(true)}
-                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                >
-                                    <MessageSquare size={16} /> Enviar SMS
-                                </button>
+                                {hasRole('superuser') && (
+                                    <button
+                                        onClick={() => setIsSmsModalOpen(true)}
+                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageSquare size={16} /> Enviar SMS
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setIsAddDiscipleModalOpen(true)}
                                     className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
@@ -294,12 +360,14 @@ const DiscipleshipDetail: React.FC = () => {
                                 <p className="text-sm text-slate-500">Histórico de acompanhamento e reuniões</p>
                             </div>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => setIsSmsModalOpen(true)}
-                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                >
-                                    <MessageSquare size={16} /> Enviar SMS
-                                </button>
+                                {hasRole('superuser') && (
+                                    <button
+                                        onClick={() => setIsSmsModalOpen(true)}
+                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageSquare size={16} /> Enviar SMS
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => {
                                         setEditingMeeting(null);
@@ -380,15 +448,24 @@ const DiscipleshipDetail: React.FC = () => {
                         <SmsHistoryTab contextType="discipleship" contextId={leader.id} />
                     </div>
                 )}
+
+                {activeTab === 'whatsapp' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <WhatsappHistoryTab contextType="discipleship" contextId={leader.id} />
+                    </div>
+                )}
             </div>
 
-            <SmsSenderModal
-                isOpen={isSmsModalOpen}
-                onClose={() => setIsSmsModalOpen(false)}
-                recipients={leader.disciples.map(d => ({ name: d.name, phone: d.phone || '' }))}
+            <CommunicationModal
+                isOpen={isCommunicationModalOpen}
+                onClose={() => setIsCommunicationModalOpen(false)}
+                recipients={leader.disciples.map(d => ({ id: d.id, name: d.name, phone: d.phone || '' }))}
                 contextType="discipleship"
                 contextId={leader.id}
-                onSuccess={() => setActiveTab('sms')}
+                onSuccess={() => {
+                    if (hasPermission('whatsapp_send')) setActiveTab('whatsapp');
+                    else setActiveTab('sms');
+                }}
             />
 
             <AddDiscipleModal

@@ -1,7 +1,7 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { SidebarProvider, useSidebar } from './contexts/SidebarContext';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -58,6 +58,7 @@ import UserGuide from './pages/UserGuide';
 
 const AppContent: React.FC = () => {
   const { isOpen } = useSidebar();
+  const { hasRole } = useAuth();
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-slate-800 overflow-hidden">
@@ -95,8 +96,12 @@ const AppContent: React.FC = () => {
             <Route path="/teaching/:id" element={<TeachingDetail />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/church-profile" element={<ChurchProfile />} />
-            <Route path="/subscription" element={<ChurchSubscription />} />
-            <Route path="/sms-store" element={<SmsStore />} />
+            {hasRole('superuser') && (
+              <>
+                <Route path="/subscription" element={<ChurchSubscription />} />
+                <Route path="/sms-store" element={<SmsStore />} />
+              </>
+            )}
             <Route path="/my-churches" element={<MyChurches />} />
             <Route path="/churches" element={<Churches />} />
             <Route path="/churches/:id" element={<ChurchProfile />} />

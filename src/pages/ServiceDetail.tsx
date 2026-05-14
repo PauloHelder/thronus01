@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, User, MapPin, Users, Save, Heart, MessageSquare, ClipboardList, Info, Loader2, Banknote, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, User, MapPin, Users, Save, Heart, MessageSquare, ClipboardList, Info, Loader2, Banknote, Plus, Trash2, MessageCircle } from 'lucide-react';
 import { Service, DepartmentSchedule, Member } from '../types';
 import { useServices } from '../hooks/useServices';
 import { supabase } from '../lib/supabase';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
+import { useWhatsapp } from '../hooks/useWhatsapp';
 import { useFinance, FinancialTransaction } from '../hooks/useFinance';
+import { formatAOA } from '../utils/currency';
 
 const ServiceDetail: React.FC = () => {
     const { id } = useParams();
@@ -21,7 +24,8 @@ const ServiceDetail: React.FC = () => {
         visitors: { men: 0, women: 0 },
         newConverts: { men: 0, women: 0, children: 0 }
     });
-    const [activeTab, setActiveTab] = useState<'stats' | 'team' | 'sms' | 'offertory'>('stats');
+    const [activeTab, setActiveTab] = useState<'stats' | 'team' | 'sms' | 'whatsapp' | 'offertory'>('stats');
+    const { isConnected: whatsappConnected } = useWhatsapp();
     const [serviceTransactions, setServiceTransactions] = useState<FinancialTransaction[]>([]);
     const { fetchServiceTransactions, addTransaction, accounts, categories } = useFinance();
     const [relatedSchedules, setRelatedSchedules] = useState<DepartmentSchedule[]>([]);
@@ -29,7 +33,7 @@ const ServiceDetail: React.FC = () => {
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
     const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
     const [selectedSchedule, setSelectedSchedule] = useState<{deptName: string, members: Member[]} | null>(null);
-    const { hasPermission } = useAuth();
+    const { hasPermission, hasRole } = useAuth();
 
     useEffect(() => {
         const fetchServiceData = async () => {
@@ -118,6 +122,28 @@ const ServiceDetail: React.FC = () => {
     }, [id, activeTab, fetchServiceTransactions]);
 
     const [isAddTxModalOpen, setIsAddTxModalOpen] = useState(false);
+    const [showDenominations, setShowDenominations] = useState(false);
+    const [denominations, setDenominations] = useState<Record<string, number>>({
+        '5000': 0,
+        '2000': 0,
+        '1000': 0,
+        '500': 0,
+        '200': 0,
+        '100': 0,
+        '50': 0,
+        '20': 0,
+        '10': 0,
+        '5': 0
+    });
+
+    const totalFromDenominations = useMemo(() => {
+        return Object.entries(denominations).reduce((acc, [val, qty]) => acc + (parseInt(val) * qty), 0);
+    }, [denominations]);
+
+    const handleDenominationChange = (val: string, qty: string) => {
+        const numQty = parseInt(qty) || 0;
+        setDenominations(prev => ({ ...prev, [val]: numQty }));
+    };
     const [newTx, setNewTx] = useState({
         description: '',
         amount: '',
@@ -281,7 +307,8 @@ const ServiceDetail: React.FC = () => {
                         { id: 'stats', label: 'Estatísticas', icon: <Save size={18} /> },
                         { id: 'team', label: 'Equipe Escalada', icon: <Users size={18} /> },
                         { id: 'offertory', label: 'Ofertório', icon: <Banknote size={18} /> },
-                        { id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> },
+                        ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
+                        ...(hasRole('superuser') ? [{ id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> }] : []),
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -607,12 +634,22 @@ const ServiceDetail: React.FC = () => {
                                 <h2 className="text-lg font-semibold text-slate-800">Escalas por Departamento</h2>
                                 <p className="text-sm text-slate-500">Departamentos que criaram escala para este culto</p>
                             </div>
-                            <button
-                                onClick={() => setIsSmsModalOpen(true)}
-                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                            >
-                                <MessageSquare size={16} /> Notificar Todos
-                            </button>
+                            <div className="flex gap-2">
+                                {hasPermission('whatsapp_send') && whatsappConnected && (
+                                    <button
+                                        onClick={() => setIsSmsModalOpen(true)}
+                                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageCircle size={16} /> Enviar Mensagem
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setIsSmsModalOpen(true)}
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                    <MessageSquare size={16} /> Notificar Todos
+                                </button>
+                            </div>
                         </div>
 
                         {relatedSchedules.length > 0 ? (
@@ -668,20 +705,92 @@ const ServiceDetail: React.FC = () => {
                                 <Banknote className="text-orange-500" />
                                 Movimentações do Culto
                             </h2>
-                            <button 
-                                onClick={() => setIsAddTxModalOpen(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors shadow-sm"
-                            >
-                                <Plus size={18} />
-                                Lançar Oferta/Despesa
-                            </button>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setShowDenominations(!showDenominations)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm border ${
+                                        showDenominations 
+                                        ? 'bg-slate-100 text-slate-700 border-slate-200' 
+                                        : 'bg-white text-slate-600 border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <Banknote size={18} />
+                                    {showDenominations ? 'Ocultar Moedas' : 'Contar Moedas/Cédulas'}
+                                </button>
+                                <button 
+                                    onClick={() => setIsAddTxModalOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors shadow-sm"
+                                >
+                                    <Plus size={18} />
+                                    Lançar Oferta/Despesa
+                                </button>
+                            </div>
                         </div>
+
+                        {showDenominations && (
+                            <div className="bg-white p-6 rounded-xl border border-orange-100 shadow-md animate-in slide-in-from-top-4 duration-300">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h3 className="font-bold text-slate-800">Cédulas e Moedas (AOA)</h3>
+                                        <p className="text-xs text-slate-500">Contagem física do ofertório</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs uppercase font-bold text-slate-400">Total Contado</p>
+                                        <p className="text-xl font-black text-orange-600">{formatAOA(totalFromDenominations)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                                    {[5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5].map((val) => (
+                                        <div key={val} className="space-y-1.5">
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase">
+                                                {val >= 100 ? `Cédula ${val}` : `Moeda ${val}`}
+                                            </label>
+                                            <div className="relative">
+                                                <input 
+                                                    type="number" 
+                                                    min="0"
+                                                    value={denominations[val] || ''}
+                                                    onChange={(e) => handleDenominationChange(val.toString(), e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full pl-3 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-right text-slate-400 font-medium">
+                                                = {formatAOA((denominations[val] || 0) * val)}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end gap-3">
+                                    <button 
+                                        onClick={() => setDenominations({
+                                            '5000': 0, '2000': 0, '1000': 0, '500': 0, '200': 0,
+                                            '100': 0, '50': 0, '20': 0, '10': 0, '5': 0
+                                        })}
+                                        className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-wider"
+                                    >
+                                        Limpar Tudo
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            setNewTx(prev => ({ ...prev, amount: totalFromDenominations.toString(), description: 'Oferta do Culto (Contagem Física)' }));
+                                            setIsAddTxModalOpen(true);
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 transition-colors"
+                                    >
+                                        <Plus size={14} /> Usar no Lançamento
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                 <p className="text-sm text-slate-500 mb-1">Entradas</p>
                                 <p className="text-2xl font-bold text-green-600">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                    {formatAOA(
                                         serviceTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0)
                                     )}
                                 </p>
@@ -689,7 +798,7 @@ const ServiceDetail: React.FC = () => {
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                 <p className="text-sm text-slate-500 mb-1">Saídas</p>
                                 <p className="text-2xl font-bold text-red-600">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                    {formatAOA(
                                         serviceTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0)
                                     )}
                                 </p>
@@ -697,7 +806,7 @@ const ServiceDetail: React.FC = () => {
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                 <p className="text-sm text-slate-500 mb-1">Saldo do Culto</p>
                                 <p className="text-2xl font-bold text-slate-800">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                    {formatAOA(
                                         serviceTransactions.reduce((acc, t) => acc + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
                                     )}
                                 </p>
@@ -730,7 +839,7 @@ const ServiceDetail: React.FC = () => {
                                                         {tx.account?.name || '-'}
                                                     </td>
                                                     <td className={`px-6 py-4 text-right font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {tx.type === 'income' ? '+' : '-'} {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
+                                                        {tx.type === 'income' ? '+' : '-'} {formatAOA(tx.amount)}
                                                     </td>
                                                 </tr>
                                             ))
@@ -753,6 +862,12 @@ const ServiceDetail: React.FC = () => {
                         <SmsHistoryTab contextType="service" contextId={id || ''} />
                     </div>
                 )}
+
+                {activeTab === 'whatsapp' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <WhatsappHistoryTab contextType="service" contextId={id || ''} />
+                    </div>
+                )}
             </div>
 
             {id && (
@@ -766,7 +881,10 @@ const ServiceDetail: React.FC = () => {
                     }))}
                     contextType="service"
                     contextId={id}
-                    onSuccess={() => setActiveTab('sms')}
+                    onSuccess={() => {
+                        if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
+                        else setActiveTab('sms');
+                    }}
                 />
             )}
             {/* Modal de Equipe */}

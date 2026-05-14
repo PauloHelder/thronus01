@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, UserPlus, Pencil, Trash2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Users, UserPlus, Pencil, Trash2, CheckCircle, MessageSquare, MessageCircle } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents';
 import { useMembers } from '../hooks/useMembers';
 import { Member } from '../types';
 import EventModal from '../components/modals/EventModal';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
-import { MessageSquare } from 'lucide-react';
+import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
+import { useAuth } from '../contexts/AuthContext';
+import { useWhatsapp } from '../hooks/useWhatsapp';
 
 const EventDetail: React.FC = () => {
     const { id } = useParams();
@@ -15,8 +17,10 @@ const EventDetail: React.FC = () => {
     const { events, updateEvent, loading: loadingEvents } = useEvents();
     const { members, loading: loadingMembers } = useMembers();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'general' | 'sms'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'sms' | 'whatsapp'>('general');
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+    const { isConnected: whatsappConnected } = useWhatsapp();
+    const { hasRole, hasPermission } = useAuth();
 
     const event = events.find(e => e.id === id);
 
@@ -106,7 +110,8 @@ const EventDetail: React.FC = () => {
                 <div className="flex overflow-x-auto no-scrollbar gap-8">
                     {[
                         { id: 'general', label: 'Geral & Participantes', icon: <Users size={18} /> },
-                        { id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> },
+                        ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
+                        ...(hasRole('superuser') ? [{ id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> }] : []),
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -178,12 +183,24 @@ const EventDetail: React.FC = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-slate-800">Participantes ({attendees.length})</h2>
-                        <button
-                            onClick={() => setIsSmsModalOpen(true)}
-                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
-                        >
-                            <MessageSquare size={16} /> Notificar Participantes
-                        </button>
+                        <div className="flex gap-2">
+                            {hasPermission('whatsapp_send') && whatsappConnected && (
+                                <button
+                                    onClick={() => setIsSmsModalOpen(true)}
+                                    className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
+                                >
+                                    <MessageCircle size={16} /> Enviar Mensagem
+                                </button>
+                            )}
+                            {hasRole('superuser') && (
+                                <button
+                                    onClick={() => setIsSmsModalOpen(true)}
+                                    className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
+                                >
+                                    <MessageSquare size={16} /> Notificar Participantes
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -253,6 +270,12 @@ const EventDetail: React.FC = () => {
                         <SmsHistoryTab contextType="event" contextId={id || ''} />
                     </div>
                 )}
+
+                {activeTab === 'whatsapp' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <WhatsappHistoryTab contextType="event" contextId={id || ''} />
+                    </div>
+                )}
             </div>
 
             {id && (
@@ -266,7 +289,10 @@ const EventDetail: React.FC = () => {
                     }))}
                     contextType="event"
                     contextId={id}
-                    onSuccess={() => setActiveTab('sms')}
+                    onSuccess={() => {
+                        if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
+                        else setActiveTab('sms');
+                    }}
                 />
             )}
 

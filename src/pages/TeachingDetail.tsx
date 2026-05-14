@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil, BookOpen, Clock, CheckCircle, LayoutDashboard, Info, GraduationCap } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, UserPlus, Plus, Trash2, Pencil, BookOpen, Clock, CheckCircle, LayoutDashboard, Info, GraduationCap, MessageSquare, Activity, MessageCircle } from 'lucide-react';
 import { TeachingClass, TeachingLesson } from '../types';
 import AddStudentModal from '../components/modals/AddStudentModal';
 import AddLessonModal from '../components/modals/AddLessonModal';
@@ -8,15 +8,19 @@ import CommunicationModal from '../components/modals/CommunicationModal';
 import { useTeaching } from '../hooks/useTeaching';
 import { useMembers } from '../hooks/useMembers';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
-import { MessageSquare, Activity } from 'lucide-react';
+import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
+import { useAuth } from '../contexts/AuthContext';
+import { useWhatsapp } from '../hooks/useWhatsapp';
 
 const TeachingDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { fetchClassDetails, addStudentToClass, removeStudentFromClass, addLesson, updateLesson, deleteLesson } = useTeaching();
     const { members } = useMembers();
+    const { hasRole, hasPermission } = useAuth();
+    const { isConnected: whatsappConnected } = useWhatsapp();
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'alunos' | 'aulas' | 'sms'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'alunos' | 'aulas' | 'sms' | 'whatsapp'>('geral');
     const [teachingClass, setTeachingClass] = useState<TeachingClass | null>(null);
     const [loading, setLoading] = useState(true);
     const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
@@ -195,7 +199,8 @@ const TeachingDetail: React.FC = () => {
                         { id: 'geral', label: 'Geral', icon: <LayoutDashboard size={18} /> },
                         { id: 'alunos', label: 'Alunos', icon: <Users size={18} /> },
                         { id: 'aulas', label: 'Aulas', icon: <GraduationCap size={18} /> },
-                        { id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> },
+                        ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
+                        ...(hasRole('superuser') ? [{ id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> }] : []),
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -323,15 +328,25 @@ const TeachingDetail: React.FC = () => {
                                 <p className="text-sm text-slate-500">Gestão de estudantes desta turma</p>
                             </div>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => setIsSmsModalOpen(true)}
-                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                >
-                                    <MessageSquare size={16} /> Enviar SMS
-                                </button>
+                                {hasPermission('whatsapp_send') && whatsappConnected && (
+                                    <button
+                                        onClick={() => setIsSmsModalOpen(true)}
+                                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageCircle size={16} /> Enviar Mensagem
+                                    </button>
+                                )}
+                                {hasRole('superuser') && (
+                                    <button
+                                        onClick={() => setIsSmsModalOpen(true)}
+                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageSquare size={16} /> Enviar SMS
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setIsAddStudentModalOpen(true)}
-                                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    className="px-4 py-2 bg-orange-50 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
                                 >
                                     <UserPlus size={16} /> Adicionar Alunos
                                 </button>
@@ -464,6 +479,12 @@ const TeachingDetail: React.FC = () => {
                         <SmsHistoryTab contextType="teaching" contextId={id || ''} />
                     </div>
                 )}
+
+                {activeTab === 'whatsapp' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <WhatsappHistoryTab contextType="teaching" contextId={id || ''} />
+                    </div>
+                )}
             </div>
 
             {id && (
@@ -480,7 +501,10 @@ const TeachingDetail: React.FC = () => {
                     ]}
                     contextType="teaching"
                     contextId={id}
-                    onSuccess={() => setActiveTab('sms')}
+                    onSuccess={() => {
+                        if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
+                        else setActiveTab('sms');
+                    }}
                 />
             )}
 

@@ -28,7 +28,7 @@ const SmsSenderModal: React.FC<SmsSenderModalProps> = ({
   defaultMessage = '',
   onSuccess
 }) => {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const [message, setMessage] = useState(defaultMessage);
   const [sending, setSending] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
@@ -103,7 +103,7 @@ const SmsSenderModal: React.FC<SmsSenderModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !hasRole('superuser')) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">

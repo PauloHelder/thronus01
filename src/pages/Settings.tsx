@@ -11,23 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import { formatAOA } from '../utils/currency';
-
-const MODULES = [
-    { id: 'members', label: 'Membros' },
-    { id: 'services', label: 'Cultos' },
-    { id: 'groups', label: 'Grupos' },
-    { id: 'finances', label: 'Finanças' },
-    { id: 'teaching', label: 'Ensino' },
-    { id: 'events', label: 'Eventos' },
-    { id: 'departments', label: 'Departamentos' },
-    { id: 'discipleship', label: 'Discipulado' },
-    { id: 'assets', label: 'Patrimônio' },
-    { id: 'branches', label: 'Minhas Igrejas' },
-    { id: 'users', label: 'Usuários' },
-    { id: 'reports', label: 'Relatórios' },
-    { id: 'communication', label: 'Comunicação (SMS)' },
-    { id: 'subscription', label: 'Assinatura e Planos' },
-];
+import WhatsappSettingsTab from '../components/tabs/WhatsappSettingsTab';
 
 const ACTIONS = [
     { id: 'view', label: 'Visualizar' },
@@ -37,9 +21,29 @@ const ACTIONS = [
     { id: 'send', label: 'Enviar/Executar' },
 ];
 
-
 const Settings: React.FC = () => {
     const { user, hasPermission, hasRole } = useAuth();
+    
+    const MODULES = [
+        { id: 'members', label: 'Membros' },
+        { id: 'services', label: 'Cultos' },
+        { id: 'groups', label: 'Grupos' },
+        { id: 'finances', label: 'Finanças' },
+        { id: 'teaching', label: 'Ensino' },
+        { id: 'events', label: 'Eventos' },
+        { id: 'departments', label: 'Departamentos' },
+        { id: 'discipleship', label: 'Discipulado' },
+        { id: 'assets', label: 'Patrimônio' },
+        { id: 'branches', label: 'Minhas Igrejas' },
+        { id: 'users', label: 'Usuários' },
+        { id: 'reports', label: 'Relatórios' },
+        { id: 'whatsapp', label: 'WhatsApp (API)' },
+        ...(hasRole('superuser') ? [
+            { id: 'communication', label: 'Comunicação (SMS)' },
+            { id: 'subscription', label: 'Assinatura e Planos' },
+        ] : []),
+    ];
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Check permission - Only admins or users with explicit settings_view permission can access settings
@@ -376,6 +380,9 @@ const Settings: React.FC = () => {
                 <button onClick={() => setActiveTab('teaching')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'teaching' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Ensino</button>
                 <button onClick={() => setActiveTab('roles')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'roles' || activeTab === 'permissions' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Perfis</button>
                 <button onClick={() => setActiveTab('links')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'links' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Vínculos</button>
+                {(hasRole('admin') || hasRole('superuser')) && (
+                    <button onClick={() => setActiveTab('whatsapp')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'whatsapp' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500 hover:text-slate-700'}`}>WhatsApp</button>
+                )}
             </div>
 
             {activeTab === 'general' && (
@@ -914,6 +921,10 @@ const Settings: React.FC = () => {
                         ))}
                     </div>
                 </div>
+            )}
+
+            {activeTab === 'whatsapp' && (
+                <WhatsappSettingsTab />
             )}
 
             {/* Modals */}

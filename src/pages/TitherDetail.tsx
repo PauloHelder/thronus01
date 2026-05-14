@@ -72,6 +72,82 @@ const TitherDetail: React.FC = () => {
     const totalContributed = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
     const avgContribution = transactions.length > 0 ? totalContributed / transactions.length : 0;
 
+    const handleExportPDF = async () => {
+        try {
+            const { jsPDF } = await import('jspdf');
+            const doc = new jsPDF();
+            
+            // Header
+            doc.setFontSize(20);
+            doc.setTextColor(249, 115, 22); // Orange-500
+            doc.text('Relatório de Contribuições', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100, 116, 139); // Slate-500
+            doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 105, 28, { align: 'center' });
+
+            // Member Info Box
+            doc.setDrawColor(226, 232, 240);
+            doc.setFillColor(248, 250, 252);
+            doc.roundedRect(14, 35, 182, 35, 3, 3, 'FD');
+            
+            doc.setFontSize(12);
+            doc.setTextColor(30, 41, 59); // Slate-800
+            doc.setFont('helvetica', 'bold');
+            doc.text(member.name, 20, 45);
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Código: ${member.memberCode || 'S/C'}`, 20, 52);
+            doc.text(`Email: ${member.email || 'Não informado'}`, 20, 58);
+            doc.text(`Telefone: ${member.phone || 'Não informado'}`, 20, 64);
+
+            doc.text(`Total Acumulado: ${formatCurrency(totalContributed)}`, 130, 45);
+            doc.text(`Qtd. Lançamentos: ${transactions.length}`, 130, 52);
+
+            // Table Header
+            let y = 80;
+            doc.setFont('helvetica', 'bold');
+            doc.setFillColor(241, 245, 249);
+            doc.rect(14, y, 182, 8, 'F');
+            doc.text('Data', 20, y + 5);
+            doc.text('Descrição', 50, y + 5);
+            doc.text('Categoria', 110, y + 5);
+            doc.text('Valor', 170, y + 5);
+            
+            y += 8;
+            doc.setFont('helvetica', 'normal');
+
+            // Table Rows
+            filteredTransactions.forEach((tx, index) => {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                if (index % 2 === 0) {
+                    doc.setFillColor(252, 253, 254);
+                    doc.rect(14, y, 182, 8, 'F');
+                }
+                
+                doc.text(new Date(tx.date).toLocaleDateString('pt-BR'), 20, y + 5);
+                doc.text(tx.description.substring(0, 30), 50, y + 5);
+                doc.text(tx.category?.name || 'Geral', 110, y + 5);
+                doc.text(formatCurrency(tx.amount), 170, y + 5);
+                
+                y += 8;
+                doc.setDrawColor(241, 245, 249);
+                doc.line(14, y, 196, y);
+            });
+
+            doc.save(`historico_dizimos_${member.name.replace(/\s+/g, '_').toLowerCase()}.pdf`);
+            toast.success('Relatório PDF gerado com sucesso!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao gerar PDF.');
+        }
+    };
+
     if (loading) {
         return (
             <div className="p-8 flex items-center justify-center min-h-screen">
@@ -105,14 +181,11 @@ const TitherDetail: React.FC = () => {
                 </div>
                 <div className="flex gap-2">
                     <button 
-                        onClick={() => {
-                            // Logic to generate PDF or Excel for this member
-                            toast.info('Gerando histórico...');
-                        }}
-                        className="px-4 py-2 bg-white border border-gray-200 text-slate-700 hover:bg-gray-50 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-sm"
+                        onClick={handleExportPDF}
+                        className="px-4 py-2 bg-orange-500 text-white hover:bg-orange-600 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-md shadow-orange-100"
                     >
                         <Download size={18} />
-                        Exportar Histórico
+                        Exportar PDF
                     </button>
                 </div>
             </div>
