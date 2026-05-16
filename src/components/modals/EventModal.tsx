@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from '../Modal';
 import { Event, Member } from '../../types';
-import { CheckSquare, Camera, X, Image as ImageIcon } from 'lucide-react';
+import { CheckSquare, Camera, X, Image as ImageIcon, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EventModalProps {
@@ -28,6 +28,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event,
         attendees: [],
         coverUrl: '',
     });
+    const [memberSearchTerm, setMemberSearchTerm] = useState('');
 
     useEffect(() => {
         if (event) {
@@ -107,6 +108,13 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event,
             setIsSubmitting(false);
         }
     };
+
+    const filteredMembers = useMemo(() => {
+        return members.filter(m => 
+            m.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+            m.email?.toLowerCase().includes(memberSearchTerm.toLowerCase())
+        );
+    }, [members, memberSearchTerm]);
 
     return (
         <Modal
@@ -226,17 +234,29 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event,
 
                 {/* Membros Participantes */}
                 <div>
-                    <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-slate-700">
-                            Participantes
-                        </label>
-                        <span className="text-xs text-slate-500">
-                            {formData.attendees?.length || 0} de {members.length} selecionados
-                        </span>
+                    <div className="flex flex-col gap-2 mb-2">
+                        <div className="flex items-center justify-between">
+                            <label className="block text-sm font-medium text-slate-700">
+                                Participantes
+                            </label>
+                            <span className="text-xs text-slate-500">
+                                {formData.attendees?.length || 0} de {members.length} selecionados
+                            </span>
+                        </div>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <input
+                                type="text"
+                                placeholder="Pesquisar membro..."
+                                value={memberSearchTerm}
+                                onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                className="w-full pl-9 pr-4 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                            />
+                        </div>
                     </div>
                     <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50 space-y-2">
-                        {members.length > 0 ? (
-                            members.map(member => (
+                        {filteredMembers.length > 0 ? (
+                            filteredMembers.map(member => (
                                 <label
                                     key={member.id}
                                     className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${formData.attendees?.includes(member.id)

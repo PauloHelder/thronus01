@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, UserPlus, Pencil, Trash2, CheckCircle, MessageSquare, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Users, UserPlus, Pencil, Trash2, CheckCircle, MessageSquare, MessageCircle, Search } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents';
 import { useMembers } from '../hooks/useMembers';
 import { Member } from '../types';
@@ -24,13 +24,24 @@ const EventDetail: React.FC = () => {
     const { hasRole, hasPermission } = useAuth();
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [attendeeSearchTerm, setAttendeeSearchTerm] = useState('');
 
     const event = events.find(e => e.id === id);
 
     // Resolve attendees
-    const attendees = event?.attendees?.map(attendeeId =>
-        members.find(m => m.id === attendeeId)
-    ).filter((m): m is Member => !!m) || [];
+    const attendees = useMemo(() => {
+        const list = event?.attendees?.map(attendeeId =>
+            members.find(m => m.id === attendeeId)
+        ).filter((m): m is Member => !!m) || [];
+
+        if (!attendeeSearchTerm) return list;
+
+        return list.filter(a => 
+            a.name.toLowerCase().includes(attendeeSearchTerm.toLowerCase()) ||
+            a.email?.toLowerCase().includes(attendeeSearchTerm.toLowerCase()) ||
+            a.phone?.toLowerCase().includes(attendeeSearchTerm.toLowerCase())
+        );
+    }, [event, members, attendeeSearchTerm]);
 
     const handleRemoveAttendee = (attendee: Member) => {
         setItemToDelete({ id: attendee.id, name: attendee.name });
@@ -189,9 +200,19 @@ const EventDetail: React.FC = () => {
 
                 {/* Attendees List */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
                         <h2 className="text-lg font-semibold text-slate-800">Participantes ({attendees.length})</h2>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                            <div className="relative flex-1 md:w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Pesquisar participante..."
+                                    value={attendeeSearchTerm}
+                                    onChange={(e) => setAttendeeSearchTerm(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                />
+                            </div>
                             {hasPermission('whatsapp_send') && whatsappConnected && (
                                 <button
                                     onClick={() => setIsSmsModalOpen(true)}
@@ -205,7 +226,7 @@ const EventDetail: React.FC = () => {
                                     onClick={() => setIsSmsModalOpen(true)}
                                     className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
                                 >
-                                    <MessageSquare size={16} /> Notificar Participantes
+                                    <MessageSquare size={16} /> Notificar
                                 </button>
                             )}
                         </div>
