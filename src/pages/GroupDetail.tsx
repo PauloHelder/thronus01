@@ -6,10 +6,19 @@ import { useGroupMeetings, GroupMeeting } from '../hooks/useGroupMeetings';
 import { useMembers } from '../hooks/useMembers';
 import AddGroupMemberModal from '../components/modals/AddGroupMemberModal';
 import GroupMeetingModal from '../components/modals/GroupMeetingModal';
+import CommunicationModal from '../components/modals/CommunicationModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
+import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
+import { useAuth } from '../contexts/AuthContext';
+import { useWhatsapp } from '../hooks/useWhatsapp';
+import { MessageCircle, MessageSquare } from 'lucide-react';
 
 const GroupDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { hasRole, hasPermission } = useAuth();
+    const { isConnected: whatsappConnected } = useWhatsapp();
 
     // Hooks
     const {
@@ -38,11 +47,14 @@ const GroupDetail: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     // Modals State
-    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'encontros'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'encontros' | 'whatsapp' | 'sms'>('geral');
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
+    const [isCommModalOpen, setIsCommModalOpen] = useState(false);
     const [editingMeeting, setEditingMeeting] = useState<GroupMeeting | null>(null);
     const [meetingAttendees, setMeetingAttendees] = useState<string[]>([]);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'member' | 'meeting' } | null>(null);
 
     // Load Data
     const loadData = useCallback(async () => {
@@ -81,14 +93,28 @@ const GroupDetail: React.FC = () => {
         }
     };
 
-    const handleRemoveMember = async (groupMemberId: string) => {
-        if (window.confirm('Tem certeza que deseja remover este membro do grupo?')) {
-            const success = await removeMemberFromGroup(groupMemberId);
+    const handleRemoveMember = (groupMember: GroupMember) => {
+        setItemToDelete({ id: groupMember.id, name: groupMember.member_name || '', type: 'member' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
+
+        if (itemToDelete.type === 'member') {
+            const success = await removeMemberFromGroup(itemToDelete.id);
             if (success) {
-                setGroupMembers(prev => prev.filter(m => m.id !== groupMemberId));
+                setGroupMembers(prev => prev.filter(m => m.id !== itemToDelete.id));
                 if (group) setGroup({ ...group, member_count: Math.max((group.member_count || 0) - 1, 0) });
             }
+        } else if (itemToDelete.type === 'meeting') {
+            const success = await deleteMeeting(itemToDelete.id);
+            if (success) {
+                setMeetings(prev => prev.filter(m => m.id !== itemToDelete.id));
+            }
         }
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     const handleUpdateMemberRole = async (groupMemberId: string, newRole: string) => {
@@ -149,13 +175,9 @@ const GroupDetail: React.FC = () => {
         setIsMeetingModalOpen(false);
     };
 
-    const handleDeleteMeeting = async (meetingId: string) => {
-        if (window.confirm('Tem certeza que deseja excluir este encontro?')) {
-            const success = await deleteMeeting(meetingId);
-            if (success) {
-                setMeetings(prev => prev.filter(m => m.id !== meetingId));
-            }
-        }
+    const handleDeleteMeeting = (meeting: GroupMeeting) => {
+        setItemToDelete({ id: meeting.id, name: formatDate(meeting.date), type: 'meeting' });
+        setIsDeleteModalOpen(true);
     };
 
     const formatDate = (dateStr: string) => {
@@ -258,6 +280,8 @@ const GroupDetail: React.FC = () => {
                         { id: 'geral', label: 'Geral', icon: <LayoutDashboard size={18} /> },
                         { id: 'membros', label: 'Membros', icon: <Users size={18} /> },
                         { id: 'encontros', label: 'Encontros', icon: <ClipboardCheck size={18} /> },
+                        ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
+                        ...(hasRole('superuser') ? [{ id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> }] : []),
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -390,12 +414,22 @@ const GroupDetail: React.FC = () => {
                                 <h2 className="text-lg font-semibold text-slate-800">Membros do Grupo</h2>
                                 <p className="text-sm text-slate-500">Gerencie os participantes ativos deste grupo</p>
                             </div>
-                            <button
-                                onClick={() => setIsAddMemberModalOpen(true)}
-                                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                            >
-                                <UserPlus size={16} /> Adicionar
-                            </button>
+                            <div className="flex gap-2">
+                                {hasPermission('whatsapp_send') && whatsappConnected && (
+                                    <button
+                                        onClick={() => setIsCommModalOpen(true)}
+                                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                    >
+                                        <MessageCircle size={16} /> Enviar Mensagem
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setIsAddMemberModalOpen(true)}
+                                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                    <UserPlus size={16} /> Adicionar
+                                </button>
+                            </div>
                         </div>
 
                         {groupMembers.length > 0 ? (
@@ -426,7 +460,7 @@ const GroupDetail: React.FC = () => {
                                                 {groupMember.role}
                                             </span>
                                             <button
-                                                onClick={() => handleRemoveMember(groupMember.id)}
+                                                onClick={() => handleRemoveMember(groupMember)}
                                                 className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                                                 title="Remover"
                                             >
@@ -493,7 +527,7 @@ const GroupDetail: React.FC = () => {
                                                             <Pencil size={16} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteMeeting(meeting.id)}
+                                                            onClick={() => handleDeleteMeeting(meeting)}
                                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                         >
                                                             <Trash2 size={16} />
@@ -517,6 +551,18 @@ const GroupDetail: React.FC = () => {
                         )}
                     </div>
                 )}
+
+                {activeTab === 'whatsapp' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <WhatsappHistoryTab contextType="group" contextId={id || ''} />
+                    </div>
+                )}
+
+                {activeTab === 'sms' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <SmsHistoryTab contextType="group" contextId={id || ''} />
+                    </div>
+                )}
             </div>
 
             <AddGroupMemberModal
@@ -534,6 +580,33 @@ const GroupDetail: React.FC = () => {
                 meeting={editingMeeting}
                 groupMembers={groupMembers}
                 initialAttendees={meetingAttendees}
+            />
+
+            {id && (
+                <CommunicationModal
+                    isOpen={isCommModalOpen}
+                    onClose={() => setIsCommModalOpen(false)}
+                    recipients={groupMembers.map(m => ({ 
+                        id: m.member_id, 
+                        name: m.member_name || '', 
+                        phone: m.member_phone || '' 
+                    }))}
+                    contextType="group"
+                    contextId={id}
+                    defaultMessage={`Paz do Senhor, amados! Passando para lembrar da nossa reunião do grupo ${group?.name} que será realizada em breve. Não falte, sua presença é uma benção! 🏠🔥`}
+                    onSuccess={() => {
+                        if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
+                        else setActiveTab('sms');
+                    }}
+                />
+            )}
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType={itemToDelete?.type === 'member' ? 'membro do grupo' : 'encontro'}
             />
         </div>
     );

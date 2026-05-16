@@ -15,6 +15,7 @@ import {
     Trash2,
     Pencil,
     ShieldCheck,
+    Check,
     CheckCircle2,
     XCircle,
     Clock,
@@ -38,6 +39,7 @@ import TransferModal from '../components/modals/TransferModal';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import { formatAOA } from '../utils/currency';
 import { toast } from 'sonner';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 
 const Finance = () => {
     const { hasPermission, user } = useAuth();
@@ -108,6 +110,8 @@ const Finance = () => {
     // Selection state
     const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
     const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string | string[]; name: string; type: 'transaction' | 'request' | 'bulk_transactions' | 'bulk_requests' } | null>(null);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -349,30 +353,61 @@ const Finance = () => {
     };
 
     // Bulk Delete Handlers
-    const handleBulkDeleteTransactions = async () => {
+    const handleBulkDeleteTransactions = () => {
         if (!selectedTransactions.length) return;
-        if (window.confirm(`Deseja realmente apagar ${selectedTransactions.length} transações selecionadas?`)) {
-            const success = await deleteMultipleTransactions(selectedTransactions);
-            if (success) {
-                toast.success('Transações apagadas com sucesso!');
-                setSelectedTransactions([]);
-            } else {
-                toast.error('Erro ao apagar transações.');
-            }
-        }
+        setItemToDelete({
+            id: selectedTransactions,
+            name: `${selectedTransactions.length} transações`,
+            type: 'bulk_transactions'
+        });
+        setIsDeleteModalOpen(true);
     };
 
-    const handleBulkDeleteRequests = async () => {
+    const handleBulkDeleteRequests = () => {
         if (!selectedRequests.length) return;
-        if (window.confirm(`Deseja realmente apagar ${selectedRequests.length} requisições selecionadas?`)) {
-            const success = await deleteMultipleRequests(selectedRequests);
-            if (success) {
-                toast.success('Requisições apagadas com sucesso!');
-                setSelectedRequests([]);
-            } else {
-                toast.error('Erro ao apagar requisições.');
+        setItemToDelete({
+            id: selectedRequests,
+            name: `${selectedRequests.length} requisições`,
+            type: 'bulk_requests'
+        });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
+
+        try {
+            let success = false;
+            if (itemToDelete.type === 'bulk_transactions') {
+                success = await deleteMultipleTransactions(itemToDelete.id as string[]);
+                if (success) {
+                    toast.success('Transações apagadas com sucesso!');
+                    setSelectedTransactions([]);
+                }
+            } else if (itemToDelete.type === 'bulk_requests') {
+                success = await deleteMultipleRequests(itemToDelete.id as string[]);
+                if (success) {
+                    toast.success('Requisições apagadas com sucesso!');
+                    setSelectedRequests([]);
+                }
+            } else if (itemToDelete.type === 'transaction') {
+                success = await deleteTransaction(itemToDelete.id as string);
+                if (success) toast.success('Transação apagada com sucesso!');
+            } else if (itemToDelete.type === 'request') {
+                success = await deleteRequest(itemToDelete.id as string);
+                if (success) toast.success('Requisição apagada com sucesso!');
             }
+
+            if (!success && itemToDelete.type !== 'bulk_transactions' && itemToDelete.type !== 'bulk_requests') {
+                toast.error('Erro ao excluir item.');
+            }
+        } catch (error) {
+            console.error('Error deleting:', error);
+            toast.error('Erro ao processar exclusão.');
         }
+
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     const toggleTransactionSelection = (id: string) => {
@@ -728,7 +763,8 @@ const Finance = () => {
                                                     )}
                                                     <button
                                                         onClick={() => {
-                                                            if (window.confirm('Tem certeza?')) deleteRequest(request.id);
+                                                            setItemToDelete({ id: request.id, name: request.title, type: 'request' });
+                                                            setIsDeleteModalOpen(true);
                                                         }}
                                                         className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
                                                     >
@@ -1017,9 +1053,8 @@ const Finance = () => {
                                                     </button>
                                                     <button
                                                         onClick={() => {
-                                                            if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
-                                                                deleteTransaction(tx.id);
-                                                            }
+                                                            setItemToDelete({ id: tx.id, name: tx.description, type: 'transaction' });
+                                                            setIsDeleteModalOpen(true);
                                                         }}
                                                         className="text-slate-400 hover:text-red-600 transition-colors p-1 hover:bg-red-50 rounded"
                                                         title="Excluir"
@@ -1095,6 +1130,19 @@ const Finance = () => {
             )}
 
             {/* Modals */}
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={typeof itemToDelete?.name === 'string' ? itemToDelete.name : ''}
+                itemType={
+                    itemToDelete?.type === 'transaction' ? 'transação' :
+                    itemToDelete?.type === 'request' ? 'requisição' :
+                    itemToDelete?.type === 'bulk_transactions' ? 'transações selecionadas' :
+                    'requisições selecionadas'
+                }
+            />
+
             <TransactionModal
                 isOpen={isTransactionModalOpen}
                 onClose={() => setIsTransactionModalOpen(false)}

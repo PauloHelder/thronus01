@@ -3,6 +3,7 @@ import Modal from '../Modal';
 import { TeachingClass, Member, ChristianStage, TeachingCategory } from '../../types';
 import { DAYS_OF_WEEK } from '../../data/teachingDefaults';
 import { Save, Calendar, Clock } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface TeachingClassModalProps {
     isOpen: boolean;
@@ -70,7 +71,7 @@ const TeachingClassModal: React.FC<TeachingClassModalProps> = ({
         e.preventDefault();
 
         if (!name.trim() || !teacherId || !stage || !time || !room || !startDate || !category) {
-            alert('Por favor, preencha todos os campos obrigatórios.');
+            toast.warning('Por favor, preencha todos os campos obrigatórios.');
             return;
         }
 

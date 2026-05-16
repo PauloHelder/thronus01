@@ -41,6 +41,7 @@ import { ShieldAlert } from 'lucide-react';
 import AssetModal from '../components/modals/AssetModal';
 import AssetCategoryModal from '../components/modals/AssetCategoryModal';
 import MaintenanceModal from '../components/modals/MaintenanceModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import DepreciationReport from '../components/DepreciationReport';
 import { exportAssetsToPDF, exportAssetsToExcel } from '../utils/assetExportUtils';
 
@@ -72,6 +73,8 @@ const Assets = () => {
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
     const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
     const [assetForMaintenance, setAssetForMaintenance] = useState<Asset | null>(null);
 
@@ -127,14 +130,16 @@ const Assets = () => {
         }
     };
 
-    const handleSaveAsset = async (data: any) => {
-        let success;
-        if (selectedAsset) {
-            success = await updateAsset(selectedAsset.id, data);
-        } else {
-            success = await addAsset(data);
-        }
-        return success;
+    const handleDeleteAsset = (asset: Asset) => {
+        setItemToDelete({ id: asset.id, name: asset.name });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
+        await deleteAsset(itemToDelete.id);
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     const handleSaveCategory = async (name: string, description?: string, usefulLife?: number) => {
@@ -477,7 +482,7 @@ const Assets = () => {
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            if (window.confirm('Excluir este ativo permanentemente?')) deleteAsset(asset.id);
+                                                            handleDeleteAsset(asset);
                                                         }}
                                                         className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-slate-600 hover:text-red-600 shadow-lg transition-colors"
                                                         title="Excluir"
@@ -597,11 +602,7 @@ const Assets = () => {
                                                     )}
                                                     {hasPermission('assets_delete') && (
                                                         <button
-                                                            onClick={() => {
-                                                                if (window.confirm('Tem certeza que deseja excluir este bem permanentemente?')) {
-                                                                    deleteAsset(asset.id);
-                                                                }
-                                                            }}
+                                                            onClick={() => handleDeleteAsset(asset)}
                                                             className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-100"
                                                             title="Excluir"
                                                         >
@@ -745,6 +746,14 @@ const Assets = () => {
                     assetId={assetForMaintenance.id}
                 />
             )}
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType="ativo patrimonial"
+            />
         </div>
     );
 };

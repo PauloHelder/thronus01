@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const ResetPassword: React.FC = () => {
     const navigate = useNavigate();
@@ -91,7 +92,7 @@ const ResetPassword: React.FC = () => {
 
             if (error) throw error;
 
-            alert('Senha atualizada com sucesso! Você será redirecionado para o Painel.');
+            toast.success('Senha atualizada com sucesso! Você será redirecionado para o Painel.');
             navigate('/dashboard');
         } catch (err: any) {
             console.error('Update password error:', err);

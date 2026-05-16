@@ -5,12 +5,12 @@ import { Service, DepartmentSchedule, Member } from '../types';
 import { useServices } from '../hooks/useServices';
 import { supabase } from '../lib/supabase';
 import CommunicationModal from '../components/modals/CommunicationModal';
-import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
 import { useWhatsapp } from '../hooks/useWhatsapp';
 import { useFinance, FinancialTransaction } from '../hooks/useFinance';
 import { formatAOA } from '../utils/currency';
+import { toast } from 'sonner';
 
 const ServiceDetail: React.FC = () => {
     const { id } = useParams();
@@ -24,15 +24,16 @@ const ServiceDetail: React.FC = () => {
         visitors: { men: 0, women: 0 },
         newConverts: { men: 0, women: 0, children: 0 }
     });
-    const [activeTab, setActiveTab] = useState<'stats' | 'team' | 'sms' | 'whatsapp' | 'offertory'>('stats');
+    const [activeTab, setActiveTab] = useState<'stats' | 'team' | 'whatsapp' | 'offertory'>('stats');
     const { isConnected: whatsappConnected } = useWhatsapp();
     const [serviceTransactions, setServiceTransactions] = useState<FinancialTransaction[]>([]);
     const { fetchServiceTransactions, addTransaction, accounts, categories } = useFinance();
     const [relatedSchedules, setRelatedSchedules] = useState<DepartmentSchedule[]>([]);
-    const [teamMembers, setTeamMembers] = useState<Member[]>([]);
+    const [teamMembers, setTeamMembers] = useState<Member[]>([]); // We will replace this with useMemo or keep it if it's easier
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
     const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
     const [selectedSchedule, setSelectedSchedule] = useState<{deptName: string, members: Member[]} | null>(null);
+    const [specificRecipients, setSpecificRecipients] = useState<any[] | null>(null);
     const { hasPermission, hasRole } = useAuth();
 
     useEffect(() => {
@@ -51,12 +52,12 @@ const ServiceDetail: React.FC = () => {
                         newConverts: 0
                     });
                 } else {
-                    alert('Culto não encontrado');
+                    toast.error('Culto não encontrado');
                     navigate('/services');
                 }
             } catch (error) {
                 console.error('Error fetching service:', error);
-                alert('Erro ao carregar culto');
+                toast.error('Erro ao carregar culto');
                 navigate('/services');
             } finally {
                 setLoading(false);
@@ -97,7 +98,7 @@ const ServiceDetail: React.FC = () => {
                     }));
                     setRelatedSchedules(mappedSchedules as any);
 
-                    // Fetch all unique members for the SMS modal
+                    // Fetch all unique members for the list
                     const allMembers = mappedSchedules.flatMap(s => s.members);
                     const uniqueMembers = Array.from(new Map(allMembers.map(m => [m.id, m])).values());
                     setTeamMembers(uniqueMembers);
@@ -139,11 +140,48 @@ const ServiceDetail: React.FC = () => {
     const totalFromDenominations = useMemo(() => {
         return Object.entries(denominations).reduce((acc, [val, qty]) => acc + (parseInt(val) * qty), 0);
     }, [denominations]);
+    
+    const allSchedules = useMemo(() => {
+        const schedules = [...relatedSchedules];
+        
+        if (service) {
+            const serviceMembers = [
+                service.preacherMember ? { ...service.preacherMember, role: 'Pregador' } : (service.preacher ? { id: 'p1', name: service.preacher, role: 'Pregador' } : null),
+                service.substitutePreacherMember ? { ...service.substitutePreacherMember, role: 'Pregador Suplente' } : (service.substitutePreacher ? { id: 'p2', name: service.substitutePreacher, role: 'Pregador Suplente' } : null),
+                service.leaderMember ? { ...service.leaderMember, role: 'Dirigente' } : (service.leader ? { id: 'l1', name: service.leader, role: 'Dirigente' } : null),
+                service.substituteLeaderMember ? { ...service.substituteLeaderMember, role: 'Dirigente Suplente' } : (service.substituteLeader ? { id: 'l2', name: service.substituteLeader, role: 'Dirigente Suplente' } : null)
+            ].filter(Boolean) as any[];
+
+            if (serviceMembers.length > 0) {
+                schedules.unshift({
+                    id: 'service-schedule',
+                    departmentName: 'Escala Principal',
+                    members: serviceMembers,
+                    isServiceScale: true,
+                    notes: service.theme ? `Tema: ${service.theme}` : null
+                } as any);
+            }
+        }
+        
+        return schedules;
+    }, [service, relatedSchedules]);
 
     const handleDenominationChange = (val: string, qty: string) => {
         const numQty = parseInt(qty) || 0;
         setDenominations(prev => ({ ...prev, [val]: numQty }));
     };
+    const allCommunicationRecipients = useMemo(() => {
+        const recipients = [...teamMembers];
+        
+        // Add staff roles if they are not already in the list
+        if (service?.preacherMember) recipients.push(service.preacherMember as any);
+        if (service?.substitutePreacherMember) recipients.push(service.substitutePreacherMember as any);
+        if (service?.leaderMember) recipients.push(service.leaderMember as any);
+        if (service?.substituteLeaderMember) recipients.push(service.substituteLeaderMember as any);
+
+        return Array.from(new Map(recipients.map(m => [m.id, m])).values());
+    }, [teamMembers, service]);
+
     const [newTx, setNewTx] = useState({
         description: '',
         amount: '',
@@ -155,7 +193,7 @@ const ServiceDetail: React.FC = () => {
 
     const handleAddTransaction = async () => {
         if (!id || !newTx.description || !newTx.amount || !newTx.account_id) {
-            alert('Preencha os campos obrigatórios (Descrição, Valor e Conta)');
+            toast.warning('Preencha os campos obrigatórios (Descrição, Valor e Conta)');
             return;
         }
 
@@ -187,7 +225,7 @@ const ServiceDetail: React.FC = () => {
             }
         } catch (error) {
             console.error('Error adding transaction:', error);
-            alert('Erro ao adicionar transação');
+            toast.error('Erro ao adicionar transação');
         }
     };
 
@@ -201,10 +239,10 @@ const ServiceDetail: React.FC = () => {
         try {
             await updateStatistics(id, statistics);
             setService(prev => prev ? { ...prev, statistics } : null);
-            alert('Estatísticas salvas com sucesso!');
+            toast.success('Estatísticas salvas com sucesso!');
         } catch (error) {
             console.error('Error saving statistics:', error);
-            alert('Erro ao salvar estatísticas');
+            toast.error('Erro ao salvar estatísticas');
         }
     };
 
@@ -308,7 +346,6 @@ const ServiceDetail: React.FC = () => {
                         { id: 'team', label: 'Equipe Escalada', icon: <Users size={18} /> },
                         { id: 'offertory', label: 'Ofertório', icon: <Banknote size={18} /> },
                         ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
-                        ...(hasRole('superuser') ? [{ id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> }] : []),
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -643,29 +680,32 @@ const ServiceDetail: React.FC = () => {
                                         <MessageCircle size={16} /> Enviar Mensagem
                                     </button>
                                 )}
-                                <button
-                                    onClick={() => setIsSmsModalOpen(true)}
-                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                >
-                                    <MessageSquare size={16} /> Notificar Todos
-                                </button>
                             </div>
                         </div>
 
-                        {relatedSchedules.length > 0 ? (
+                        {allSchedules.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {relatedSchedules.map((schedule: any) => (
-                                    <div key={schedule.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4 flex flex-col justify-between">
+                                {allSchedules.map((schedule: any) => (
+                                    <div key={schedule.id} className={`rounded-xl border p-4 flex flex-col justify-between transition-all ${
+                                        schedule.isServiceScale 
+                                        ? 'bg-blue-50 border-blue-200 shadow-sm' 
+                                        : 'bg-gray-50 border-gray-100'
+                                    }`}>
                                         <div className="flex items-start justify-between mb-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
-                                                    <Users size={20} />
+                                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                                    schedule.isServiceScale ? 'bg-blue-500 text-white' : 'bg-orange-100 text-orange-600'
+                                                }`}>
+                                                    {schedule.isServiceScale ? <ClipboardList size={20} /> : <Users size={20} />}
                                                 </div>
                                                 <div>
                                                     <h3 className="font-semibold text-slate-800">{schedule.departmentName}</h3>
                                                     <p className="text-xs text-slate-500">{schedule.members?.length || 0} pessoas escaladas</p>
                                                 </div>
                                             </div>
+                                            {schedule.isServiceScale && (
+                                                <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded uppercase tracking-wider">Prioritário</span>
+                                            )}
                                         </div>
                                         
                                         {schedule.notes && (
@@ -682,7 +722,11 @@ const ServiceDetail: React.FC = () => {
                                                 });
                                                 setIsTeamModalOpen(true);
                                             }}
-                                            className="w-full py-2 bg-white border border-gray-200 hover:border-orange-500 hover:text-orange-600 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+                                            className={`w-full py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border ${
+                                                schedule.isServiceScale
+                                                ? 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
+                                                : 'bg-white border-gray-200 hover:border-orange-500 hover:text-orange-600'
+                                            }`}
                                         >
                                             <Users size={16} /> Ver Equipe
                                         </button>
@@ -857,11 +901,6 @@ const ServiceDetail: React.FC = () => {
                     </div>
                 )}
 
-                {activeTab === 'sms' && (
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                        <SmsHistoryTab contextType="service" contextId={id || ''} />
-                    </div>
-                )}
 
                 {activeTab === 'whatsapp' && (
                     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
@@ -873,17 +912,23 @@ const ServiceDetail: React.FC = () => {
             {id && (
                 <CommunicationModal
                     isOpen={isSmsModalOpen}
-                    onClose={() => setIsSmsModalOpen(false)}
-                    recipients={teamMembers.map(m => ({ 
+                    onClose={() => {
+                        setIsSmsModalOpen(false);
+                        setSpecificRecipients(null);
+                    }}
+                    recipients={specificRecipients || allCommunicationRecipients.map(m => ({ 
                         id: m.id, 
                         name: m.name, 
                         phone: m.phone || '' 
                     }))}
                     contextType="service"
                     contextId={id}
+                    defaultMessage={specificRecipients && specificRecipients.length === 1 
+                        ? `Paz do Senhor, amado(a) ${specificRecipients[0].name}! Gostaria de falar com você sobre o nosso ${service.typeName} que será realizado no dia ${new Date(service.date + 'T00:00:00').toLocaleDateString('pt-BR')}. 🙏✨`
+                        : `Olá! Passando para lembrar do nosso ${service.typeName} que será realizado no dia ${new Date(service.date + 'T00:00:00').toLocaleDateString('pt-BR')} às ${service.startTime}. Sua presença é fundamental! ⛪🙏`
+                    }
                     onSuccess={() => {
                         if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
-                        else setActiveTab('sms');
                     }}
                 />
             )}
@@ -915,8 +960,28 @@ const ServiceDetail: React.FC = () => {
                                             />
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-semibold text-slate-800">{member.name}</p>
-                                                <p className="text-sm text-slate-500">{member.phone || 'Sem telemóvel'}</p>
+                                                <div className="flex items-center gap-2">
+                                                    {(member as any).role && (
+                                                        <span className="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded uppercase">
+                                                            {(member as any).role}
+                                                        </span>
+                                                    )}
+                                                    <p className="text-sm text-slate-500 truncate">{member.phone || 'Sem telemóvel'}</p>
+                                                </div>
                                             </div>
+
+                                            {hasPermission('whatsapp_send') && whatsappConnected && member.phone && (
+                                                <button 
+                                                    onClick={() => {
+                                                        setSpecificRecipients([{ id: member.id, name: member.name, phone: member.phone }]);
+                                                        setIsSmsModalOpen(true);
+                                                    }}
+                                                    className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-all shadow-sm border border-green-200"
+                                                    title="Enviar WhatsApp Individual"
+                                                >
+                                                    <MessageCircle size={20} />
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

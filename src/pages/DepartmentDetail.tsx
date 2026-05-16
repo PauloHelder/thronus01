@@ -19,6 +19,7 @@ import { useFinance } from '../hooks/useFinance';
 import { useDepartmentGoals, DepartmentGoal } from '../hooks/useDepartmentGoals';
 import DepartmentGoalModal from '../components/modals/DepartmentGoalModal';
 import CommunicationModal from '../components/modals/CommunicationModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
@@ -70,6 +71,8 @@ const DepartmentDetail: React.FC = () => {
     const [selectedGoal, setSelectedGoal] = useState<DepartmentGoal | null>(null);
     const [editingSchedule, setEditingSchedule] = useState<DepartmentSchedule | null>(null);
     const [editingRequest, setEditingRequest] = useState<any>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'member' | 'schedule' | 'goal' } | null>(null);
 
     // Filters for Goals
     const [goalStatusFilter, setGoalStatusFilter] = useState<'All' | 'pending' | 'in_progress' | 'completed' | 'delayed'>('All');
@@ -91,10 +94,33 @@ const DepartmentDetail: React.FC = () => {
         }
     };
 
-    const handleRemoveMember = async (memberId: string) => {
-        if (id && window.confirm('Tem certeza que deseja remover este membro do departamento?')) {
-            await removeDepartmentMember(id, memberId);
+    const handleRemoveMember = (member: any) => {
+        setItemToDelete({ id: member.id, name: member.name, type: 'member' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteSchedule = (schedule: DepartmentSchedule) => {
+        setItemToDelete({ id: schedule.id, name: formatDate(schedule.date), type: 'schedule' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteGoal = (goal: DepartmentGoal) => {
+        setItemToDelete({ id: goal.id, name: goal.title, type: 'goal' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!id || !itemToDelete) return;
+
+        if (itemToDelete.type === 'member') {
+            await removeDepartmentMember(id, itemToDelete.id);
+        } else if (itemToDelete.type === 'schedule') {
+            await deleteSchedule(id, itemToDelete.id);
+        } else if (itemToDelete.type === 'goal') {
+            await deleteGoal(itemToDelete.id);
         }
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     const handleSaveSchedule = async (scheduleData: Omit<DepartmentSchedule, 'id' | 'departmentId'>) => {
@@ -123,11 +149,6 @@ const DepartmentDetail: React.FC = () => {
         setIsScheduleModalOpen(true);
     };
 
-    const handleDeleteSchedule = async (scheduleId: string) => {
-        if (id && window.confirm('Tem certeza que deseja excluir esta escala?')) {
-            await deleteSchedule(id, scheduleId);
-        }
-    };
 
     const handleSaveRequest = async (requestData: any) => {
         if (editingRequest) {
@@ -158,11 +179,6 @@ const DepartmentDetail: React.FC = () => {
         return true;
     };
 
-    const handleDeleteGoal = async (goalId: string) => {
-        if (window.confirm('Tem certeza que deseja excluir este objetivo?')) {
-            await deleteGoal(goalId);
-        }
-    };
 
     const filteredGoals = goals.filter(g => {
         const matchesStatus = goalStatusFilter === 'All' || g.status === goalStatusFilter;
@@ -365,14 +381,6 @@ const DepartmentDetail: React.FC = () => {
                                         <MessageCircle size={16} /> Enviar Mensagem
                                     </button>
                                 )}
-                                {hasRole('superuser') && (
-                                    <button
-                                        onClick={() => setIsSmsModalOpen(true)}
-                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                    >
-                                        <MessageSquare size={16} /> Enviar SMS
-                                    </button>
-                                )}
                                     <button
                                         onClick={() => setIsAddMemberModalOpen(true)}
                                         className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
@@ -398,7 +406,7 @@ const DepartmentDetail: React.FC = () => {
                                         </div>
                                         {hasPermission('departments_edit') && (
                                             <button
-                                                onClick={() => handleRemoveMember(member.id)}
+                                                onClick={() => handleRemoveMember(member)}
                                                 className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
                                                 title="Remover"
                                             >
@@ -551,7 +559,7 @@ const DepartmentDetail: React.FC = () => {
                                                                     <Pencil size={14} />
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleDeleteGoal(goal.id)}
+                                                                    onClick={() => handleDeleteGoal(goal)}
                                                                     className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
                                                                 >
                                                                     <Trash2 size={14} />
@@ -586,12 +594,12 @@ const DepartmentDetail: React.FC = () => {
                             </div>
                             {hasPermission('departments_edit') && (
                                 <div className="flex gap-2">
-                                {hasRole('superuser') && (
+                                {hasPermission('whatsapp_send') && whatsappConnected && (
                                     <button
                                         onClick={() => setIsSmsModalOpen(true)}
-                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
                                     >
-                                        <MessageSquare size={16} /> Notificar Equipe
+                                        <MessageCircle size={16} /> Enviar Mensagem
                                     </button>
                                 )}
                                     <button
@@ -638,7 +646,7 @@ const DepartmentDetail: React.FC = () => {
                                                             <Pencil size={16} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteSchedule(schedule.id)}
+                                                            onClick={() => handleDeleteSchedule(schedule)}
                                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
                                                             title="Excluir"
                                                         >
@@ -788,13 +796,23 @@ const DepartmentDetail: React.FC = () => {
                 <CommunicationModal
                     isOpen={isSmsModalOpen}
                     onClose={() => setIsSmsModalOpen(false)}
-                    recipients={department.members.map(m => ({ 
-                        id: m.id, 
-                        name: m.name, 
-                        phone: m.phone || '' 
-                    }))}
+                    recipients={[
+                        ...(department.leader ? [{ 
+                            id: department.leader.id, 
+                            name: `${department.leader.name} (Líder)`, 
+                            phone: department.leader.phone || '' 
+                        }] : []),
+                        ...department.members
+                            .filter(m => m.id !== department.leader?.id)
+                            .map(m => ({ 
+                                id: m.id, 
+                                name: m.name, 
+                                phone: m.phone || '' 
+                            }))
+                    ]}
                     contextType="department"
                     contextId={id}
+                    defaultMessage={`Olá equipe do departamento ${department?.name}! Temos um comunicado importante sobre as nossas atividades. Por favor, fiquem atentos! 🏛️🙌`}
                     onSuccess={() => {
                         if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
                         else setActiveTab('sms');
@@ -840,6 +858,17 @@ const DepartmentDetail: React.FC = () => {
                 onClose={() => setIsGoalModalOpen(false)}
                 onSave={handleSaveGoal}
                 goal={selectedGoal || undefined}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType={
+                    itemToDelete?.type === 'member' ? 'membro do departamento' :
+                    itemToDelete?.type === 'schedule' ? 'escala' : 'objetivo'
+                }
             />
         </div>
     );

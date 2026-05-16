@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Member } from '../../types';
 import { Save, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AddDiscipleModalProps {
     isOpen: boolean;
@@ -30,7 +31,7 @@ const AddDiscipleModal: React.FC<AddDiscipleModalProps> = ({
         e.preventDefault();
 
         if (!selectedMemberId) {
-            alert('Por favor, selecione um membro.');
+            toast.warning('Por favor, selecione um membro.');
             return;
         }
 

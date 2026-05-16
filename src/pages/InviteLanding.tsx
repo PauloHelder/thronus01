@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Building, User, Phone, Lock, Eye, EyeOff, Loader2, AlertCircle, CheckCircle, Mail } from 'lucide-react';
+import { toast } from 'sonner';
 
 const InviteLanding: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -116,7 +117,7 @@ const InviteLanding: React.FC = () => {
             if (rpcError) throw rpcError;
 
             // Success
-            alert('Conta criada com sucesso! Você será redirecionado para o login.');
+            toast.success('Conta criada com sucesso! Você será redirecionado para o login.');
             navigate('/login');
 
         } catch (err: any) {

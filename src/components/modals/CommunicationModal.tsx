@@ -34,9 +34,10 @@ const CommunicationModal: React.FC<CommunicationModalProps> = ({
   const { user, hasRole, hasPermission } = useAuth();
   const [message, setMessage] = useState(defaultMessage);
   const [sending, setSending] = useState(false);
-  const [channel, setChannel] = useState<'sms' | 'push' | 'whatsapp'>('push'); // Push por defeito por ser grátis
+  const [channel, setChannel] = useState<'whatsapp'>('whatsapp');
   const [balance, setBalance] = useState<number | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const { isConnected: whatsappConnected, sendMessages: sendWhatsapp } = useWhatsapp();
 
@@ -45,8 +46,20 @@ const CommunicationModal: React.FC<CommunicationModalProps> = ({
   const validPushRecipients = recipients.filter(r => r.id); // Requer ID para Push individual
 
   useEffect(() => {
-    if (isOpen && user?.churchId) {
-      fetchBalance();
+    if (isOpen) {
+      if (user?.churchId) {
+        fetchBalance();
+      }
+      
+      // Predefinir nome da igreja no início da mensagem
+      const prefix = `*${user?.churchName}*\n\n`;
+      if (!message || message === defaultMessage) {
+        setMessage(prefix + (defaultMessage || ''));
+      }
+
+      // Inicializar todos como selecionados
+      const allValidPhones = validSmsRecipients.map(r => r.phone);
+      setSelectedIds(allValidPhones);
     }
   }, [isOpen, user]);
 
@@ -74,13 +87,13 @@ const CommunicationModal: React.FC<CommunicationModalProps> = ({
 
     let targetRecipients: Recipient[];
     if (channel === 'push') {
-        targetRecipients = validPushRecipients;
+        targetRecipients = validPushRecipients.filter(r => selectedIds.includes(r.phone));
     } else {
-        targetRecipients = validSmsRecipients; // Both SMS and WhatsApp use validSmsRecipients
+        targetRecipients = validSmsRecipients.filter(r => selectedIds.includes(r.phone));
     }
 
     if (targetRecipients.length === 0) {
-      toast.error(`Nenhum destinatário selecionado para o canal ${channel.toUpperCase()}.`);
+      toast.error('Selecione pelo menos um destinatário.');
       return;
     }
 
@@ -91,55 +104,25 @@ const CommunicationModal: React.FC<CommunicationModalProps> = ({
 
     setSending(true);
     try {
-      if (channel === 'sms') {
-        const { error: rpcError } = await (supabase.rpc as any)('process_sms_send', {
-          p_church_id: user?.churchId,
-          p_content: message,
-          p_recipients: targetRecipients,
-          p_context_type: contextType,
-          p_context_id: contextId,
-          p_count: targetRecipients.length
-        });
-        if (rpcError) throw rpcError;
-        toast.success(`${targetRecipients.length} SMS enviadas com sucesso!`);
-      } else if (channel === 'whatsapp') {
+      if (channel === 'whatsapp') {
         if (!whatsappConnected) {
             toast.error('O WhatsApp não está configurado ou ativo.');
             setSending(false);
             return;
         }
-        const phones = targetRecipients.map(r => r.phone);
+        const phones = targetRecipients.map(r => {
+          let cleanPhone = r.phone.replace(/\D/g, '');
+          if (!cleanPhone.startsWith('244')) {
+            cleanPhone = '244' + cleanPhone;
+          }
+          return cleanPhone;
+        });
         const result = await sendWhatsapp(phones, message, contextType, contextId);
         if (result.success) {
             toast.success(`${result.deliveredCount} WhatsApps enviados com sucesso!`);
         } else {
             toast.error('Falha ao enviar mensagens via WhatsApp.');
         }
-      } else {
-        // Envio de Push
-        const recipientIds = targetRecipients.map(r => r.id as string);
-        const { success, error } = await PushService.sendToUsers({
-          recipients: recipientIds,
-          message: message,
-          title: `Nova mensagem - ${contextType.charAt(0).toUpperCase() + contextType.slice(1)}`
-        });
-
-        if (!success) throw new Error(error);
-
-        // Log manual para o histórico (já que o Push não tem RPC automatizada no DB ainda)
-        await PushService.logCommunication({
-          church_id: user?.churchId || '',
-          sender_id: user?.id || '',
-          content: message,
-          recipient_count: recipientIds.length,
-          recipients: targetRecipients,
-          context_type: contextType,
-          context_id: contextId,
-          channel: 'push',
-          status: 'sent'
-        });
-
-        toast.success(`${recipientIds.length} Notificações Push enviadas!`);
       }
 
       if (onSuccess) onSuccess();
@@ -174,57 +157,17 @@ const CommunicationModal: React.FC<CommunicationModalProps> = ({
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Channel Selector */}
+          {/* Channel Selector - Disabled since only WhatsApp is available */}
           <div className="flex p-1 bg-slate-100 rounded-xl space-x-1">
             <button
-              onClick={() => setChannel('push')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                channel === 'push' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold bg-white text-green-600 shadow-sm"
             >
-              <Bell size={16} />
-              Push
+              <MessageCircle size={16} />
+              WhatsApp
             </button>
-            {hasPermission('whatsapp_send') && (
-              <button
-                onClick={() => setChannel('whatsapp')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                  channel === 'whatsapp' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <MessageCircle size={16} />
-                WhatsApp
-              </button>
-            )}
-            {hasRole('superuser') && (
-              <button
-                onClick={() => setChannel('sms')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                  channel === 'sms' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <Smartphone size={16} />
-                SMS
-              </button>
-            )}
           </div>
 
           {/* Context Info / Balance */}
-          {channel === 'sms' ? (
-            <div className="flex items-center justify-between px-4 py-3 bg-orange-50 rounded-xl border border-orange-100">
-              <div className="flex items-center gap-2 text-orange-700">
-                <Activity size={18} />
-                <span className="text-sm font-medium">Saldo de SMS</span>
-              </div>
-              {loadingBalance ? (
-                <Loader2 className="animate-spin text-orange-400" size={16} />
-              ) : (
-                <span className={`font-bold ${balance && balance >= validSmsRecipients.length ? 'text-green-600' : 'text-red-500'}`}>
-                  {balance ?? 0} créditos
-                </span>
-              )}
-            </div>
-          ) : channel === 'whatsapp' ? (
             <div className={`flex items-center justify-between px-4 py-3 ${whatsappConnected ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} rounded-xl border`}>
               <div className={`flex items-center gap-2 ${whatsappConnected ? 'text-green-700' : 'text-red-700'}`}>
                 <MessageCircle size={18} />
@@ -234,34 +177,47 @@ const CommunicationModal: React.FC<CommunicationModalProps> = ({
                 {whatsappConnected ? 'Conectado' : 'Desconectado'}
               </span>
             </div>
-          ) : (
-            <div className="flex items-center justify-between px-4 py-3 bg-blue-50 rounded-xl border border-blue-100">
-              <div className="flex items-center gap-2 text-blue-700">
-                <Bell size={18} />
-                <span className="text-sm font-medium">Notificação Push</span>
-              </div>
-              <span className="text-blue-600 font-bold uppercase text-[10px] tracking-wider px-2 py-1 bg-white rounded-md border border-blue-200">
-                Grátis
-              </span>
-            </div>
-          )}
 
           {/* Recipients List */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-slate-700 font-bold">
-                <Users size={16} className={channel === 'push' ? 'text-blue-500' : channel === 'whatsapp' ? 'text-green-500' : 'text-orange-500'} />
-                Destinatários ({channel === 'push' ? validPushRecipients.length : validSmsRecipients.length})
+                <Users size={16} className="text-green-500" />
+                Destinatários ({selectedIds.length} selecionados)
               </label>
-              <span className="text-[10px] text-slate-400 font-bold">
-                {channel === 'push' ? 'Com app instalado' : 'Com número válido'}
-              </span>
+              <button 
+                onClick={() => {
+                  if (selectedIds.length === validSmsRecipients.length) {
+                    setSelectedIds([]);
+                  } else {
+                    setSelectedIds(validSmsRecipients.map(r => r.phone));
+                  }
+                }}
+                className="text-[10px] text-green-600 font-bold hover:underline"
+              >
+                {selectedIds.length === validSmsRecipients.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+              </button>
             </div>
-            <div className="max-h-24 overflow-y-auto p-3 bg-slate-50 rounded-xl border border-slate-100 divide-y divide-slate-200/50 scrollbar-thin">
-              {(channel === 'push' ? validPushRecipients : validSmsRecipients).map((r, i) => (
-                <div key={i} className="py-2 flex justify-between text-xs">
-                  <span className="font-medium text-slate-700">{r.name}</span>
-                  <span className="text-slate-500">{channel === 'push' ? 'ID' : 'Tel'}: {channel === 'push' ? r.id?.slice(0, 8) : r.phone}</span>
+            <div className="max-h-40 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-100 divide-y divide-slate-200/50 scrollbar-thin">
+              {validSmsRecipients.map((r, i) => (
+                <div 
+                  key={i} 
+                  className={`flex items-center gap-3 p-3 transition-colors cursor-pointer hover:bg-white rounded-lg ${selectedIds.includes(r.phone) ? 'bg-white shadow-sm' : ''}`}
+                  onClick={() => {
+                    if (selectedIds.includes(r.phone)) {
+                      setSelectedIds(selectedIds.filter(id => id !== r.phone));
+                    } else {
+                      setSelectedIds([...selectedIds, r.phone]);
+                    }
+                  }}
+                >
+                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedIds.includes(r.phone) ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 bg-white'}`}>
+                    {selectedIds.includes(r.phone) && <Activity size={12} className="text-white" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">{r.name}</p>
+                    <p className="text-[10px] text-slate-500 font-medium">{r.phone}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -280,8 +236,8 @@ const CommunicationModal: React.FC<CommunicationModalProps> = ({
               maxLength={channel === 'sms' ? 160 : channel === 'whatsapp' ? 4096 : 500}
             />
             <div className="flex justify-between items-center text-[10px] font-bold px-1 uppercase tracking-wider text-slate-400">
-              <span>{message.length} / {channel === 'sms' ? 160 : channel === 'whatsapp' ? 4096 : 500} caracteres</span>
-              <span>{channel === 'sms' ? `${validSmsRecipients.length} créditos` : channel === 'whatsapp' ? 'Evolução API' : 'Push Grátis'}</span>
+              <span>{message.length} / 4096 caracteres</span>
+              <span>Evolução API</span>
             </div>
           </div>
 
@@ -301,10 +257,8 @@ const CommunicationModal: React.FC<CommunicationModalProps> = ({
           </button>
           <button
             onClick={handleSend}
-            disabled={sending || (channel === 'sms' && validSmsRecipients.length === 0) || (channel === 'push' && validPushRecipients.length === 0) || (channel === 'whatsapp' && validSmsRecipients.length === 0)}
-            className={`flex-1 py-3 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] ${
-              channel === 'push' ? 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/20' : channel === 'whatsapp' ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20'
-            }`}
+            disabled={sending || selectedIds.length === 0}
+            className="flex-1 py-3 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] bg-green-500 hover:bg-green-600 shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {sending ? <Loader2 className="animate-spin" size={20} /> : <><Send size={18} /> Enviar {channel.toUpperCase()}</>}
           </button>

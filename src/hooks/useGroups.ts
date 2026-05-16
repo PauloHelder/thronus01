@@ -64,8 +64,8 @@ export const useGroups = () => {
                 .from('groups')
                 .select(`
                     *,
-                    leader:members!leader_id(name),
-                    co_leader:members!co_leader_id(name)
+                    leader:members!leader_id(name, phone),
+                    co_leader:members!co_leader_id(name, phone)
                 `)
                 .eq('church_id', user.churchId)
                 .is('deleted_at', null)

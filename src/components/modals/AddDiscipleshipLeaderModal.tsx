@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Member } from '../../types';
 import { Save, Calendar, User } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AddDiscipleshipLeaderModalProps {
     isOpen: boolean;
@@ -30,7 +31,7 @@ const AddDiscipleshipLeaderModal: React.FC<AddDiscipleshipLeaderModalProps> = ({
         e.preventDefault();
 
         if (!selectedMemberId || !startDate) {
-            alert('Por favor, selecione um membro e uma data.');
+            toast.warning('Por favor, selecione um membro e uma data.');
             return;
         }
 

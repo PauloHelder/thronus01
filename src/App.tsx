@@ -34,7 +34,6 @@ import Teaching from './pages/Teaching';
 import TeachingDetail from './pages/TeachingDetail';
 import ChurchProfile from './pages/ChurchProfile';
 import ChurchSubscription from './pages/ChurchSubscription';
-import SmsStore from './pages/church/SmsStore';
 import MyChurches from './pages/MyChurches';
 import Churches from './pages/Churches';
 import Plans from './pages/Plans';
@@ -99,7 +98,6 @@ const AppContent: React.FC = () => {
             {hasRole('superuser') && (
               <>
                 <Route path="/subscription" element={<ChurchSubscription />} />
-                <Route path="/sms-store" element={<SmsStore />} />
               </>
             )}
             <Route path="/my-churches" element={<MyChurches />} />
@@ -127,7 +125,6 @@ const AppContent: React.FC = () => {
 
 import { Toaster } from 'sonner';
 import { OfflineIndicator, ReloadPrompt, IOSInstallPrompt, PWAInstallSheet } from './components/PWAComponents';
-import OneSignalSetup from './components/OneSignalSetup';
 
 const App: React.FC = () => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -159,7 +156,6 @@ const App: React.FC = () => {
       <IOSInstallPrompt />
       <PWAInstallSheet />
       <AuthProvider>
-        <OneSignalSetup />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />

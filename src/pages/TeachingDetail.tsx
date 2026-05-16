@@ -5,9 +5,9 @@ import { TeachingClass, TeachingLesson } from '../types';
 import AddStudentModal from '../components/modals/AddStudentModal';
 import AddLessonModal from '../components/modals/AddLessonModal';
 import CommunicationModal from '../components/modals/CommunicationModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { useTeaching } from '../hooks/useTeaching';
 import { useMembers } from '../hooks/useMembers';
-import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
 import { useWhatsapp } from '../hooks/useWhatsapp';
@@ -20,13 +20,15 @@ const TeachingDetail: React.FC = () => {
     const { hasRole, hasPermission } = useAuth();
     const { isConnected: whatsappConnected } = useWhatsapp();
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'alunos' | 'aulas' | 'sms' | 'whatsapp'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'alunos' | 'aulas' | 'whatsapp'>('geral');
     const [teachingClass, setTeachingClass] = useState<TeachingClass | null>(null);
     const [loading, setLoading] = useState(true);
     const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
     const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
     const [editingLesson, setEditingLesson] = useState<TeachingLesson | null>(null);
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'student' | 'lesson' } | null>(null);
 
     const loadClass = useCallback(async () => {
         if (!id) return;
@@ -53,14 +55,32 @@ const TeachingDetail: React.FC = () => {
         }
     };
 
-    const handleRemoveStudent = async (studentId: string) => {
-        if (!teachingClass) return;
-        if (window.confirm('Tem certeza que deseja remover este aluno da turma?')) {
-            const success = await removeStudentFromClass(teachingClass.id, studentId);
+    const handleRemoveStudent = (student: any) => {
+        setItemToDelete({ id: student.id, name: student.name, type: 'student' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteLesson = (lesson: TeachingLesson) => {
+        setItemToDelete({ id: lesson.id, name: lesson.title, type: 'lesson' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!teachingClass || !itemToDelete) return;
+
+        if (itemToDelete.type === 'student') {
+            const success = await removeStudentFromClass(teachingClass.id, itemToDelete.id);
+            if (success) {
+                await loadClass();
+            }
+        } else if (itemToDelete.type === 'lesson') {
+            const success = await deleteLesson(itemToDelete.id);
             if (success) {
                 await loadClass();
             }
         }
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     const handleSaveLesson = async (lessonData: Omit<TeachingLesson, 'id' | 'classId'> | TeachingLesson) => {
@@ -89,14 +109,6 @@ const TeachingDetail: React.FC = () => {
         setIsLessonModalOpen(true);
     };
 
-    const handleDeleteLesson = async (lessonId: string) => {
-        if (window.confirm('Tem certeza que deseja excluir esta aula?')) {
-            const success = await deleteLesson(lessonId);
-            if (success) {
-                await loadClass();
-            }
-        }
-    };
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr + 'T00:00:00');
@@ -200,7 +212,6 @@ const TeachingDetail: React.FC = () => {
                         { id: 'alunos', label: 'Alunos', icon: <Users size={18} /> },
                         { id: 'aulas', label: 'Aulas', icon: <GraduationCap size={18} /> },
                         ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
-                        ...(hasRole('superuser') ? [{ id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> }] : []),
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -336,14 +347,6 @@ const TeachingDetail: React.FC = () => {
                                         <MessageCircle size={16} /> Enviar Mensagem
                                     </button>
                                 )}
-                                {hasRole('superuser') && (
-                                    <button
-                                        onClick={() => setIsSmsModalOpen(true)}
-                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                    >
-                                        <MessageSquare size={16} /> Enviar SMS
-                                    </button>
-                                )}
                                 <button
                                     onClick={() => setIsAddStudentModalOpen(true)}
                                     className="px-4 py-2 bg-orange-50 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
@@ -363,7 +366,7 @@ const TeachingDetail: React.FC = () => {
                                             <p className="text-[10px] text-slate-500 uppercase font-semibold truncate">{student.email || 'Sem email'}</p>
                                         </div>
                                         <button
-                                            onClick={() => handleRemoveStudent(student.id)}
+                                            onClick={() => handleRemoveStudent(student)}
                                             className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
                                             title="Remover"
                                         >
@@ -454,7 +457,7 @@ const TeachingDetail: React.FC = () => {
                                                             <Pencil size={18} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteLesson(lesson.id)}
+                                                            onClick={() => handleDeleteLesson(lesson)}
                                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                         >
                                                             <Trash2 size={18} />
@@ -474,11 +477,6 @@ const TeachingDetail: React.FC = () => {
                     </div>
                 )}
 
-                {activeTab === 'sms' && (
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                        <SmsHistoryTab contextType="teaching" contextId={id || ''} />
-                    </div>
-                )}
 
                 {activeTab === 'whatsapp' && (
                     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
@@ -492,18 +490,18 @@ const TeachingDetail: React.FC = () => {
                     isOpen={isSmsModalOpen}
                     onClose={() => setIsSmsModalOpen(false)}
                     recipients={[
-                        ...(teachingClass?.members || []).map(m => ({ id: m.id, name: m.name, phone: m.phone || '' })),
-                        ...(teachingClass?.teacherId ? [{ 
-                            id: teachingClass.teacherId, 
-                            name: teachingClass.teacherName || 'Professor', 
-                            phone: '' 
+                        ...(teachingClass?.students || []).map(s => ({ id: s.id, name: s.name, phone: s.phone || '' })),
+                        ...(teachingClass?.teacher ? [{ 
+                            id: teachingClass.teacher.id, 
+                            name: teachingClass.teacher.name, 
+                            phone: teachingClass.teacher.phone || '' 
                         }] : [])
                     ]}
                     contextType="teaching"
                     contextId={id}
+                    defaultMessage={`Olá! Lembramos da nossa classe de ensino ${teachingClass?.name}. Contamos com a sua participação para crescermos juntos na Palavra! 📖✏️`}
                     onSuccess={() => {
                         if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
-                        else setActiveTab('sms');
                     }}
                 />
             )}
@@ -521,6 +519,14 @@ const TeachingDetail: React.FC = () => {
                 onSave={handleSaveLesson}
                 lesson={editingLesson}
                 students={teachingClass.students}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType={itemToDelete?.type === 'student' ? 'aluno da turma' : 'aula'}
             />
         </div>
     );

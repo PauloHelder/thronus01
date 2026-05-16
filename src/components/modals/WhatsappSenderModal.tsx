@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, AlertTriangle, MessageCircle, AlertCircle, Phone, Info } from 'lucide-react';
+import { X, Send, AlertTriangle, MessageCircle, AlertCircle, Phone, Info, Check } from 'lucide-react';
 import { useWhatsapp } from '../../hooks/useWhatsapp';
+import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface WhatsappSenderModalProps {
@@ -20,6 +21,7 @@ const WhatsappSenderModal: React.FC<WhatsappSenderModalProps> = ({
     contextId = '',
     onSuccess
 }) => {
+    const { user } = useAuth();
     const { isConnected, sendMessages, fetchConfig, loading: configLoading } = useWhatsapp();
     const [message, setMessage] = useState('');
     const [sending, setSending] = useState(false);
@@ -31,10 +33,14 @@ const WhatsappSenderModal: React.FC<WhatsappSenderModalProps> = ({
     useEffect(() => {
         if (isOpen) {
             setSendResults(null);
-            setMessage('');
+            
+            // Predefinir nome da igreja no início da mensagem
+            const prefix = `*${user?.churchName}*\n\n`;
+            setMessage(prefix);
+            
             fetchConfig();
         }
-    }, [isOpen]);
+    }, [isOpen, user]);
 
     if (!isOpen) return null;
 

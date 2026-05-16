@@ -4,7 +4,9 @@ import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { Search, Shield, UserCog, Mail, Phone, Trash2, Plus, Copy, Check, Eye, EyeOff, ChevronDown, X, Power } from 'lucide-react';
 import Modal from '../components/Modal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { useMembers } from '../hooks/useMembers';
+import { toast } from 'sonner';
 
 interface SystemUser {
     id: string;
@@ -192,6 +194,8 @@ const UserManagement: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
     const [invites, setInvites] = useState<any[]>([]);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'delete' | 'toggle'; active?: boolean } | null>(null);
 
     // Custom roles
     const [customRoles, setCustomRoles] = useState<string[]>([]);
@@ -263,7 +267,7 @@ const UserManagement: React.FC = () => {
 
         } catch (error) {
             console.error('Error fetching data:', error);
-            alert('Erro ao carregar dados. Verifique o console.');
+            toast.error('Erro ao carregar dados. Verifique o console.');
         } finally {
             setLoading(false);
         }
@@ -275,12 +279,12 @@ const UserManagement: React.FC = () => {
 
     const handleRolesChange = async (userId: string, newRoles: string[]) => {
         if (userId === currentUser?.id) {
-            alert('Você não pode alterar seu próprio nível de acesso.');
+            toast.warning('Você não pode alterar seu próprio nível de acesso.');
             return;
         }
 
         if (newRoles.length === 0) {
-            alert('O usuário deve ter pelo menos uma função.');
+            toast.warning('O usuário deve ter pelo menos uma função.');
             return;
         }
 
@@ -320,70 +324,65 @@ const UserManagement: React.FC = () => {
             ));
         } catch (err) {
             console.error('Error updating roles:', err);
-            alert('Erro ao atualizar funções.');
+            toast.error('Erro ao atualizar funções.');
         }
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        if (userId === currentUser?.id) {
-            alert('Você não pode excluir sua própria conta.');
+    const handleDeleteUser = (user: SystemUser) => {
+        if (user.id === currentUser?.id) {
+            toast.warning('Você não pode excluir sua própria conta.');
             return;
         }
+        setItemToDelete({ id: user.id, name: user.member?.name || user.email, type: 'delete' });
+        setIsDeleteModalOpen(true);
+    };
 
-        if (window.confirm('Tem certeza que deseja remover o acesso deste usuário? Esta ação não pode ser desfeita.')) {
-            try {
-                // Determine if we are deleting from public.users or actually deleting the auth user
-                // Usually deleting public.users removes access to this tenant.
-                // NOTE: Deleting auth.users requires Service Role/Admin API.
-                // Here we usually just delete the record from public.users which revokes app access.
+    const handleToggleActive = (user: SystemUser) => {
+        if (user.id === currentUser?.id) {
+            toast.warning('Você não pode desativar sua própria conta.');
+            return;
+        }
+        const isActive = user.is_active !== false;
+        setItemToDelete({ id: user.id, name: user.member?.name || user.email, type: 'toggle', active: isActive });
+        setIsDeleteModalOpen(true);
+    };
 
+    const handleConfirmAction = async () => {
+        if (!itemToDelete) return;
+
+        try {
+            if (itemToDelete.type === 'delete') {
                 const { error } = await (supabase.from('user_churches') as any)
                     .delete()
-                    .eq('user_id', userId)
+                    .eq('user_id', itemToDelete.id)
                     .eq('church_id', currentUser?.churchId);
 
                 if (error) throw error;
+                setUsers(users.filter(u => u.id !== itemToDelete.id));
+            } else if (itemToDelete.type === 'toggle') {
+                const newActive = !itemToDelete.active;
+                // @ts-ignore
+                const { data, error } = await (supabase.rpc as any)('toggle_user_active', {
+                    p_user_id: itemToDelete.id,
+                    p_church_id: currentUser?.churchId,
+                    p_active: newActive
+                });
 
-                setUsers(users.filter(u => u.id !== userId));
-            } catch (err) {
-                console.error('Error deleting user:', err);
-                alert('Erro ao remover usuário.');
+                if (error) throw error;
+                if (data && !data.success) {
+                    toast.error(data.error || 'Erro ao alterar status.');
+                    return;
+                }
+                setUsers(users.map(u => u.id === itemToDelete.id ? { ...u, is_active: newActive } : u));
             }
-        }
-    };
-
-    const handleToggleActive = async (userId: string, currentActive: boolean) => {
-        if (userId === currentUser?.id) {
-            alert('Você não pode desativar sua própria conta.');
-            return;
-        }
-
-        const newActive = !currentActive;
-        const action = newActive ? 'reativar' : 'desativar';
-
-        if (!window.confirm(`Tem certeza que deseja ${action} este usuário?`)) return;
-
-        try {
-            // @ts-ignore
-            const { data, error } = await (supabase.rpc as any)('toggle_user_active', {
-                p_user_id: userId,
-                p_church_id: currentUser?.churchId,
-                p_active: newActive
-            });
-
-            if (error) throw error;
-            if (data && !data.success) {
-                alert(data.error || 'Erro ao alterar status.');
-                return;
-            }
-
-            // Optimistic update
-            setUsers(users.map(u => u.id === userId ? { ...u, is_active: newActive } : u));
         } catch (err) {
-            console.error('Error toggling user active:', err);
-            alert('Erro ao alterar status do usuário.');
+            console.error('Error in user management action:', err);
+            toast.error('Erro ao processar ação.');
         }
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
+
 
     const getRoleBadgeColor = (role: string) => {
         switch (role) {
@@ -426,14 +425,14 @@ const UserManagement: React.FC = () => {
         setCreatingUser(true);
 
         if (newUserRoles.length === 0) {
-            alert('Selecione pelo menos uma função.');
+            toast.warning('Selecione pelo menos uma função.');
             setCreatingUser(false);
             return;
         }
 
         // Validation
         if (newUserPassword.length < 6) {
-            alert('A senha deve ter no mínimo 6 caracteres.');
+            toast.warning('A senha deve ter no mínimo 6 caracteres.');
             setCreatingUser(false);
             return;
         }
@@ -533,7 +532,7 @@ const UserManagement: React.FC = () => {
             if (updateUcError) console.error("Error saving multiple roles in user_churches:", updateUcError);
 
             // Success
-            alert('Usuário criado (ou vinculado) com sucesso!');
+            toast.success('Usuário criado (ou vinculado) com sucesso!');
             setShowUserModal(false);
             setNewUserName('');
             setNewUserEmail('');
@@ -548,7 +547,7 @@ const UserManagement: React.FC = () => {
             let msg = err.message || 'Erro desconhecido';
             if (err.code === '23505') msg = 'Este email já está em uso.';
             if (msg.includes('already registered')) msg = 'Este email já está registrado no sistema.';
-            alert('Erro ao criar usuário: ' + msg);
+            toast.error('Erro ao criar usuário: ' + msg);
         } finally {
             setCreatingUser(false);
         }
@@ -720,7 +719,7 @@ const UserManagement: React.FC = () => {
                                                         </div>
 
                                                         <button
-                                                            onClick={() => handleToggleActive(u.id, isActive)}
+                                                            onClick={() => handleToggleActive(u)}
                                                             className={`p-1.5 rounded transition-colors ${
                                                                 isActive
                                                                     ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
@@ -733,7 +732,7 @@ const UserManagement: React.FC = () => {
                                                         </button>
 
                                                         <button
-                                                            onClick={() => handleDeleteUser(u.id)}
+                                                            onClick={() => handleDeleteUser(u)}
                                                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                                                             title="Remover Acesso"
                                                             disabled={u.id === currentUser?.id}
@@ -897,6 +896,13 @@ const UserManagement: React.FC = () => {
                     </div>
                 </form>
             </Modal>
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmAction}
+                itemName={itemToDelete?.name}
+                itemType={itemToDelete?.type === 'delete' ? 'usuário' : 'alteração de status'}
+            />
         </div>
     );
 };

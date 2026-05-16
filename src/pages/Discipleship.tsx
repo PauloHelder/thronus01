@@ -4,6 +4,7 @@ import { Search, Plus, Users, Calendar, TrendingUp, Trash2 } from 'lucide-react'
 import { useDiscipleship } from '../hooks/useDiscipleship';
 import { useMembers } from '../hooks/useMembers';
 import AddDiscipleshipLeaderModal from '../components/modals/AddDiscipleshipLeaderModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { toast } from 'sonner';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +16,8 @@ const Discipleship: React.FC = () => {
   const { members } = useMembers();
 
   const [isAddLeaderModalOpen, setIsAddLeaderModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [leaderToDelete, setLeaderToDelete] = useState<any | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleAddLeader = async (memberId: string, startDate: string) => {
@@ -31,10 +34,15 @@ const Discipleship: React.FC = () => {
     navigate(`/discipleship/${leaderId}`);
   };
 
-  const handleDeleteLeader = async (e: React.MouseEvent, leaderId: string) => {
+  const handleDeleteLeader = (e: React.MouseEvent, leader: any) => {
     e.stopPropagation();
-    if (window.confirm('Tem certeza que deseja remover este líder? Todos os dados associados serão perdidos.')) {
-      const success = await deleteLeader(leaderId);
+    setLeaderToDelete(leader);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (leaderToDelete) {
+      const success = await deleteLeader(leaderToDelete.id);
       if (success) {
         toast.success('Líder removido com sucesso!');
       } else {
@@ -157,7 +165,7 @@ const Discipleship: React.FC = () => {
                     {leader.member.name}
                   </h3>
                   <button
-                    onClick={(e) => handleDeleteLeader(e, leader.id)}
+                    onClick={(e) => handleDeleteLeader(e, leader)}
                     className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
                     title="Remover Líder"
                   >
@@ -244,6 +252,14 @@ const Discipleship: React.FC = () => {
         onClose={() => setIsAddLeaderModalOpen(false)}
         onSave={handleAddLeader}
         members={availableMembers}
+      />
+
+      <GenericDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={leaderToDelete?.member.name}
+        itemType="líder de discipulado"
       />
     </div>
   );

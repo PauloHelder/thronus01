@@ -21,12 +21,14 @@ import {
 import MemberModal from '../components/modals/MemberModal';
 import AddFamilyRelationshipModal from '../components/modals/AddFamilyRelationshipModal';
 import CommunicationModal from '../components/modals/CommunicationModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { Member } from '../types';
 import { useMembers } from '../hooks/useMembers';
 import { formatDateForInput } from '../utils/dateUtils';
 import { useGroups } from '../hooks/useGroups';
 import { useServices } from '../hooks/useServices';
 import { useTeaching } from '../hooks/useTeaching';
+import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
 // Estendendo a interface Member para incluir campos extras usados nesta página
@@ -58,6 +60,8 @@ const MemberDetail: React.FC = () => {
     const [isAddFamilyModalOpen, setIsAddFamilyModalOpen] = useState(false);
     const [isCommModalOpen, setIsCommModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'member' | 'relationship' } | null>(null);
 
     useEffect(() => {
         if (!membersLoading && id) {
@@ -297,21 +301,44 @@ const MemberDetail: React.FC = () => {
             setIsEditModalOpen(false);
         } catch (error) {
             console.error('Erro ao atualizar membro:', error);
-            alert('Erro ao atualizar membro. Tente novamente.');
+            toast.error('Erro ao atualizar membro. Tente novamente.');
         }
     };
 
-    const handleDelete = async () => {
+    const handleDelete = () => {
         if (!member) return;
+        setItemToDelete({ id: member.id, name: member.name, type: 'member' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteFamilyRelationship = (rel: any) => {
+        setItemToDelete({ id: rel.id, name: rel.relative.name, type: 'relationship' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
 
         try {
-            await deleteMember(member.id);
-            setShowDeleteModal(false);
-            navigate('/members');
+            if (itemToDelete.type === 'member') {
+                await deleteMember(itemToDelete.id);
+                setIsDeleteModalOpen(false);
+                navigate('/members');
+            } else if (itemToDelete.type === 'relationship') {
+                const { error } = await supabase
+                    .from('member_relationships')
+                    .delete()
+                    .eq('id', itemToDelete.id);
+
+                if (error) throw error;
+                setFamilyRelationships(prev => prev.filter(r => r.id !== itemToDelete.id));
+                setIsDeleteModalOpen(false);
+            }
         } catch (error) {
-            console.error('Erro ao excluir membro:', error);
-            alert('Erro ao excluir membro. Tente novamente.');
+            console.error('Erro ao excluir:', error);
+            toast.error('Erro ao excluir. Tente novamente.');
         }
+        setItemToDelete(null);
     };
 
     const handleAddFamilyRelationship = async (relatedMemberId: string, relationshipType: string) => {
@@ -339,26 +366,10 @@ const MemberDetail: React.FC = () => {
             }
         } catch (error) {
             console.error('Erro ao adicionar vínculo:', error);
-            alert('Erro ao adicionar vínculo familiar. Tente novamente.');
+            toast.error('Erro ao adicionar vínculo familiar. Tente novamente.');
         }
     };
 
-    const handleDeleteFamilyRelationship = async (relId: string) => {
-        if (!window.confirm('Tem certeza que deseja remover este vínculo?')) return;
-        try {
-            const { error } = await supabase
-                .from('member_relationships')
-                .delete()
-                .eq('id', relId);
-
-            if (error) throw error;
-            
-            setFamilyRelationships(prev => prev.filter(r => r.id !== relId));
-        } catch (error) {
-            console.error('Erro ao remover vínculo:', error);
-            alert('Erro ao remover vínculo. Tente novamente.');
-        }
-    };
 
     const getMaritalStatusTranslation = (status?: string) => {
         switch (status) {
@@ -442,7 +453,7 @@ const MemberDetail: React.FC = () => {
                         Editar
                     </button>
                     <button
-                        onClick={() => setShowDeleteModal(true)}
+                        onClick={handleDelete}
                         className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
                     >
                         <Trash2 size={20} />
@@ -479,6 +490,7 @@ const MemberDetail: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
 
                     {/* Contact Info */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -545,15 +557,16 @@ const MemberDetail: React.FC = () => {
                     </div>
                 </div>
 
+
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Stats Grid */}
                     <div className="grid md:grid-cols-2 gap-4">
-                        {stats.map((stat, index) => (
+                        {stats.map(({ icon: Icon, ...stat }, index) => (
                             <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                                 <div className="flex items-center gap-4">
                                     <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
-                                        <stat.icon className="text-white" size={24} />
+                                        <Icon className="text-white" size={24} />
                                     </div>
                                     <div>
                                         <p className="text-sm text-slate-600">{stat.label}</p>
@@ -749,7 +762,7 @@ const MemberDetail: React.FC = () => {
                                             </div>
                                         </div>
                                         <button 
-                                            onClick={() => handleDeleteFamilyRelationship(rel.id)}
+                                            onClick={() => handleDeleteFamilyRelationship(rel)}
                                             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                             title="Remover Vínculo"
                                         >
@@ -855,32 +868,13 @@ const MemberDetail: React.FC = () => {
                 currentMemberId={member.id}
             />
 
-            {/* Delete Confirmation Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-md w-full p-6">
-                        <h3 className="text-xl font-bold text-slate-800 mb-4">Confirmar Exclusão</h3>
-                        <p className="text-slate-600 mb-6">
-                            Tem certeza que deseja excluir o membro <strong>{member.name}</strong>?
-                            Esta ação não pode ser desfeita.
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowDeleteModal(false)}
-                                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleDelete}
-                                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
-                            >
-                                Excluir
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType={itemToDelete?.type === 'member' ? 'membro' : 'vínculo familiar'}
+            />
 
             {/* Communication Modal */}
             <CommunicationModal
@@ -889,6 +883,7 @@ const MemberDetail: React.FC = () => {
                 recipients={member ? [{ id: member.id, name: member.name, phone: member.phone || '' }] : []}
                 contextType="discipleship"
                 contextId={member?.id || ''}
+                defaultMessage={`Paz do Senhor, amado(a) ${member.name}! Passando para desejar um dia abençoado e lembrar que você é muito importante para nós. 🙏✨`}
             />
         </div>
     );

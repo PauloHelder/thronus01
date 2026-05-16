@@ -9,6 +9,7 @@ import AddDiscipleshipMeetingModal from '../components/modals/AddDiscipleshipMee
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -35,6 +36,8 @@ const DiscipleshipDetail: React.FC = () => {
     const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
     const [editingMeeting, setEditingMeeting] = useState<DiscipleshipMeeting | null>(null);
     const [localError, setLocalError] = useState<string | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'disciple' | 'meeting' } | null>(null);
 
     useEffect(() => {
         if (hookError) {
@@ -59,13 +62,28 @@ const DiscipleshipDetail: React.FC = () => {
         }
     };
 
-    const handleRemoveDisciple = async (discipleId: string) => {
-        if (!leader) return;
-        if (window.confirm('Tem certeza que deseja remover este discípulo?')) {
-            setLocalError(null);
-            const success = await removeDisciple(leader.id, discipleId);
+    const handleRemoveDisciple = (disciple: any) => {
+        setItemToDelete({ id: disciple.id, name: disciple.name, type: 'disciple' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteMeeting = (meeting: DiscipleshipMeeting) => {
+        setItemToDelete({ id: meeting.id, name: formatDate(meeting.date), type: 'meeting' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!leader || !itemToDelete) return;
+
+        if (itemToDelete.type === 'disciple') {
+            const success = await removeDisciple(leader.id, itemToDelete.id);
             if (success) toast.success('Discípulo removido com sucesso!');
+        } else if (itemToDelete.type === 'meeting') {
+            const success = await deleteMeeting(itemToDelete.id);
+            if (success) toast.success('Encontro excluído com sucesso!');
         }
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     const handleSaveMeeting = async (meetingData: Omit<DiscipleshipMeeting, 'id' | 'leaderId'> | DiscipleshipMeeting) => {
@@ -93,12 +111,6 @@ const DiscipleshipDetail: React.FC = () => {
         setIsMeetingModalOpen(true);
     };
 
-    const handleDeleteMeeting = async (meetingId: string) => {
-        if (window.confirm('Tem certeza que deseja excluir este encontro?')) {
-            const success = await deleteMeeting(meetingId);
-            if (success) toast.success('Encontro excluído com sucesso!');
-        }
-    };
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return '-';
@@ -161,7 +173,7 @@ const DiscipleshipDetail: React.FC = () => {
                                 onClick={() => setIsCommunicationModalOpen(true)}
                                 className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
                             >
-                                <MessageSquare size={16} /> Enviar Mensagem
+                                <MessageCircle size={16} /> Enviar Mensagem
                             </button>
                         )}
                         <button
@@ -203,19 +215,6 @@ const DiscipleshipDetail: React.FC = () => {
                         >
                             <MessageCircle size={18} />
                             WhatsApp
-                        </button>
-                    )}
-                    {hasRole('superuser') && (
-                        <button
-                            key="sms"
-                            onClick={() => setActiveTab('sms')}
-                            className={`flex items-center gap-2 py-4 border-b-2 transition-all font-medium text-sm whitespace-nowrap ${activeTab === 'sms'
-                                ? 'border-orange-500 text-orange-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
-                                }`}
-                        >
-                            <MessageSquare size={18} />
-                            SMS
                         </button>
                     )}
                 </div>
@@ -303,14 +302,6 @@ const DiscipleshipDetail: React.FC = () => {
                                 <p className="text-sm text-slate-500">Pessoas sob cuidado deste discipulador</p>
                             </div>
                             <div className="flex gap-2">
-                                {hasRole('superuser') && (
-                                    <button
-                                        onClick={() => setIsSmsModalOpen(true)}
-                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                    >
-                                        <MessageSquare size={16} /> Enviar SMS
-                                    </button>
-                                )}
                                 <button
                                     onClick={() => setIsAddDiscipleModalOpen(true)}
                                     className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
@@ -334,7 +325,7 @@ const DiscipleshipDetail: React.FC = () => {
                                             <p className="text-[10px] text-slate-500 truncate uppercase font-semibold">{disciple.email || 'Sem email'}</p>
                                         </div>
                                         <button
-                                            onClick={() => handleRemoveDisciple(disciple.id)}
+                                            onClick={() => handleRemoveDisciple(disciple)}
                                             className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
                                             title="Remover"
                                         >
@@ -360,14 +351,6 @@ const DiscipleshipDetail: React.FC = () => {
                                 <p className="text-sm text-slate-500">Histórico de acompanhamento e reuniões</p>
                             </div>
                             <div className="flex gap-2">
-                                {hasRole('superuser') && (
-                                    <button
-                                        onClick={() => setIsSmsModalOpen(true)}
-                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
-                                    >
-                                        <MessageSquare size={16} /> Enviar SMS
-                                    </button>
-                                )}
                                 <button
                                     onClick={() => {
                                         setEditingMeeting(null);
@@ -417,7 +400,7 @@ const DiscipleshipDetail: React.FC = () => {
                                                                 <Pencil size={16} />
                                                             </button>
                                                             <button
-                                                                onClick={() => handleDeleteMeeting(meeting.id)}
+                                                                onClick={() => handleDeleteMeeting(meeting)}
                                                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                             >
                                                                 <Trash2 size={16} />
@@ -443,11 +426,6 @@ const DiscipleshipDetail: React.FC = () => {
                     </div>
                 )}
 
-                {activeTab === 'sms' && (
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                        <SmsHistoryTab contextType="discipleship" contextId={leader.id} />
-                    </div>
-                )}
 
                 {activeTab === 'whatsapp' && (
                     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
@@ -462,9 +440,9 @@ const DiscipleshipDetail: React.FC = () => {
                 recipients={leader.disciples.map(d => ({ id: d.id, name: d.name, phone: d.phone || '' }))}
                 contextType="discipleship"
                 contextId={leader.id}
+                defaultMessage={`Paz do Senhor! Passando para lembrar do nosso acompanhamento de discipulado. Sua caminhada com Cristo é muito importante para nós! 🙌✨`}
                 onSuccess={() => {
                     if (hasPermission('whatsapp_send')) setActiveTab('whatsapp');
-                    else setActiveTab('sms');
                 }}
             />
 
@@ -481,6 +459,14 @@ const DiscipleshipDetail: React.FC = () => {
                 onSave={handleSaveMeeting}
                 meeting={editingMeeting}
                 disciples={leader.disciples}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType={itemToDelete?.type === 'disciple' ? 'discípulo' : 'encontro de discipulado'}
             />
         </div>
     );

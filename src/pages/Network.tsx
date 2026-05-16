@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import AddBranchModal from '../components/modals/AddBranchModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 
 const Network: React.FC = () => {
     const { user } = useAuth();
@@ -21,6 +22,8 @@ const Network: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
 
     const fetchBranches = async () => {
         if (!user?.churchId) return;
@@ -48,25 +51,32 @@ const Network: React.FC = () => {
         branch.settings?.categoria?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleUnlink = async (branchId: string, branchName: string) => {
-        if (!confirm(`Tem certeza que deseja desvincular ${branchName}?`)) return;
+    const handleUnlink = (branchId: string, branchName: string) => {
+        setItemToDelete({ id: branchId, name: branchName });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
 
         try {
             const { error } = await supabase
                 .from('churches')
                 .update({
                     parent_id: null,
-                    settings: { ...branches.find(b => b.id === branchId)?.settings, categoria: 'Sede' } // Reset category to Sede? Or keep? Usually Sede if independent
+                    settings: { ...branches.find(b => b.id === itemToDelete.id)?.settings, categoria: 'Sede' }
                 } as any)
-                .eq('id', branchId);
+                .eq('id', itemToDelete.id);
 
             if (error) throw error;
             toast.success('Igreja desvinculada com sucesso.');
             fetchBranches();
+            setIsDeleteModalOpen(false);
         } catch (error: any) {
             console.error('Error unlinking:', error);
             toast.error('Erro ao desvincular igreja.');
         }
+        setItemToDelete(null);
     };
 
     return (
@@ -180,6 +190,14 @@ const Network: React.FC = () => {
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
                 onSuccess={fetchBranches}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType="igreja da rede"
             />
         </div>
     );

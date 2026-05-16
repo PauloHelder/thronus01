@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
-import { Service } from '../../types';
+import { Service, Member } from '../../types';
 import { useServiceTypes } from '../../hooks/useServiceTypes';
+import { useMembers } from '../../hooks/useMembers';
+import { Search, User } from 'lucide-react';
 
 interface ServiceModalProps {
     isOpen: boolean;
@@ -13,6 +15,7 @@ interface ServiceModalProps {
 
 const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, service, churchId }) => {
     const { serviceTypes, loading: loadingTypes } = useServiceTypes();
+    const { members, loading: loadingMembers } = useMembers();
     const [formData, setFormData] = useState<Omit<Service, 'id'>>({
         churchId: churchId,
         serviceTypeId: '',
@@ -22,9 +25,13 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
         startTime: '',
         theme: '',
         preacher: '',
+        preacherId: '',
         substitutePreacher: '',
+        substitutePreacherId: '',
         leader: '',
+        leaderId: '',
         substituteLeader: '',
+        substituteLeaderId: '',
         location: 'Templo Local',
         description: '',
     });
@@ -40,9 +47,13 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                 startTime: service.startTime,
                 theme: service.theme || '',
                 preacher: service.preacher,
+                preacherId: service.preacherId || '',
                 substitutePreacher: service.substitutePreacher || '',
+                substitutePreacherId: service.substitutePreacherId || '',
                 leader: service.leader,
+                leaderId: service.leaderId || '',
                 substituteLeader: service.substituteLeader || '',
+                substituteLeaderId: service.substituteLeaderId || '',
                 location: service.location,
                 description: service.description || '',
                 statistics: service.statistics,
@@ -77,18 +88,73 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
         setFormData(updates);
     };
 
+    const handleMemberSelect = (role: string, memberId: string) => {
+        const member = members.find(m => m.id === memberId);
+        const nameField = role.replace('Id', '');
+        
+        setFormData(prev => ({
+            ...prev,
+            [role]: memberId,
+            [nameField]: member?.name || ''
+        }));
+    };
+
+    const renderMemberSelect = (label: string, role: string, placeholder: string) => {
+        const idValue = (formData as any)[role];
+        const nameField = role.replace('Id', '');
+        const nameValue = (formData as any)[nameField];
+
+        return (
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{label} <span className="text-xs text-slate-400">(opcional)</span></label>
+                <div className="relative">
+                    <select
+                        value={idValue}
+                        onChange={(e) => handleMemberSelect(role, e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all appearance-none"
+                    >
+                        <option value="">{placeholder}</option>
+                        {members.map(member => (
+                            <option key={member.id} value={member.id}>{member.name}</option>
+                        ))}
+                        <option value="custom">-- Digitar nome personalizado --</option>
+                    </select>
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        <User size={18} />
+                    </div>
+                </div>
+                {idValue === 'custom' && (
+                    <input
+                        type="text"
+                        value={nameValue}
+                        onChange={(e) => setFormData({ ...formData, [nameField]: e.target.value })}
+                        className="mt-2 w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                        placeholder="Digite o nome completo"
+                    />
+                )}
+            </div>
+        );
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // If 'custom' is selected, set ID to null
+        const finalData = { ...formData };
+        if (finalData.preacherId === 'custom') (finalData as any).preacherId = null;
+        if (finalData.substitutePreacherId === 'custom') (finalData as any).substitutePreacherId = null;
+        if (finalData.leaderId === 'custom') (finalData as any).leaderId = null;
+        if (finalData.substituteLeaderId === 'custom') (finalData as any).substituteLeaderId = null;
 
         // If editing existing service, include ID. Otherwise, let backend generate it.
         if (service?.id) {
             onSave({
-                ...formData,
+                ...finalData,
                 id: service.id,
             });
         } else {
             // Don't include ID for new services - backend will generate it
-            const { id, ...dataWithoutId } = formData as any;
+            const { id, ...dataWithoutId } = finalData as any;
             onSave(dataWithoutId);
         }
 
@@ -175,49 +241,13 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Pregador <span className="text-xs text-slate-400">(opcional)</span></label>
-                            <input
-                                type="text"
-                                value={formData.preacher}
-                                onChange={(e) => setFormData({ ...formData, preacher: e.target.value })}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                placeholder="Nome do pregador"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Pregador Suplente <span className="text-xs text-slate-400">(opcional)</span></label>
-                            <input
-                                type="text"
-                                value={formData.substitutePreacher}
-                                onChange={(e) => setFormData({ ...formData, substitutePreacher: e.target.value })}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                placeholder="Nome do pregador suplente"
-                            />
-                        </div>
+                        {renderMemberSelect('Pregador', 'preacherId', 'Selecione o pregador')}
+                        {renderMemberSelect('Pregador Suplente', 'substitutePreacherId', 'Selecione o suplente')}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Dirigente <span className="text-xs text-slate-400">(opcional)</span></label>
-                            <input
-                                type="text"
-                                value={formData.leader}
-                                onChange={(e) => setFormData({ ...formData, leader: e.target.value })}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                placeholder="Nome do dirigente"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Dirigente Suplente <span className="text-xs text-slate-400">(opcional)</span></label>
-                            <input
-                                type="text"
-                                value={formData.substituteLeader}
-                                onChange={(e) => setFormData({ ...formData, substituteLeader: e.target.value })}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                                placeholder="Nome do dirigente suplente"
-                            />
-                        </div>
+                        {renderMemberSelect('Dirigente', 'leaderId', 'Selecione o dirigente')}
+                        {renderMemberSelect('Dirigente Suplente', 'substituteLeaderId', 'Selecione o suplente')}
                     </div>
 
                     <div>

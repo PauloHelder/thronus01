@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Member } from '../../types';
 import { Save, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AddDepartmentMemberModalProps {
     isOpen: boolean;
@@ -38,7 +39,7 @@ const AddDepartmentMemberModal: React.FC<AddDepartmentMemberModalProps> = ({
         e.preventDefault();
 
         if (selectedMemberIds.length === 0) {
-            alert('Por favor, selecione pelo menos um membro.');
+            toast.warning('Por favor, selecione pelo menos um membro.');
             return;
         }
 

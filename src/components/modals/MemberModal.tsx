@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ANGOLA_PROVINCES, ANGOLA_MUNICIPALITIES } from '../../data/angolaLocations';
 import { formatDateForInput } from '../../utils/dateUtils';
 import { Camera, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface MemberModalProps {
     isOpen: boolean;
@@ -110,13 +111,13 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         if (file) {
             // Validar tipo de arquivo
             if (!file.type.startsWith('image/')) {
-                alert('Por favor, selecione apenas arquivos de imagem.');
+                toast.warning('Por favor, selecione apenas arquivos de imagem.');
                 return;
             }
 
             // Validar tamanho (máx 5MB)
             if (file.size > 5 * 1024 * 1024) {
-                alert('A imagem deve ter no máximo 5MB.');
+                toast.warning('A imagem deve ter no máximo 5MB.');
                 return;
             }
 

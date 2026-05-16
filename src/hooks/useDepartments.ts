@@ -22,8 +22,8 @@ export const useDepartments = () => {
                 .from('departments' as any)
                 .select(`
                     *,
-                    leader:members!leader_id(id, name, avatar_url),
-                    co_leader:members!co_leader_id(id, name, avatar_url),
+                    leader:members!leader_id(id, name, avatar_url, phone),
+                    co_leader:members!co_leader_id(id, name, avatar_url, phone),
                     members:department_members(count),
                     schedules:department_schedules(count)
                 `)
@@ -65,8 +65,8 @@ export const useDepartments = () => {
                 .from('departments' as any)
                 .select(`
                     *,
-                    leader:members!leader_id(id, name, email, avatar_url),
-                    co_leader:members!co_leader_id(id, name, email, avatar_url)
+                    leader:members!leader_id(id, name, email, avatar_url, phone),
+                    co_leader:members!co_leader_id(id, name, email, avatar_url, phone)
                 `)
                 .eq('id', id)
                 .maybeSingle();
@@ -81,7 +81,7 @@ export const useDepartments = () => {
             const { data: membersRel, error: memError } = await supabase
                 .from('department_members' as any)
                 .select(`
-                    member:members!inner(id, name, email, avatar_url)
+                    member:members!inner(id, name, email, avatar_url, phone)
                 `)
                 .eq('department_id', id);
 
@@ -91,7 +91,8 @@ export const useDepartments = () => {
                 id: r.member.id,
                 name: r.member.name,
                 email: r.member.email,
-                avatar: r.member.avatar_url
+                avatar: r.member.avatar_url,
+                phone: r.member.phone
             }));
 
             // 3. Schedules + Assignments
@@ -124,8 +125,8 @@ export const useDepartments = () => {
                 icon: dept.icon,
                 leaderId: dept.leader_id,
                 coLeaderId: dept.co_leader_id,
-                leader: dept.leader ? { ...dept.leader, avatar: dept.leader.avatar_url } : undefined,
-                coLeader: dept.co_leader ? { ...dept.co_leader, avatar: dept.co_leader.avatar_url } : undefined,
+                leader: dept.leader ? { ...dept.leader, avatar: dept.leader.avatar_url, phone: dept.leader.phone } : undefined,
+                coLeader: dept.co_leader ? { ...dept.co_leader, avatar: dept.co_leader.avatar_url, phone: dept.co_leader.phone } : undefined,
                 members,
                 schedules: schedules as any[], // Casting to match generic Department type expectation
                 isDefault: dept.is_default

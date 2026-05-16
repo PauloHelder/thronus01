@@ -4,6 +4,7 @@ import { Plan } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlans } from '../hooks/usePlans';
 import { useSubscriptionUsage } from '../hooks/useSubscriptionUsage';
+import { toast } from 'sonner';
 
 export const ResourceUsageBar: React.FC<{
   label: string;
@@ -379,7 +380,7 @@ const ChurchSubscription: React.FC = () => {
 
                         <button
                             onClick={() => {
-                                alert('Aguardando confirmação do pagamento pelo Super Admin.');
+                                toast.info('Aguardando confirmação do pagamento pelo Super Admin.');
                                 setShowPaymentModal(false);
                             }}
                             className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-black shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2 transition-all"

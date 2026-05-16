@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Member } from '../types';
 import MemberModal from '../components/modals/MemberModal';
 import ImportMembersModal from '../components/modals/ImportMembersModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMembers } from '../hooks/useMembers';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,7 +26,9 @@ const Members: React.FC = () => {
   const [filterMaritalStatus, setFilterMaritalStatus] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | undefined>(undefined);
+  const [memberToDelete, setMemberToDelete] = useState<Member | undefined>(undefined);
   const [birthdayMonth, setBirthdayMonth] = useState<string>(new Date().getMonth().toString());
 
   // Pagination
@@ -52,10 +55,15 @@ const Members: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteMember = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteMember = (member: Member, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Tem certeza que deseja excluir este membro?')) {
-      await deleteMember(id);
+    setMemberToDelete(member);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (memberToDelete) {
+      await deleteMember(memberToDelete.id);
       toast.success('Membro excluído com sucesso');
     }
   };
@@ -456,7 +464,7 @@ const Members: React.FC = () => {
                   <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button onClick={(e) => handleEditMember(member, e)} className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors" title="Editar"><Pencil size={16} /></button>
-                      <button onClick={(e) => handleDeleteMember(member.id, e)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir"><Trash2 size={16} /></button>
+                      <button onClick={(e) => handleDeleteMember(member, e)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -518,6 +526,14 @@ const Members: React.FC = () => {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onImport={handleImport}
+      />
+
+      <GenericDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={memberToDelete?.name}
+        itemType="membro"
       />
     </div>
   );

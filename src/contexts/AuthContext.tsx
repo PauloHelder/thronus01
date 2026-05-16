@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 export type UserRole = 'admin' | 'leader' | 'member' | 'supervisor' | string;
 
@@ -126,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         await supabase.auth.signOut();
                         setUser(null);
                         localStorage.removeItem('thronus_user');
-                        alert('Seu acesso foi desativado em todas as igrejas. Contate o administrador.');
+                        toast.warning('Seu acesso foi desativado em todas as igrejas. Contate o administrador.');
                         setLoading(false);
                         return;
                     }
@@ -146,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             await supabase.auth.signOut();
                             setUser(null);
                             localStorage.removeItem('thronus_user');
-                            alert('Erro ao acessar suas igrejas. Tente fazer login novamente.');
+                            toast.error('Erro ao acessar suas igrejas. Tente fazer login novamente.');
                             setLoading(false);
                             return;
                         }

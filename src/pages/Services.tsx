@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, Clock, User, MapPin, Pencil, Trash2, Filter, Eye, Heart } from 'lucide-react';
 import { Service } from '../types';
 import ServiceModal from '../components/modals/ServiceModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { useServices } from '../hooks/useServices';
 import { useServiceTypes } from '../hooks/useServiceTypes';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
 
 const Services: React.FC = () => {
     const navigate = useNavigate();
@@ -14,10 +16,32 @@ const Services: React.FC = () => {
     const { serviceTypes } = useServiceTypes();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedService, setSelectedService] = useState<Service | undefined>(undefined);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [serviceToDelete, setServiceToDelete] = useState<Service | undefined>(undefined);
     const [filterType, setFilterType] = useState<string>('all');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [filterMonth, setFilterMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
+    const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
+
+    const months = [
+        { value: 'all', label: 'Todos os Meses' },
+        { value: '01', label: 'Janeiro' },
+        { value: '02', label: 'Fevereiro' },
+        { value: '03', label: 'Março' },
+        { value: '04', label: 'Abril' },
+        { value: '05', label: 'Maio' },
+        { value: '06', label: 'Junho' },
+        { value: '07', label: 'Julho' },
+        { value: '08', label: 'Agosto' },
+        { value: '09', label: 'Setembro' },
+        { value: '10', label: 'Outubro' },
+        { value: '11', label: 'Novembro' },
+        { value: '12', label: 'Dezembro' }
+    ];
+
+    const years = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - 2 + i).toString());
 
     const handleAddService = () => {
         setSelectedService(undefined);
@@ -30,14 +54,19 @@ const Services: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDeleteService = async (id: string, e: React.MouseEvent) => {
+    const handleDeleteService = (service: Service, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm('Tem certeza que deseja excluir este culto?')) {
+        setServiceToDelete(service);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (serviceToDelete) {
             try {
-                await deleteService(id);
+                await deleteService(serviceToDelete.id);
             } catch (error) {
                 console.error('Error deleting service:', error);
-                alert('Erro ao excluir culto');
+                toast.error('Erro ao excluir culto');
             }
         }
     };
@@ -52,7 +81,7 @@ const Services: React.FC = () => {
             setIsModalOpen(false);
         } catch (error) {
             console.error('Error saving service:', error);
-            alert('Erro ao salvar culto');
+            toast.error('Erro ao salvar culto');
         }
     };
 
@@ -70,6 +99,15 @@ const Services: React.FC = () => {
         if (filterStatus !== 'all' && service.status !== filterStatus) return false;
         if (startDate && service.date < startDate) return false;
         if (endDate && service.date > endDate) return false;
+        
+        // Filtro por Mês e Ano
+        const serviceDate = new Date(service.date + 'T00:00:00');
+        const serviceMonth = (serviceDate.getMonth() + 1).toString().padStart(2, '0');
+        const serviceYear = serviceDate.getFullYear().toString();
+        
+        if (filterMonth !== 'all' && serviceMonth !== filterMonth) return false;
+        if (filterYear !== 'all' && serviceYear !== filterYear) return false;
+        
         return true;
     });
 
@@ -229,22 +267,61 @@ const Services: React.FC = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Data Início</label>
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Mês</label>
+                        <select
+                            value={filterMonth}
+                            onChange={(e) => setFilterMonth(e.target.value)}
                             className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                        />
+                        >
+                            {months.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                        </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Ano</label>
+                        <select
+                            value={filterYear}
+                            onChange={(e) => setFilterYear(e.target.value)}
                             className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                        />
+                        >
+                            <option value="all">Todos</option>
+                            {years.map((y) => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="md:col-span-2 grid grid-cols-2 gap-4 pt-2 border-t border-gray-100 mt-2">
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ou Período (Início)</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => {
+                                    setStartDate(e.target.value);
+                                    if (e.target.value) {
+                                        setFilterMonth('all');
+                                        setFilterYear('all');
+                                    }
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Período (Fim)</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => {
+                                    setEndDate(e.target.value);
+                                    if (e.target.value) {
+                                        setFilterMonth('all');
+                                        setFilterYear('all');
+                                    }
+                                }}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -319,7 +396,7 @@ const Services: React.FC = () => {
                                                 <Pencil size={16} />
                                             </button>
                                             <button
-                                                onClick={(e) => handleDeleteService(service.id, e)}
+                                                onClick={(e) => handleDeleteService(service, e)}
                                                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                             >
                                                 <Trash2 size={16} />
@@ -433,7 +510,7 @@ const Services: React.FC = () => {
                                                             <Pencil size={16} />
                                                         </button>
                                                         <button
-                                                            onClick={(e) => handleDeleteService(service.id, e)}
+                                                            onClick={(e) => handleDeleteService(service, e)}
                                                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                             title="Excluir"
                                                         >
@@ -465,6 +542,14 @@ const Services: React.FC = () => {
                 onSave={handleSaveService}
                 service={selectedService}
                 churchId="demo-user-1"
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={serviceToDelete?.typeName}
+                itemType="culto"
             />
         </div>
     );

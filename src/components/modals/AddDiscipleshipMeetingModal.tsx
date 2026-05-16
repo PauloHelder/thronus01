@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Member, DiscipleshipMeeting } from '../../types';
 import { Save, Calendar, CheckSquare } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AddDiscipleshipMeetingModalProps {
     isOpen: boolean;
@@ -49,7 +50,7 @@ const AddDiscipleshipMeetingModal: React.FC<AddDiscipleshipMeetingModalProps> = 
         e.preventDefault();
 
         if (!date) {
-            alert('Por favor, selecione uma data.');
+            toast.warning('Por favor, selecione uma data.');
             return;
         }
 

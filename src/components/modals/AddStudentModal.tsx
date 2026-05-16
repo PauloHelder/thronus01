@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Member } from '../../types';
 import { Save, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AddStudentModalProps {
     isOpen: boolean;
@@ -38,7 +39,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({
         e.preventDefault();
 
         if (selectedMemberIds.length === 0) {
-            alert('Por favor, selecione pelo menos um aluno.');
+            toast.warning('Por favor, selecione pelo menos um aluno.');
             return;
         }
 

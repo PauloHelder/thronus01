@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Modal from '../Modal';
 import { Member } from '../../types';
 import { Search, User, X, Calendar, Award } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface OrdinationModalProps {
     isOpen: boolean;
@@ -40,7 +41,7 @@ const OrdinationModal: React.FC<OrdinationModalProps> = ({ isOpen, onClose, onSa
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedMembers.length === 0) {
-            alert('Por favor, selecione pelo menos um membro para ser consagrado.');
+            toast.warning('Por favor, selecione pelo menos um membro para ser consagrado.');
             return;
         }
         onSave({ date, category, celebrant, notes, memberIds: selectedMembers });

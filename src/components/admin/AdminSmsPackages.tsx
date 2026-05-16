@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Plus, Edit, Trash2, MessageSquare, Save, X, CheckCircle, XCircle, Building, Server, ArrowUpDown, Activity, CreditCard, Clock, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAOA } from '../../utils/currency';
+import GenericDeleteModal from '../modals/GenericDeleteModal';
 
 export default function AdminSmsPackages() {
     const [activeTab, setActiveTab] = useState<'catalog' | 'churches' | 'orders'>('catalog');
@@ -43,6 +44,16 @@ export default function AdminSmsPackages() {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [assignTarget, setAssignTarget] = useState<any>(null);
     const [selectedPackage, setSelectedPackage] = useState('');
+
+    // Generic Confirmation Modal State
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<{
+        type: 'delete_package' | 'approve_order' | 'reject_order';
+        id: string;
+        name: string;
+        churchId?: string;
+        churchName?: string;
+    } | null>(null);
 
     useEffect(() => {
         if (activeTab === 'catalog') {
@@ -161,8 +172,18 @@ export default function AdminSmsPackages() {
         if (activeTab === 'orders') fetchOrders();
     }, [showAllHistory]);
 
-    const handleApproveOrder = async (id: string, churchId: string, churchName: string) => {
-        if (!window.confirm(`Confirmar recebimento do pagamento de '${churchName}' e libertar saldo?`)) return;
+    const handleApproveOrder = (id: string, churchId: string, churchName: string) => {
+        setConfirmAction({
+            type: 'approve_order',
+            id,
+            name: `Pedido de ${churchName}`,
+            churchId,
+            churchName
+        });
+        setIsConfirmModalOpen(true);
+    };
+
+    const processApproveOrder = async (id: string, churchId: string, churchName: string) => {
         try {
             const { error } = await (supabase.rpc as any)('approve_sms_purchase', {
                 p_transaction_id: id
@@ -180,8 +201,17 @@ export default function AdminSmsPackages() {
         }
     };
 
-    const handleRejectOrder = async (id: string, churchId: string) => {
-        if (!window.confirm('Tem certeza que deseja rejeitar este pedido?')) return;
+    const handleRejectOrder = (id: string, churchId: string) => {
+        setConfirmAction({
+            type: 'reject_order',
+            id,
+            name: 'Rejeitar Pedido',
+            churchId
+        });
+        setIsConfirmModalOpen(true);
+    };
+
+    const processRejectOrder = async (id: string, churchId: string) => {
         try {
             const { error } = await (supabase.from('sms_transactions') as any)
                 .update({ status: 'rejected' })
@@ -242,8 +272,16 @@ export default function AdminSmsPackages() {
         }
     };
 
-    const handleDeletePackage = async (id: string, name: string) => {
-        if (!window.confirm(`Tem certeza que deseja excluir '${name}'?`)) return;
+    const handleDeletePackage = (id: string, name: string) => {
+        setConfirmAction({
+            type: 'delete_package',
+            id,
+            name
+        });
+        setIsConfirmModalOpen(true);
+    };
+
+    const processDeletePackage = async (id: string) => {
         try {
             const { error } = await supabase.from('sms_packages').delete().eq('id', id);
             if (error) throw error;
@@ -253,6 +291,21 @@ export default function AdminSmsPackages() {
             console.error(error);
             toast.error('Erro: Pacote possivelmente em uso.');
         }
+    };
+
+    const handleConfirmAction = async () => {
+        if (!confirmAction) return;
+
+        if (confirmAction.type === 'delete_package') {
+            await processDeletePackage(confirmAction.id);
+        } else if (confirmAction.type === 'approve_order') {
+            await processApproveOrder(confirmAction.id, confirmAction.churchId!, confirmAction.churchName!);
+        } else if (confirmAction.type === 'reject_order') {
+            await processRejectOrder(confirmAction.id, confirmAction.churchId!);
+        }
+
+        setIsConfirmModalOpen(false);
+        setConfirmAction(null);
     };
 
     const openPackageModal = (pkg?: any) => {
@@ -702,5 +755,19 @@ export default function AdminSmsPackages() {
                 </div>
             )}
         </div>
+
+        {isConfirmModalOpen && (
+            <GenericDeleteModal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={handleConfirmAction}
+                itemName={confirmAction?.name || ''}
+                itemType={
+                    confirmAction?.type === 'delete_package' ? 'pacote SMS' :
+                    confirmAction?.type === 'approve_order' ? 'aprovação de pedido' :
+                    'rejeição de pedido'
+                }
+            />
+        )}
     );
 }

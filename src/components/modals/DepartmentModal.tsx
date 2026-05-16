@@ -3,6 +3,7 @@ import Modal from '../Modal';
 import { Department, Member } from '../../types';
 import { DEPARTMENT_ICONS } from '../../data/departmentIcons';
 import { Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface DepartmentModalProps {
     isOpen: boolean;
@@ -45,12 +46,12 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
         e.preventDefault();
 
         if (!name.trim()) {
-            alert('Por favor, insira um nome para o departamento.');
+            toast.warning('Por favor, insira um nome para o departamento.');
             return;
         }
 
         if (!leaderId) {
-            alert('Por favor, selecione um líder.');
+            toast.warning('Por favor, selecione um líder.');
             return;
         }
 

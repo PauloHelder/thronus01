@@ -192,9 +192,17 @@ export interface Service {
   startTime: string;
   theme?: string;
   preacher: string;
+  preacherId?: string;
+  preacherMember?: { id: string; name: string; phone: string };
   substitutePreacher?: string;
+  substitutePreacherId?: string;
+  substitutePreacherMember?: { id: string; name: string; phone: string };
   leader: string;
+  leaderId?: string;
+  leaderMember?: { id: string; name: string; phone: string };
   substituteLeader?: string;
+  substituteLeaderId?: string;
+  substituteLeaderMember?: { id: string; name: string; phone: string };
   location: string;
   description?: string;
   statistics?: {

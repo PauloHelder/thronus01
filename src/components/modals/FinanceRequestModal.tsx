@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, DollarSign, FileText, ClipboardList, Building2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { FinancialCategory } from '../../hooks/useFinance';
 import { Department } from '../../types';
 
@@ -58,7 +59,7 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.department_id) {
-            alert('Por favor, selecione um departamento.');
+            toast.warning('Por favor, selecione um departamento.');
             return;
         }
         setLoading(true);

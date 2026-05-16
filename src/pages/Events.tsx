@@ -6,6 +6,7 @@ import EventModal from '../components/modals/EventModal';
 import { useEvents } from '../hooks/useEvents';
 import { useMembers } from '../hooks/useMembers';
 import { useEventTypes } from '../hooks/useEventTypes';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -18,6 +19,8 @@ const Events: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | undefined>(undefined);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<Event | undefined>(undefined);
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const handleAddEvent = () => {
@@ -31,10 +34,15 @@ const Events: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteEvent = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteEvent = (e: React.MouseEvent, event: Event) => {
     e.stopPropagation();
-    if (window.confirm('Tem certeza que deseja excluir este evento?')) {
-      await deleteEvent(id);
+    setEventToDelete(event);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (eventToDelete) {
+      await deleteEvent(eventToDelete.id);
     }
   };
 
@@ -283,7 +291,7 @@ const Events: React.FC = () => {
                   )}
                   {hasPermission('events_delete') && (
                     <button
-                      onClick={(e) => handleDeleteEvent(e, event.id)}
+                      onClick={(e) => handleDeleteEvent(e, event)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
@@ -302,6 +310,14 @@ const Events: React.FC = () => {
         onSave={handleSaveEvent}
         event={selectedEvent}
         members={members}
+      />
+
+      <GenericDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={eventToDelete?.title}
+        itemType="evento"
       />
     </div>
   );

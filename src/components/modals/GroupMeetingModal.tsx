@@ -3,6 +3,7 @@ import Modal from '../Modal';
 import { GroupMeeting } from '../../hooks/useGroupMeetings';
 import { GroupMember } from '../../hooks/useGroups';
 import { Save, CheckSquare } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface GroupMeetingModalProps {
     isOpen: boolean;
@@ -58,7 +59,7 @@ const GroupMeetingModal: React.FC<GroupMeetingModalProps> = ({
         e.preventDefault();
 
         if (!date) {
-            alert('Por favor, selecione uma data para o encontro');
+            toast.warning('Por favor, selecione uma data para o encontro');
             return;
         }
 

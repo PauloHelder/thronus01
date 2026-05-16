@@ -8,6 +8,7 @@ import EventModal from '../components/modals/EventModal';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useWhatsapp } from '../hooks/useWhatsapp';
 
@@ -21,6 +22,8 @@ const EventDetail: React.FC = () => {
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
     const { isConnected: whatsappConnected } = useWhatsapp();
     const { hasRole, hasPermission } = useAuth();
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
 
     const event = events.find(e => e.id === id);
 
@@ -29,12 +32,17 @@ const EventDetail: React.FC = () => {
         members.find(m => m.id === attendeeId)
     ).filter((m): m is Member => !!m) || [];
 
-    const handleRemoveAttendee = async (attendeeId: string) => {
-        if (!event) return;
-        if (window.confirm('Tem certeza que deseja remover este participante?')) {
-            const newAttendees = event.attendees?.filter(id => id !== attendeeId) || [];
-            await updateEvent(event.id, { attendees: newAttendees });
-        }
+    const handleRemoveAttendee = (attendee: Member) => {
+        setItemToDelete({ id: attendee.id, name: attendee.name });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!event || !itemToDelete) return;
+        const newAttendees = event.attendees?.filter(id => id !== itemToDelete.id) || [];
+        await updateEvent(event.id, { attendees: newAttendees });
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     if (loadingEvents || loadingMembers) {
@@ -241,7 +249,7 @@ const EventDetail: React.FC = () => {
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <button
-                                                onClick={() => handleRemoveAttendee(attendee.id)}
+                                                onClick={() => handleRemoveAttendee(attendee)}
                                                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                 title="Remover"
                                             >
@@ -289,6 +297,7 @@ const EventDetail: React.FC = () => {
                     }))}
                     contextType="event"
                     contextId={id}
+                    defaultMessage={`Olá! Estamos muito animados com o nosso evento "${event.title}" que acontecerá em ${new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR')} às ${event.time}. Prepare o seu coração, será um tempo profético! 🌟🙌`}
                     onSuccess={() => {
                         if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
                         else setActiveTab('sms');
@@ -305,6 +314,14 @@ const EventDetail: React.FC = () => {
                 }}
                 event={event}
                 members={members}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType="participante"
             />
         </div>
     );

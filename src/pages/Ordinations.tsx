@@ -4,6 +4,7 @@ import { useOrdinations } from '../hooks/useOrdinations';
 import { useMembers } from '../hooks/useMembers';
 import { Award, Calendar, User, Users, Plus, Trash2, ChevronRight, Search, Loader2 } from 'lucide-react';
 import OrdinationModal from '../components/modals/OrdinationModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { toast } from 'sonner';
 
 const Ordinations: React.FC = () => {
@@ -12,6 +13,8 @@ const Ordinations: React.FC = () => {
   const { members } = useMembers();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const filteredOrdinations = ordinations.filter(o => 
     o.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -28,12 +31,18 @@ const Ordinations: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = (ord: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Tem certeza que deseja excluir este registro de consagração? (Isso não alterará o cargo atual dos membros)')) {
-      const success = await deleteOrdination(id);
-      if (success) toast.success('Registro excluído com sucesso');
-    }
+    setItemToDelete({ id: ord.id, name: ord.category });
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    const success = await deleteOrdination(itemToDelete.id);
+    if (success) toast.success('Registro excluído com sucesso');
+    setIsDeleteModalOpen(false);
+    setItemToDelete(null);
   };
 
   if (loading) {
@@ -84,7 +93,7 @@ const Ordinations: React.FC = () => {
                   <Award className="text-orange-500" size={24} />
                 </div>
                 <button 
-                  onClick={(e) => handleDelete(ord.id, e)}
+                  onClick={(e) => handleDelete(ord, e)}
                   className="text-slate-300 hover:text-red-500 p-1 transition-colors"
                 >
                   <Trash2 size={18} />
@@ -148,6 +157,14 @@ const Ordinations: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleAddOrdination}
         members={members}
+      />
+
+      <GenericDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={itemToDelete?.name}
+        itemType="registro de consagração"
       />
     </div>
   );

@@ -4,6 +4,8 @@ import { Search, ArrowUpDown, Filter, Edit3, Trash2, Plus, Users, MapPin, Clock 
 import { useGroups, Group } from '../hooks/useGroups';
 import { useMembers } from '../hooks/useMembers';
 import GroupModal from '../components/modals/GroupModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
+import { toast } from 'sonner';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,6 +17,8 @@ const Groups: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | undefined>(undefined);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<Group | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleAddGroup = () => {
@@ -27,9 +31,14 @@ const Groups: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteGroup = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este grupo?')) {
-      await deleteGroup(id);
+  const handleDeleteGroup = (group: Group) => {
+    setGroupToDelete(group);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (groupToDelete) {
+      await deleteGroup(groupToDelete.id);
     }
   };
 
@@ -43,7 +52,7 @@ const Groups: React.FC = () => {
       setIsModalOpen(false);
     } catch (err) {
       console.error('Error saving group:', err);
-      alert('Erro ao salvar grupo');
+      toast.error('Erro ao salvar grupo');
     }
   };
 
@@ -231,7 +240,7 @@ const Groups: React.FC = () => {
                         )}
                         {hasPermission('groups_delete') && (
                           <button
-                            onClick={() => handleDeleteGroup(group.id)}
+                            onClick={() => handleDeleteGroup(group)}
                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Excluir"
                           >
@@ -260,6 +269,14 @@ const Groups: React.FC = () => {
         onSave={handleSaveGroup}
         group={selectedGroup}
         members={members}
+      />
+
+      <GenericDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={groupToDelete?.name}
+        itemType="grupo"
       />
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Member, DepartmentSchedule } from '../../types';
 import { Save, Calendar, CheckSquare } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface CreateScheduleModalProps {
     isOpen: boolean;
@@ -86,17 +87,17 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
         e.preventDefault();
 
         if (type === 'Service' && !serviceId) {
-            alert('Por favor, selecione um culto.');
+            toast.warning('Por favor, selecione um culto.');
             return;
         }
 
         if (type === 'Event' && !eventId) {
-            alert('Por favor, selecione um evento.');
+            toast.warning('Por favor, selecione um evento.');
             return;
         }
 
         if (!date) {
-            alert('Por favor, selecione uma data.');
+            toast.warning('Por favor, selecione uma data.');
             return;
         }
 

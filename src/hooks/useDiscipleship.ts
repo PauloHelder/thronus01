@@ -45,7 +45,7 @@ export const useDiscipleship = () => {
                     id,
                     member_id,
                     start_date,
-                    member:members!inner(id, name, email, avatar_url)
+                    member:members!inner(id, name, email, avatar_url, phone)
                 `)
                 .eq('church_id', user.churchId);
 
@@ -66,7 +66,7 @@ export const useDiscipleship = () => {
                     id,
                     leader_id,
                     start_date,
-                    disciple:members!inner(id, name, email, avatar_url)
+                    disciple:members!inner(id, name, email, avatar_url, phone)
                 `)
                 .in('leader_id', leaderIds)
                 .is('end_date', null); // Only active relationships
@@ -89,6 +89,7 @@ export const useDiscipleship = () => {
                         id: r.disciple.id,
                         name: r.disciple.name,
                         email: r.disciple.email,
+                        phone: r.disciple.phone,
                         avatar_url: r.disciple.avatar_url,
                         relationship_id: r.id,
                         start_date: r.start_date

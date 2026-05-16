@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Member, TeachingLesson } from '../../types';
 import { Save, Calendar, CheckSquare } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AddLessonModalProps {
     isOpen: boolean;
@@ -49,7 +50,7 @@ const AddLessonModal: React.FC<AddLessonModalProps> = ({
         e.preventDefault();
 
         if (!date || !title.trim()) {
-            alert('Por favor, preencha a data e o título da aula.');
+            toast.warning('Por favor, preencha a data e o título da aula.');
             return;
         }
 

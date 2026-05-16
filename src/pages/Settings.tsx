@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import { formatAOA } from '../utils/currency';
 import WhatsappSettingsTab from '../components/tabs/WhatsappSettingsTab';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 
 const ACTIONS = [
     { id: 'view', label: 'Visualizar' },
@@ -39,7 +40,6 @@ const Settings: React.FC = () => {
         { id: 'reports', label: 'Relatórios' },
         { id: 'whatsapp', label: 'WhatsApp (API)' },
         ...(hasRole('superuser') ? [
-            { id: 'communication', label: 'Comunicação (SMS)' },
             { id: 'subscription', label: 'Assinatura e Planos' },
         ] : []),
     ];
@@ -63,6 +63,8 @@ const Settings: React.FC = () => {
     const { accounts, addAccount, updateAccount, deleteAccount, categories, addCategory, deleteCategory } = useFinance();
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState<any>(undefined);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: string } | null>(null);
     const [activeTab, setActiveTab] = useState('general');
 
     const handleSaveAccount = async (data: any) => {
@@ -226,7 +228,7 @@ const Settings: React.FC = () => {
         const roleKey = newSystemRoleName.trim().toLowerCase().replace(/\s+/g, '_');
 
         if (['admin', 'leader', 'member'].includes(roleKey) || customSystemRoles.includes(roleKey)) {
-            alert('Este perfil já existe.');
+            toast.warning('Este perfil já existe.');
             return;
         }
 
@@ -239,13 +241,43 @@ const Settings: React.FC = () => {
         setSelectedRole(roleKey);
     };
 
-    const handleDeleteSystemRole = async (roleToDelete: string) => {
-        if (window.confirm(`Tem certeza que deseja excluir o perfil?`)) {
-            const updatedRoles = customSystemRoles.filter(r => r !== roleToDelete);
-            setCustomSystemRoles(updatedRoles);
-            await updateChurchSettings('custom_system_roles', updatedRoles);
-            if (selectedRole === roleToDelete) setSelectedRole('leader');
+    const handleDeleteSystemRole = (roleToDelete: string) => {
+        setItemToDelete({ id: roleToDelete, name: formatRoleName(roleToDelete), type: 'system_role' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
+
+        try {
+            switch (itemToDelete.type) {
+                case 'account':
+                    await deleteAccount(itemToDelete.id);
+                    break;
+                case 'category':
+                    await deleteCategory(itemToDelete.id);
+                    break;
+                case 'stage':
+                    await deleteStage(itemToDelete.id);
+                    break;
+                case 'teaching_category':
+                    await deleteTeachingCategoryFunc(itemToDelete.id);
+                    break;
+                case 'system_role':
+                    const updatedRoles = customSystemRoles.filter(r => r !== itemToDelete.id);
+                    setCustomSystemRoles(updatedRoles);
+                    await updateChurchSettings('custom_system_roles', updatedRoles);
+                    if (selectedRole === itemToDelete.id) setSelectedRole('leader');
+                    break;
+            }
+            toast.success('Excluído com sucesso!');
+        } catch (err) {
+            console.error('Error deleting item:', err);
+            toast.error('Erro ao excluir item.');
         }
+
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     // Helper to format role name
@@ -566,7 +598,10 @@ const Settings: React.FC = () => {
                                             <button onClick={() => openEditAccountModal(account)} className="p-1 text-blue-600 hover:bg-blue-100 rounded">
                                                 <Pencil size={14} />
                                             </button>
-                                            <button onClick={() => deleteAccount(account.id)} className="p-1 text-red-600 hover:bg-red-100 rounded">
+                                            <button onClick={() => {
+                                                setItemToDelete({ id: account.id, name: account.name, type: 'account' });
+                                                setIsDeleteModalOpen(true);
+                                            }} className="p-1 text-red-600 hover:bg-red-100 rounded">
                                                 <Trash2 size={14} />
                                             </button>
                                         </div>
@@ -635,7 +670,10 @@ const Settings: React.FC = () => {
                                         <div key={category.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 group">
                                             <span className="text-slate-700">{category.name}</span>
                                             <button
-                                                onClick={() => deleteCategory(category.id)}
+                                                onClick={() => {
+                                                    setItemToDelete({ id: category.id, name: category.name, type: 'category' });
+                                                    setIsDeleteModalOpen(true);
+                                                }}
                                                 className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <Trash2 size={16} />
@@ -651,7 +689,10 @@ const Settings: React.FC = () => {
                                         <div key={category.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100 group">
                                             <span className="text-slate-700">{category.name}</span>
                                             <button
-                                                onClick={() => deleteCategory(category.id)}
+                                                onClick={() => {
+                                                    setItemToDelete({ id: category.id, name: category.name, type: 'category' });
+                                                    setIsDeleteModalOpen(true);
+                                                }}
                                                 className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <Trash2 size={16} />
@@ -702,7 +743,10 @@ const Settings: React.FC = () => {
                                         <span className="font-medium text-slate-700">{stage.name}</span>
                                     </div>
                                     <button
-                                        onClick={() => deleteStage(stage.id)}
+                                        onClick={() => {
+                                            setItemToDelete({ id: stage.id, name: stage.name, type: 'stage' });
+                                            setIsDeleteModalOpen(true);
+                                        }}
                                         className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                         <Trash2 size={16} />
@@ -745,7 +789,10 @@ const Settings: React.FC = () => {
                                         <span className="font-medium text-slate-700">{cat.name}</span>
                                     </div>
                                     <button
-                                        onClick={() => deleteTeachingCategoryFunc(cat.id)}
+                                        onClick={() => {
+                                            setItemToDelete({ id: cat.id, name: cat.name, type: 'teaching_category' });
+                                            setIsDeleteModalOpen(true);
+                                        }}
                                         className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                         <Trash2 size={16} />
@@ -933,6 +980,20 @@ const Settings: React.FC = () => {
                 onClose={() => setIsAccountModalOpen(false)}
                 onSave={handleSaveAccount}
                 account={editingAccount}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType={
+                    itemToDelete?.type === 'account' ? 'conta financeira' :
+                    itemToDelete?.type === 'category' ? 'categoria financeira' :
+                    itemToDelete?.type === 'stage' ? 'estágio de crescimento' :
+                    itemToDelete?.type === 'teaching_category' ? 'categoria de ensino' :
+                    'perfil de usuário'
+                }
             />
         </div >
     );

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Modal from '../Modal';
 import { Event, Member } from '../../types';
 import { CheckSquare, Camera, X, Image as ImageIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface EventModalProps {
     isOpen: boolean;
@@ -68,11 +69,11 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event,
         const file = e.target.files?.[0];
         if (file) {
             if (!file.type.startsWith('image/')) {
-                alert('Por favor, selecione apenas arquivos de imagem.');
+                toast.warning('Por favor, selecione apenas arquivos de imagem.');
                 return;
             }
             if (file.size > 5 * 1024 * 1024) { // 5MB limit
-                alert('A imagem deve ter no máximo 5MB.');
+                toast.warning('A imagem deve ter no máximo 5MB.');
                 return;
             }
 

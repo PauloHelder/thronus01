@@ -1,13 +1,16 @@
 import React, { useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Printer, Calendar, DollarSign, FileText, Hash, User, Building, CheckCircle, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Download, Printer, Calendar, DollarSign, FileText, Hash, User, Building, CheckCircle, MessageSquare, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { Transaction, Member } from '../types';
 import { MOCK_CATEGORIES } from '../mocks/finance';
 import { MOCK_MEMBERS } from '../mocks/members';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
+import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { formatAOA } from '../utils/currency';
 import { useAuth } from '../contexts/AuthContext';
+import { useWhatsapp } from '../hooks/useWhatsapp';
 
 // Mock transaction (idealmente viria de um contexto ou API)
 const MOCK_TRANSACTION: Transaction = {
@@ -27,9 +30,10 @@ const TransactionDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const printRef = useRef<HTMLDivElement>(null);
-    const [activeTab, setActiveTab] = React.useState<'receipt' | 'sms'>('receipt');
-    const [isSmsModalOpen, setIsSmsModalOpen] = React.useState(false);
-    const { hasRole } = useAuth();
+    const { isConnected: whatsappConnected } = useWhatsapp();
+    const [activeTab, setActiveTab] = React.useState<'receipt' | 'sms' | 'whatsapp'>('receipt');
+    const [isCommunicationModalOpen, setIsCommunicationModalOpen] = React.useState(false);
+    const { hasRole, hasPermission } = useAuth();
 
     // Simular busca da transação
     const transaction = MOCK_TRANSACTION;
@@ -51,7 +55,7 @@ const TransactionDetail: React.FC = () => {
 
     const handleDownloadPDF = () => {
         // Implementação futura com biblioteca como jsPDF ou html2pdf
-        alert('Funcionalidade de download PDF será implementada em breve!');
+        toast.info('Funcionalidade de download PDF será implementada em breve!');
     };
 
     return (
@@ -70,6 +74,7 @@ const TransactionDetail: React.FC = () => {
                     <div className="flex overflow-x-auto no-scrollbar gap-6 mb-4">
                         {[
                             { id: 'receipt', label: 'Comprovante', icon: <FileText size={18} /> },
+                            ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
                             ...(hasRole('superuser') ? [{ id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> }] : []),
                         ].map((tab) => (
                             <button
@@ -101,13 +106,22 @@ const TransactionDetail: React.FC = () => {
                                 <Printer size={18} />
                                 Imprimir
                             </button>
+                            {hasPermission('whatsapp_send') && whatsappConnected && (
+                                <button
+                                    onClick={() => setIsCommunicationModalOpen(true)}
+                                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
+                                >
+                                    <MessageCircle size={18} />
+                                    WhatsApp
+                                </button>
+                            )}
                             {hasRole('superuser') && (
                                 <button
-                                    onClick={() => setIsSmsModalOpen(true)}
+                                    onClick={() => setIsCommunicationModalOpen(true)}
                                     className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm hover:shadow"
                                 >
                                     <MessageSquare size={18} />
-                                    Notificar
+                                    Notificar SMS
                                 </button>
                             )}
                             <button
@@ -276,6 +290,14 @@ const TransactionDetail: React.FC = () => {
                 </div>
             )}
 
+            {activeTab === 'whatsapp' && (
+                <div className="max-w-4xl mx-auto p-4 lg:p-8">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-8">
+                        <WhatsappHistoryTab contextType="finance" contextId={id || ''} />
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'sms' && (
                 <div className="max-w-4xl mx-auto p-4 lg:p-8">
                     <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-8">
@@ -286,8 +308,8 @@ const TransactionDetail: React.FC = () => {
 
             {id && (
                 <CommunicationModal
-                    isOpen={isSmsModalOpen}
-                    onClose={() => setIsSmsModalOpen(false)}
+                    isOpen={isCommunicationModalOpen}
+                    onClose={() => setIsCommunicationModalOpen(false)}
                     recipients={transaction.source === 'Member' && transaction.sourceId ? 
                         MOCK_MEMBERS.filter(m => m.id === transaction.sourceId).map(m => ({ 
                             id: m.id, 
@@ -296,7 +318,10 @@ const TransactionDetail: React.FC = () => {
                         })) : []}
                     contextType="finance"
                     contextId={id}
-                    onSuccess={() => setActiveTab('sms')}
+                    onSuccess={() => {
+                        if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');
+                        else setActiveTab('sms');
+                    }}
                 />
             )}
 

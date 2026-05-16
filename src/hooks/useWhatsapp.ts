@@ -141,26 +141,43 @@ export function useWhatsapp() {
 
             for (const phone of phones) {
                 try {
+                    // Limpar o número (manter apenas dígitos)
+                    const cleanPhone = phone.replace(/\D/g, '');
+                    const whatsappId = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
+                    
                     const res = await fetch(endpoint, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
+                            "Accept": "application/json",
                             "apikey": config.api_key
                         },
                         body: JSON.stringify({
-                            number: phone,
-                            text: message
+                            number: whatsappId,
+                            text: message,
+                            delay: 1200,
+                            linkPreview: false
                         })
                     });
                     
                     const data = await res.json();
                     const success = res.ok;
                     
-                    if (success) deliveredCount++;
-                    else failedCount++;
+                    if (success) {
+                        console.log(`Mensagem enviada com sucesso para ${phone}:`, data);
+                        deliveredCount++;
+                    } else {
+                        console.error(`Erro da Evolution API para ${phone}:`, data);
+                        // Tentar extrair a mensagem de erro de vários locais possíveis
+                        const errorMsg = data.message || data.error || data.status || 'Erro desconhecido na API';
+                        toast.error(`Erro na API (${phone}): ${errorMsg}`);
+                        failedCount++;
+                    }
                     
                     results.push({ phone, success, response: data });
                 } catch (e: any) {
+                    console.error(`Excepção de rede ao enviar para ${phone}:`, e);
+                    toast.error(`Erro de Rede: ${e.message}`);
                     failedCount++;
                     results.push({ phone, success: false, error: e.message });
                 }

@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import { formatAOA } from '../utils/currency';
 import { toast } from 'sonner';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 
 const Finances: React.FC = () => {
     const navigate = useNavigate();
@@ -34,6 +35,8 @@ const Finances: React.FC = () => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [showFilters, setShowFilters] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
 
@@ -90,11 +93,17 @@ const Finances: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDeleteTransaction = async (id: string) => {
-        if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
-            await deleteTransaction(id);
-            toast.success('Transação excluída com sucesso!');
-        }
+    const handleDeleteTransaction = (tx: FinancialTransaction) => {
+        setItemToDelete({ id: tx.id, name: tx.description || 'Transação sem descrição' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
+        await deleteTransaction(itemToDelete.id);
+        toast.success('Transação excluída com sucesso!');
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     const getCategoryName = (id?: string) => {
@@ -486,7 +495,7 @@ const Finances: React.FC = () => {
                                             Editar
                                         </button>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tx.id); }}
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tx); }}
                                             className="text-red-600 hover:text-red-800 text-sm font-medium"
                                         >
                                             Excluir
@@ -593,6 +602,14 @@ const Finances: React.FC = () => {
                 transaction={selectedTransaction || undefined}
                 categories={categories}
                 accounts={accounts}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name}
+                itemType="transação financeira"
             />
         </div>
     );

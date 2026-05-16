@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import EditChurchModal from '../../components/modals/EditChurchModal';
 import { toast } from 'sonner';
+import GenericDeleteModal from '../../components/modals/GenericDeleteModal';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -107,6 +108,7 @@ const AdminChurchDetail: React.FC = () => {
     const [church, setChurch] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     useEffect(() => {
         if (id) fetchChurch();
@@ -133,7 +135,6 @@ const AdminChurchDetail: React.FC = () => {
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Tem certeza que deseja excluir esta igreja? Esta ação não pode ser desfeita.')) return;
         try {
             const { error } = await supabase.from('churches').delete().eq('id', id!);
             if (error) throw error;
@@ -142,6 +143,7 @@ const AdminChurchDetail: React.FC = () => {
         } catch (err) {
             toast.error('Erro ao excluir a igreja.');
         }
+        setIsDeleteModalOpen(false);
     };
 
     if (loading) {
@@ -218,7 +220,7 @@ const AdminChurchDetail: React.FC = () => {
                                 Editar
                             </button>
                             <button
-                                onClick={handleDelete}
+                                onClick={() => setIsDeleteModalOpen(true)}
                                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 rounded-lg transition-all"
                                 title="Excluir Igreja"
                             >
@@ -345,6 +347,14 @@ const AdminChurchDetail: React.FC = () => {
                 onClose={() => setIsEditOpen(false)}
                 church={church}
                 onUpdate={fetchChurch}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleDelete}
+                itemName={church?.name || ''}
+                itemType="igreja"
             />
         </div>
     );

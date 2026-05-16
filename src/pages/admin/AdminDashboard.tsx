@@ -5,10 +5,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Building, Users, CreditCard, Activity, Search, Trash2, Edit, Shield, Plus, Book, Save, X, Clock, CheckCircle, XCircle, AlertTriangle, ChevronRight, TrendingUp, TrendingDown, MessageSquare } from 'lucide-react';
 import EditChurchModal from '../../components/modals/EditChurchModal';
 import PlanModal from '../../components/modals/PlanModal';
-import AdminSmsPackages from '../../components/admin/AdminSmsPackages';
 import { useDenominations } from '../../hooks/useDenominations';
 import { toast } from 'sonner';
 import { formatAOA } from '../../utils/currency';
+import GenericDeleteModal from '../../components/modals/GenericDeleteModal';
 
 const getDaysRemaining = (endDate: string | null | undefined): number | null => {
     if (!endDate) return null;
@@ -61,6 +61,8 @@ const AdminDashboard: React.FC = () => {
     const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
     const [plans, setPlans] = useState<any[]>([]);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'church' | 'plan' | 'denomination' } | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -142,18 +144,46 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
-    const handleDeleteChurch = async (id: string) => {
-        if (!window.confirm('Tem certeza que deseja excluir esta igreja? Esta ação não pode ser desfeita.')) return;
+    const handleDeleteChurch = (id: string, name: string) => {
+        setItemToDelete({ id, name, type: 'church' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeletePlan = (id: string, name: string) => {
+        setItemToDelete({ id, name, type: 'plan' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteDenomination = (id: string, name: string) => {
+        setItemToDelete({ id, name, type: 'denomination' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
 
         try {
-            const { error } = await supabase.from('churches').delete().eq('id', id);
-            if (error) throw error;
-            setChurches(churches.filter(c => c.id !== id));
-            toast.success('Igreja excluída com sucesso.');
+            if (itemToDelete.type === 'church') {
+                const { error } = await supabase.from('churches').delete().eq('id', itemToDelete.id);
+                if (error) throw error;
+                setChurches(churches.filter(c => c.id !== itemToDelete.id));
+                toast.success('Igreja excluída com sucesso.');
+            } else if (itemToDelete.type === 'plan') {
+                const { error } = await supabase.from('plans').delete().eq('id', itemToDelete.id);
+                if (error) throw error;
+                setPlans(plans.filter(p => p.id !== itemToDelete.id));
+                toast.success('Plano excluído com sucesso.');
+            } else if (itemToDelete.type === 'denomination') {
+                await deleteDenomination(itemToDelete.id);
+                toast.success('Denominação excluída com sucesso.');
+            }
         } catch (error) {
-            console.error('Error deleting church:', error);
-            toast.error('Erro ao excluir igreja.');
+            console.error('Error deleting:', error);
+            toast.error('Erro ao excluir item.');
         }
+
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     const handleEditChurch = (church: any) => {
@@ -176,18 +206,6 @@ const AdminDashboard: React.FC = () => {
         setIsPlanModalOpen(true);
     };
 
-    const handleDeletePlan = async (id: string) => {
-        if (!window.confirm('Tem certeza que deseja excluir este plano?')) return;
-        try {
-            const { error } = await supabase.from('plans').delete().eq('id', id);
-            if (error) throw error;
-            setPlans(plans.filter(p => p.id !== id));
-            toast.success('Plano excluído com sucesso.');
-        } catch (error) {
-            console.error('Error deleting plan:', error);
-            toast.error('Erro ao excluir plano.');
-        }
-    };
 
     const handleUpdatePlan = () => {
         fetchData();
@@ -348,11 +366,6 @@ const AdminDashboard: React.FC = () => {
 
 
                 {/* Outras Tabs */}
-                {activeTab === 'sms-packages' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <AdminSmsPackages />
-                    </div>
-                )}
                 
                 {/* Content */}
                 {activeTab === 'churches' && (
@@ -449,7 +462,7 @@ const AdminDashboard: React.FC = () => {
                                                             <Edit size={16} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteChurch(church.id)}
+                                                            onClick={() => handleDeleteChurch(church.id, church.name)}
                                                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                             title="Excluir Igreja"
                                                         >
@@ -520,10 +533,6 @@ const AdminDashboard: React.FC = () => {
                                             <Building size={16} className="text-slate-400" />
                                             <span>{plan.features?.maxGroups || 0} Células</span>
                                         </div>
-                                        <div className="flex items-center gap-2 text-sm text-orange-600 font-bold">
-                                            <MessageSquare size={16} className="text-orange-400" />
-                                            <span>{plan.features?.smsBonus || 0} SMS Bónus</span>
-                                        </div>
                                         <div className="pt-4 flex items-center gap-2">
                                             <button
                                                 onClick={() => handleEditPlan(plan)}
@@ -532,7 +541,7 @@ const AdminDashboard: React.FC = () => {
                                                 Editar
                                             </button>
                                             <button
-                                                onClick={() => handleDeletePlan(plan.id)}
+                                                onClick={() => handleDeletePlan(plan.id, plan.name)}
                                                 className="px-3 py-2 bg-white border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors"
                                                 title="Excluir"
                                             >
@@ -651,11 +660,7 @@ const AdminDashboard: React.FC = () => {
                                                             <Edit size={16} />
                                                         </button>
                                                         <button
-                                                            onClick={() => {
-                                                                if (window.confirm('Tem certeza que deseja excluir esta denominação?')) {
-                                                                    deleteDenomination(den.id);
-                                                                }
-                                                            }}
+                                                            onClick={() => handleDeleteDenomination(den.id, den.name)}
                                                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                             title="Excluir"
                                                         >
@@ -776,6 +781,18 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name || ''}
+                itemType={
+                    itemToDelete?.type === 'church' ? 'igreja' :
+                    itemToDelete?.type === 'plan' ? 'plano' :
+                    'denominação'
+                }
+            />
 
             <EditChurchModal
                 isOpen={isEditModalOpen}

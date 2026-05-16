@@ -139,8 +139,7 @@ const Sidebar: React.FC = () => {
         { to: "/admin?tab=dashboard", icon: LayoutDashboard, label: "Painel Super Admin" },
         { to: "/admin?tab=churches", icon: Building, label: "Igrejas Cadastradas" },
         { to: "/admin?tab=plans", icon: CreditCard, label: "Gerenciar Planos" },
-        { to: "/admin?tab=denominations", icon: BookOpenCheck, label: "Denominações" },
-        { to: "/admin?tab=sms-packages", icon: MessageSquare, label: "Pacotes de SMS" },
+        {to: "/admin?tab=denominations", icon: BookOpenCheck, label: "Denominações" },
         { to: "/users", icon: Users, label: "Usuários" }
       );
     }
@@ -165,8 +164,7 @@ const Sidebar: React.FC = () => {
     // Subscription & Store - ONLY FOR SUPERUSER
     if (hasRole('superuser')) {
       items.push(
-        { to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' },
-        { to: "/sms-store", icon: MessageSquare, label: "Comprar SMS", permission: 'subscription_edit' }
+        {to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' }
       );
     }
 

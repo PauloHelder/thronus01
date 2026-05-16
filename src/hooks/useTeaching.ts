@@ -117,7 +117,7 @@ export const useTeaching = () => {
                     teacher:members!teacher_id(id, name, avatar_url),
                     stage:christian_stages(id, name),
                     category:teaching_categories(id, name),
-                    students:teaching_class_students(member:members(id, name, avatar_url)),
+                    students:teaching_class_students(member:members(id, name, avatar_url, phone)),
                     lessons:teaching_lessons(id)
                 `)
                 .eq('church_id', user.churchId)
@@ -142,7 +142,8 @@ export const useTeaching = () => {
                 students: d.students?.map((s: any) => ({
                     id: s.member.id,
                     name: s.member.name,
-                    avatar: s.member.avatar_url
+                    avatar: s.member.avatar_url,
+                    phone: s.member.phone
                 })) || [],
                 lessons: d.lessons || []
             }));
@@ -339,7 +340,7 @@ export const useTeaching = () => {
                     teacher:members!teacher_id(id, name, email, phone, avatar_url),
                     stage:christian_stages(name),
                     category:teaching_categories(name),
-                    students:teaching_class_students(member:members(id, name, email, avatar_url)),
+                    students:teaching_class_students(member:members(id, name, email, phone, avatar_url)),
                     lessons:teaching_lessons(
                         id, date, title, notes,
                         attendance:teaching_lesson_attendance(member_id)
@@ -368,7 +369,8 @@ export const useTeaching = () => {
                     id: s.member.id,
                     name: s.member.name,
                     email: s.member.email,
-                    avatar: s.member.avatar_url
+                    avatar: s.member.avatar_url,
+                    phone: s.member.phone
                 })) || [],
                 lessons: data.lessons?.map((l: any) => ({
                     id: l.id,

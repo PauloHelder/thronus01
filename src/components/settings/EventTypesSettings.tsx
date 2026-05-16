@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Tag, Calendar, Save, X } from 'lucide-react';
 import { useEventTypes, EventType } from '../../hooks/useEventTypes';
+import GenericDeleteModal from '../modals/GenericDeleteModal';
 
 const EventTypesSettings: React.FC = () => {
     const { eventTypes, loading, addEventType, deleteEventType } = useEventTypes();
     const [newName, setNewName] = useState('');
     const [newColor, setNewColor] = useState('bg-gray-100 text-gray-700');
     const [error, setError] = useState<string | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
 
     const colors = [
         { label: 'Azul', value: 'bg-blue-100 text-blue-700' },
@@ -34,10 +37,16 @@ const EventTypesSettings: React.FC = () => {
         }
     };
 
-    const handleDelete = async (id: string, name: string) => {
-        if (window.confirm(`Tem certeza que deseja excluir o tipo "${name}"?`)) {
-            await deleteEventType(id, name);
-        }
+    const handleDelete = (id: string, name: string) => {
+        setItemToDelete({ id, name });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
+        await deleteEventType(itemToDelete.id, itemToDelete.name);
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     };
 
     return (
@@ -132,6 +141,14 @@ const EventTypesSettings: React.FC = () => {
                     ))
                 )}
             </div>
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                itemName={itemToDelete?.name || ''}
+                itemType="tipo de evento"
+            />
         </div>
     );
 };

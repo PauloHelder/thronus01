@@ -24,7 +24,11 @@ export function useServices() {
                 .from('services')
                 .select(`
                     *,
-                    service_type:service_type_id(id, name)
+                    service_type:service_type_id(id, name),
+                    preacher_member:preacher_id(id, name, phone),
+                    sub_preacher_member:substitute_preacher_id(id, name, phone),
+                    leader_member:leader_id(id, name, phone),
+                    sub_leader_member:substitute_leader_id(id, name, phone)
                 `)
                 .eq('church_id', churchId)
                 .is('deleted_at', null)
@@ -42,10 +46,18 @@ export function useServices() {
                 date: dbService.date,
                 startTime: dbService.start_time,
                 theme: dbService.theme || '',
-                preacher: dbService.preacher_name || '',
-                substitutePreacher: dbService.substitute_preacher_name || '',
-                leader: dbService.leader_name || '',
-                substituteLeader: dbService.substitute_leader_name || '',
+                preacher: dbService.preacher_member?.name || dbService.preacher_name || '',
+                preacherId: dbService.preacher_id,
+                preacherMember: dbService.preacher_member,
+                substitutePreacher: dbService.sub_preacher_member?.name || dbService.substitute_preacher_name || '',
+                substitutePreacherId: dbService.substitute_preacher_id,
+                substitutePreacherMember: dbService.sub_preacher_member,
+                leader: dbService.leader_member?.name || dbService.leader_name || '',
+                leaderId: dbService.leader_id,
+                leaderMember: dbService.leader_member,
+                substituteLeader: dbService.sub_leader_member?.name || dbService.substitute_leader_name || '',
+                substituteLeaderId: dbService.substitute_leader_id,
+                substituteLeaderMember: dbService.sub_leader_member,
                 location: dbService.location || '',
                 description: dbService.description || '',
                 statistics: {
@@ -94,9 +106,13 @@ export function useServices() {
                 start_time: service.startTime,
                 theme: service.theme || null,
                 preacher_name: service.preacher || null,
+                preacher_id: service.preacherId || null,
                 substitute_preacher_name: service.substitutePreacher || null,
+                substitute_preacher_id: service.substitutePreacherId || null,
                 leader_name: service.leader || null,
+                leader_id: service.leaderId || null,
                 substitute_leader_name: service.substituteLeader || null,
+                substitute_leader_id: service.substituteLeaderId || null,
                 location: service.location || null,
                 description: service.description || null,
                 stats_adults_men: service.statistics?.adults.men || 0,
@@ -125,7 +141,11 @@ export function useServices() {
                 .from('services')
                 .select(`
                     *,
-                    service_types!inner(name)
+                    service_types!inner(name),
+                    preacher_member:preacher_id(id, name, phone),
+                    sub_preacher_member:substitute_preacher_id(id, name, phone),
+                    leader_member:leader_id(id, name, phone),
+                    sub_leader_member:substitute_leader_id(id, name, phone)
                 `)
                 .eq('church_id', churchId)
                 .order('created_at', { ascending: false })
@@ -152,10 +172,18 @@ export function useServices() {
                 date: insertedData.date,
                 startTime: insertedData.start_time,
                 theme: insertedData.theme || '',
-                preacher: insertedData.preacher_name || '',
-                substitutePreacher: insertedData.substitute_preacher_name || '',
-                leader: insertedData.leader_name || '',
-                substituteLeader: insertedData.substitute_leader_name || '',
+                preacher: insertedData.preacher_member?.name || insertedData.preacher_name || '',
+                preacherId: insertedData.preacher_id,
+                preacherMember: insertedData.preacher_member,
+                substitutePreacher: insertedData.sub_preacher_member?.name || insertedData.substitute_preacher_name || '',
+                substitutePreacherId: insertedData.substitute_preacher_id,
+                substitutePreacherMember: insertedData.sub_preacher_member,
+                leader: insertedData.leader_member?.name || insertedData.leader_name || '',
+                leaderId: insertedData.leader_id,
+                leaderMember: insertedData.leader_member,
+                substituteLeader: insertedData.sub_leader_member?.name || insertedData.substitute_leader_name || '',
+                substituteLeaderId: insertedData.substitute_leader_id,
+                substituteLeaderMember: insertedData.sub_leader_member,
                 location: insertedData.location || '',
                 description: insertedData.description || '',
                 statistics: {
@@ -200,9 +228,13 @@ export function useServices() {
             if (service.location !== undefined) dbService.location = service.location || null;
             if (service.description !== undefined) dbService.description = service.description || null;
             if (service.preacher !== undefined) dbService.preacher_name = service.preacher || null;
+            if (service.preacherId !== undefined) dbService.preacher_id = service.preacherId || null;
             if (service.substitutePreacher !== undefined) dbService.substitute_preacher_name = service.substitutePreacher || null;
+            if (service.substitutePreacherId !== undefined) dbService.substitute_preacher_id = service.substitutePreacherId || null;
             if (service.leader !== undefined) dbService.leader_name = service.leader || null;
+            if (service.leaderId !== undefined) dbService.leader_id = service.leaderId || null;
             if (service.substituteLeader !== undefined) dbService.substitute_leader_name = service.substituteLeader || null;
+            if (service.substituteLeaderId !== undefined) dbService.substitute_leader_id = service.substituteLeaderId || null;
 
             if (service.statistics) {
                 dbService.stats_adults_men = service.statistics.adults.men || 0;
@@ -232,7 +264,11 @@ export function useServices() {
                 .from('services')
                 .select(`
                     *,
-                    service_types!inner(name)
+                    service_types!inner(name),
+                    preacher_member:preacher_id(id, name, phone),
+                    sub_preacher_member:substitute_preacher_id(id, name, phone),
+                    leader_member:leader_id(id, name, phone),
+                    sub_leader_member:substitute_leader_id(id, name, phone)
                 `)
                 .eq('id', id)
                 .is('deleted_at', null);
@@ -258,10 +294,18 @@ export function useServices() {
                 date: updatedData.date,
                 startTime: updatedData.start_time,
                 theme: updatedData.theme || '',
-                preacher: updatedData.preacher_name || '',
-                substitutePreacher: updatedData.substitute_preacher_name || '',
-                leader: updatedData.leader_name || '',
-                substituteLeader: updatedData.substitute_leader_name || '',
+                preacher: updatedData.preacher_member?.name || updatedData.preacher_name || '',
+                preacherId: updatedData.preacher_id,
+                preacherMember: updatedData.preacher_member,
+                substitutePreacher: updatedData.sub_preacher_member?.name || updatedData.substitute_preacher_name || '',
+                substitutePreacherId: updatedData.substitute_preacher_id,
+                substitutePreacherMember: updatedData.sub_preacher_member,
+                leader: updatedData.leader_member?.name || updatedData.leader_name || '',
+                leaderId: updatedData.leader_id,
+                leaderMember: updatedData.leader_member,
+                substituteLeader: updatedData.sub_leader_member?.name || updatedData.substitute_leader_name || '',
+                substituteLeaderId: updatedData.substitute_leader_id,
+                substituteLeaderMember: updatedData.sub_leader_member,
                 location: updatedData.location || '',
                 description: updatedData.description || '',
                 statistics: {
@@ -317,7 +361,11 @@ export function useServices() {
                 .from('services')
                 .select(`
                     *,
-                    service_type:service_type_id(id, name)
+                    service_type:service_type_id(id, name),
+                    preacher_member:preacher_id(id, name, phone),
+                    sub_preacher_member:substitute_preacher_id(id, name, phone),
+                    leader_member:leader_id(id, name, phone),
+                    sub_leader_member:substitute_leader_id(id, name, phone)
                 `)
                 .eq('id', id)
                 .is('deleted_at', null)
@@ -336,10 +384,18 @@ export function useServices() {
                 date: serviceData.date,
                 startTime: serviceData.start_time,
                 theme: serviceData.theme || '',
-                preacher: serviceData.preacher_name || '',
-                substitutePreacher: serviceData.substitute_preacher_name || '',
-                leader: serviceData.leader_name || '',
-                substituteLeader: serviceData.substitute_leader_name || '',
+                preacher: serviceData.preacher_member?.name || serviceData.preacher_name || '',
+                preacherId: serviceData.preacher_id,
+                preacherMember: serviceData.preacher_member,
+                substitutePreacher: serviceData.sub_preacher_member?.name || serviceData.substitute_preacher_name || '',
+                substitutePreacherId: serviceData.substitute_preacher_id,
+                substitutePreacherMember: serviceData.sub_preacher_member,
+                leader: serviceData.leader_member?.name || serviceData.leader_name || '',
+                leaderId: serviceData.leader_id,
+                leaderMember: serviceData.leader_member,
+                substituteLeader: serviceData.sub_leader_member?.name || serviceData.substitute_leader_name || '',
+                substituteLeaderId: serviceData.substitute_leader_id,
+                substituteLeaderMember: serviceData.sub_leader_member,
                 location: serviceData.location || '',
                 description: serviceData.description || '',
                 statistics: {
