@@ -142,6 +142,23 @@ const Assets = () => {
         setItemToDelete(null);
     };
 
+    const handleSaveAsset = async (data: any) => {
+        if (selectedAsset) {
+            const success = await updateAsset(selectedAsset.id, data);
+            if (success) {
+                setIsAssetModalOpen(false);
+                setSelectedAsset(null);
+            }
+            return success;
+        } else {
+            const success = await addAsset(data);
+            if (success) {
+                setIsAssetModalOpen(false);
+            }
+            return success;
+        }
+    };
+
     const handleSaveCategory = async (name: string, description?: string, usefulLife?: number) => {
         return await addCategory(name, description, usefulLife);
     };
