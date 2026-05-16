@@ -69,11 +69,11 @@ const Dashboard: React.FC = () => {
         eventsResult,
         classesResult,
       ] = await Promise.all([
-        supabase.from('members').select('id, name, status, created_at, birth_date, avatar_url').is('deleted_at', null),
-        supabase.from('groups').select('id, status').is('deleted_at', null),
-        supabase.from('departments').select('id'),
-        supabase.from('events').select('id, title, date, start_time, type').gte('date', new Date().toISOString().split('T')[0]).order('date', { ascending: true }).limit(5),
-        supabase.from('teaching_classes').select('id, name, status, students:teaching_class_students(member_id)').is('deleted_at', null),
+        (supabase.from('members') as any).select('id, name, status, created_at, birth_date, avatar_url').is('deleted_at', null),
+        (supabase.from('groups') as any).select('id, status').is('deleted_at', null),
+        (supabase.from('departments') as any).select('id'),
+        (supabase.from('events') as any).select('id, title, date, start_time, type').gte('date', new Date().toISOString().split('T')[0]).order('date', { ascending: true }).limit(5),
+        (supabase.from('teaching_classes') as any).select('id, name, status, students:teaching_class_students(member_id)').is('deleted_at', null),
       ]);
 
       // Calcular estatísticas
@@ -165,8 +165,8 @@ const Dashboard: React.FC = () => {
 
     try {
       // Membros recentes
-      const { data: recentMembers } = await supabase
-        .from('members')
+      const { data: recentMembers } = await (supabase
+        .from('members') as any)
         .select('name, created_at')
         .order('created_at', { ascending: false })
         .limit(3);
@@ -183,8 +183,8 @@ const Dashboard: React.FC = () => {
       });
 
       // Eventos recentes
-      const { data: recentEvents } = await supabase
-        .from('events')
+      const { data: recentEvents } = await (supabase
+        .from('events') as any)
         .select('title, created_at')
         .order('created_at', { ascending: false })
         .limit(2);
@@ -255,7 +255,7 @@ const Dashboard: React.FC = () => {
 
   const handleSaveMember = async (member: Omit<Member, 'id'> | Member) => {
     try {
-      const { error } = await supabase.from('members').insert({
+      const { error } = await (supabase.from('members') as any).insert({
         name: member.name,
         email: member.email,
         phone: member.phone,

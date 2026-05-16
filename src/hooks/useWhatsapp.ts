@@ -27,8 +27,7 @@ export function useWhatsapp() {
     const fetchConfig = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('church_whatsapp_config')
+            const { data, error } = await (supabase.from('church_whatsapp_config') as any)
                 .select('*')
                 .eq('church_id', user?.churchId)
                 .single();
@@ -43,8 +42,8 @@ export function useWhatsapp() {
                     
                     // Se houver discrepância, atualizar is_active no banco
                     if (data.is_active !== result.success) {
-                        await supabase
-                            .from('church_whatsapp_config')
+                        await (supabase
+                            .from('church_whatsapp_config') as any)
                             .update({ is_active: result.success })
                             .eq('id', data.id);
                     }
@@ -70,15 +69,15 @@ export function useWhatsapp() {
         try {
             if (config?.id) {
                 // Update
-                const { error } = await supabase
-                    .from('church_whatsapp_config')
+                const { error } = await (supabase
+                    .from('church_whatsapp_config') as any)
                     .update(newConfig)
                     .eq('id', config.id);
                 if (error) throw error;
             } else {
                 // Insert
-                const { error } = await supabase
-                    .from('church_whatsapp_config')
+                const { error } = await (supabase
+                    .from('church_whatsapp_config') as any)
                     .insert({
                         ...newConfig,
                         church_id: user.churchId
@@ -190,7 +189,7 @@ export function useWhatsapp() {
             }
 
             // 2. Gravar Log no Supabase
-            await supabase.from('whatsapp_message_log').insert({
+            await (supabase.from('whatsapp_message_log') as any).insert({
                 church_id: user?.churchId,
                 sent_by: user?.id,
                 message: message,

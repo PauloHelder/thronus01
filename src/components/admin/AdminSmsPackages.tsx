@@ -69,8 +69,8 @@ export default function AdminSmsPackages() {
     const fetchPackages = async () => {
         setLoadingCatalog(true);
         try {
-            const { data, error } = await supabase
-                .from('sms_packages')
+            const { data, error } = await (supabase
+                .from('sms_packages') as any)
                 .select('*')
                 .order('price', { ascending: true });
             
@@ -87,8 +87,8 @@ export default function AdminSmsPackages() {
     const fetchChurchesData = async () => {
         setLoadingChurches(true);
         try {
-            const { data, error } = await supabase
-                .from('churches')
+            const { data, error } = await (supabase
+                .from('churches') as any)
                 .select(`
                     id, 
                     name, 
@@ -146,8 +146,8 @@ export default function AdminSmsPackages() {
     const fetchOrders = async () => {
         setLoadingOrders(true);
         try {
-            let query = supabase
-                .from('sms_transactions')
+            let query = (supabase
+                .from('sms_transactions') as any)
                 .select('*, churches(name), sms_packages(name, price)')
                 .order('created_at', { ascending: false });
             
@@ -231,8 +231,8 @@ export default function AdminSmsPackages() {
 
     const notifyChurch = async (churchId: string, title: string, message: string) => {
         try {
-            const { data: admins } = await supabase
-                .from('users')
+            const { data: admins } = await (supabase
+                .from('users') as any)
                 .select('id')
                 .eq('church_id', churchId)
                 .in('role', ['admin', 'superuser']);
@@ -283,7 +283,7 @@ export default function AdminSmsPackages() {
 
     const processDeletePackage = async (id: string) => {
         try {
-            const { error } = await supabase.from('sms_packages').delete().eq('id', id);
+            const { error } = await (supabase.from('sms_packages') as any).delete().eq('id', id);
             if (error) throw error;
             toast.success('Pacote excluído!');
             fetchPackages();
@@ -754,20 +754,20 @@ export default function AdminSmsPackages() {
                     </div>
                 </div>
             )}
-        </div>
 
-        {isConfirmModalOpen && (
-            <GenericDeleteModal
-                isOpen={isConfirmModalOpen}
-                onClose={() => setIsConfirmModalOpen(false)}
-                onConfirm={handleConfirmAction}
-                itemName={confirmAction?.name || ''}
-                itemType={
-                    confirmAction?.type === 'delete_package' ? 'pacote SMS' :
-                    confirmAction?.type === 'approve_order' ? 'aprovação de pedido' :
-                    'rejeição de pedido'
-                }
-            />
-        )}
+            {isConfirmModalOpen && (
+                <GenericDeleteModal
+                    isOpen={isConfirmModalOpen}
+                    onClose={() => setIsConfirmModalOpen(false)}
+                    onConfirm={handleConfirmAction}
+                    itemName={confirmAction?.name || ''}
+                    itemType={
+                        confirmAction?.type === 'delete_package' ? 'pacote SMS' :
+                        confirmAction?.type === 'approve_order' ? 'aprovação de pedido' :
+                        'rejeição de pedido'
+                    }
+                />
+            )}
+        </div>
     );
 }

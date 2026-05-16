@@ -4,15 +4,19 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Member } from '../types';
 import MemberModal from '../components/modals/MemberModal';
 import ImportMembersModal from '../components/modals/ImportMembersModal';
+import CommunicationModal from '../components/modals/CommunicationModal';
 import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMembers } from '../hooks/useMembers';
 import { useAuth } from '../contexts/AuthContext';
+import { useWhatsapp } from '../hooks/useWhatsapp';
 import { toast } from 'sonner';
+import { MessageCircle } from 'lucide-react';
 
 const Members: React.FC = () => {
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
+  const { isConnected: whatsappConnected } = useWhatsapp();
   const { members, loading, error, deleteMember, importMembers, addMember, updateMember } = useMembers();
   const [searchParams] = useSearchParams();
   const filterParam = searchParams.get('filter');
@@ -27,6 +31,7 @@ const Members: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isCommModalOpen, setIsCommModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | undefined>(undefined);
   const [memberToDelete, setMemberToDelete] = useState<Member | undefined>(undefined);
   const [birthdayMonth, setBirthdayMonth] = useState<string>(new Date().getMonth().toString());
@@ -265,6 +270,16 @@ const Members: React.FC = () => {
             <Download size={18} />
             Exportar
           </button>
+
+          {whatsappConnected && hasPermission('whatsapp_send') && (
+            <button
+              onClick={() => setIsCommModalOpen(true)}
+              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+            >
+              <MessageCircle size={18} />
+              Enviar WhatsApp
+            </button>
+          )}
 
           <button
             onClick={handleCopyLink}
@@ -535,6 +550,21 @@ const Members: React.FC = () => {
         itemName={memberToDelete?.name}
         itemType="membro"
       />
+
+      {isCommModalOpen && (
+        <CommunicationModal
+          isOpen={isCommModalOpen}
+          onClose={() => setIsCommModalOpen(false)}
+          recipients={filteredMembers.map(m => ({
+            id: m.id,
+            name: m.name,
+            phone: m.phone || ''
+          }))}
+          contextType="department" // Generic context
+          contextId="all_members"
+          defaultMessage={`Olá amados membros da ${user?.churchName}! Passando para deixar uma saudação e desejar um dia abençoado a todos. 🙌🔥`}
+        />
+      )}
     </div>
   );
 };

@@ -32,7 +32,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
 
     useEffect(() => {
         const fetchMembers = async () => {
-            const { data } = await supabase.from('members').select('id, name, member_code');
+            const { data } = await (supabase.from('members') as any).select('id, name, member_code');
             if (data) setMembers(data);
         };
         fetchMembers();
@@ -219,8 +219,8 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                         finalCategoryId = categoryCache[cacheKey];
                     } else {
                         // Create the category
-                        const { data: newCat, error: catError } = await supabase
-                            .from('financial_categories')
+                        const { data: newCat, error: catError } = await (supabase
+                            .from('financial_categories') as any)
                             .insert({
                                 name: tx.category_name,
                                 type: tx.type,
