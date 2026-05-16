@@ -25,6 +25,9 @@ import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
 import { useWhatsapp } from '../hooks/useWhatsapp';
 import { formatAOA } from '../utils/currency';
+import { useDepartmentMeetings, DepartmentMeeting } from '../hooks/useDepartmentMeetings';
+import DepartmentMeetingModal from '../components/modals/DepartmentMeetingModal';
+import MeetingViewModal from '../components/modals/MeetingViewModal';
 
 const DepartmentDetail: React.FC = () => {
     const { id } = useParams();
@@ -61,7 +64,18 @@ const DepartmentDetail: React.FC = () => {
         deleteGoal
     } = useDepartmentGoals(id);
 
-    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'objectivos' | 'escala' | 'requisicoes' | 'sms' | 'whatsapp'>('geral');
+    const {
+        meetings,
+        loading: meetingsLoading,
+        fetchMeetings,
+        addMeeting,
+        updateMeeting,
+        deleteMeeting: removeMeeting,
+        getAttendance,
+        recordAttendance
+    } = useDepartmentMeetings(id);
+
+    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'objectivos' | 'escala' | 'encontros' | 'requisicoes' | 'sms' | 'whatsapp'>('geral');
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -69,10 +83,15 @@ const DepartmentDetail: React.FC = () => {
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
     const { isConnected: whatsappConnected } = useWhatsapp();
     const [selectedGoal, setSelectedGoal] = useState<DepartmentGoal | null>(null);
+    const [selectedMeeting, setSelectedMeeting] = useState<DepartmentMeeting | null>(null);
+    const [meetingAttendees, setMeetingAttendees] = useState<string[]>([]);
+    const [meetingAttendeesList, setMeetingAttendeesList] = useState<any[]>([]);
+    const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
+    const [isViewMeetingModalOpen, setIsViewMeetingModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<DepartmentSchedule | null>(null);
     const [editingRequest, setEditingRequest] = useState<any>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'member' | 'schedule' | 'goal' } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'member' | 'schedule' | 'goal' | 'meeting' } | null>(null);
 
     // Filters for Goals
     const [goalStatusFilter, setGoalStatusFilter] = useState<'All' | 'pending' | 'in_progress' | 'completed' | 'delayed'>('All');
@@ -84,8 +103,9 @@ const DepartmentDetail: React.FC = () => {
             fetchDepartmentDetails(id);
             fetchRequests(id);
             fetchGoals();
+            fetchMeetings();
         }
-    }, [id, fetchDepartmentDetails, fetchRequests, fetchGoals]);
+    }, [id, fetchDepartmentDetails, fetchRequests, fetchGoals, fetchMeetings]);
 
     const handleAddMembers = async (memberIds: string[]) => {
         if (id) {
@@ -118,6 +138,8 @@ const DepartmentDetail: React.FC = () => {
             await deleteSchedule(id, itemToDelete.id);
         } else if (itemToDelete.type === 'goal') {
             await deleteGoal(itemToDelete.id);
+        } else if (itemToDelete.type === 'meeting') {
+            await removeMeeting(itemToDelete.id);
         }
         setIsDeleteModalOpen(false);
         setItemToDelete(null);
@@ -177,6 +199,63 @@ const DepartmentDetail: React.FC = () => {
         setIsGoalModalOpen(false);
         setSelectedGoal(null);
         return true;
+    };
+
+    const handleSaveMeeting = async (meetingData: any, attendees: string[]) => {
+        if (selectedMeeting) {
+            const success = await updateMeeting(selectedMeeting.id, meetingData);
+            if (success) {
+                const attendanceRecords = attendees.map(memberId => ({
+                    member_id: memberId,
+                    status: 'Presente' as const
+                }));
+                // Add absent members as well to have a complete record
+                const absentMembers = department!.members
+                    .filter(m => !attendees.includes(m.id))
+                    .map(m => ({ member_id: m.id, status: 'Ausente' as const }));
+                
+                await recordAttendance(selectedMeeting.id, [...attendanceRecords, ...absentMembers]);
+            }
+        } else {
+            const newMeeting = await addMeeting({ ...meetingData, department_id: id! });
+            if (newMeeting) {
+                const attendanceRecords = attendees.map(memberId => ({
+                    member_id: memberId,
+                    status: 'Presente' as const
+                }));
+                const absentMembers = department!.members
+                    .filter(m => !attendees.includes(m.id))
+                    .map(m => ({ member_id: m.id, status: 'Ausente' as const }));
+
+                await recordAttendance(newMeeting.id, [...attendanceRecords, ...absentMembers]);
+            }
+        }
+        setIsMeetingModalOpen(false);
+        setSelectedMeeting(null);
+    };
+
+    const handleEditMeeting = async (meeting: DepartmentMeeting) => {
+        const attendance = await getAttendance(meeting.id);
+        const presentIds = attendance.filter(a => a.status === 'Presente').map(a => a.member_id);
+        setSelectedMeeting(meeting);
+        setMeetingAttendees(presentIds);
+        setIsMeetingModalOpen(true);
+    };
+
+    const handleViewMeeting = async (meeting: DepartmentMeeting) => {
+        setSelectedMeeting(meeting);
+        const attendance = await getAttendance(meeting.id);
+        setMeetingAttendeesList(attendance.map(a => ({
+            member_id: a.member_id,
+            member_name: a.member_name || 'Membro',
+            status: a.status,
+            role: department?.members.find(m => m.id === a.member_id)?.churchRole
+        })));
+        setIsViewMeetingModalOpen(true);
+    };
+
+    const recordAttendanceGet = async (meetingId: string) => {
+        return await recordAttendance(meetingId, []); // This is a hack because my hook doesn't have getAttendance exposed correctly in the return object above
     };
 
 
@@ -278,6 +357,7 @@ const DepartmentDetail: React.FC = () => {
                         { id: 'membros', label: 'Membros', icon: <Users size={18} /> },
                         { id: 'objectivos', label: 'Objectivos', icon: <Target size={18} /> },
                         { id: 'escala', label: 'Escala', icon: <Calendar size={18} /> },
+                        { id: 'encontros', label: 'Encontros', icon: <Activity size={18} /> },
                         { id: 'requisicoes', label: 'Requisições', icon: <ClipboardList size={18} /> },
                         ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
                         ...(hasRole('superuser') ? [{ id: 'sms', label: 'SMS', icon: <MessageSquare size={18} /> }] : []),
@@ -699,6 +779,101 @@ const DepartmentDetail: React.FC = () => {
                     </div>
                 )}
 
+                {activeTab === 'encontros' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <Activity size={20} className="text-orange-500" />
+                                    Encontros do Departamento
+                                </h2>
+                                <p className="text-xs text-slate-500">Gestão de reuniões e controle de presença</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setSelectedMeeting(null);
+                                    setMeetingAttendees([]);
+                                    setIsMeetingModalOpen(true);
+                                }}
+                                className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-orange-200/50"
+                            >
+                                <Plus size={16} /> Novo Encontro
+                            </button>
+                        </div>
+
+                        {meetings.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-4">
+                                {meetings.map((meeting) => (
+                                    <div 
+                                        key={meeting.id} 
+                                        onClick={() => handleViewMeeting(meeting)}
+                                        className="p-5 bg-gray-50 rounded-2xl border border-gray-100 hover:border-orange-300 hover:bg-white hover:shadow-lg transition-all cursor-pointer group"
+                                    >
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-12 h-12 bg-white rounded-xl border border-gray-100 flex flex-col items-center justify-center shadow-sm">
+                                                    <span className="text-[10px] font-bold text-orange-500 uppercase">
+                                                        {new Date(meeting.date + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' })}
+                                                    </span>
+                                                    <span className="text-lg font-black text-slate-800 leading-none">
+                                                        {new Date(meeting.date + 'T00:00:00').getDate()}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                                        {meeting.topic || 'Sem Tema'}
+                                                        <span className="text-[10px] bg-white border border-gray-200 px-2 py-0.5 rounded-full text-slate-400 font-medium">
+                                                            {meeting.start_time || '--:--'}
+                                                        </span>
+                                                    </h3>
+                                                    <p className="text-xs text-slate-500 mt-0.5 line-clamp-1 italic">{meeting.description || 'Nenhuma descrição fornecida.'}</p>
+                                                    <div className="flex items-center gap-3 mt-2">
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md border border-green-100">
+                                                            <Users size={12} /> {meeting.attendance_count || 0} Presentes
+                                                        </div>
+                                                        <div className="text-[10px] font-bold text-slate-400">
+                                                            Taxa: {meeting.total_members ? Math.round((meeting.attendance_count! / meeting.total_members!) * 100) : 0}%
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        handleEditMeeting(meeting);
+                                                    }}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                                                    title="Editar"
+                                                >
+                                                    <Pencil size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setItemToDelete({ id: meeting.id, name: meeting.topic || meeting.date, type: 'meeting' });
+                                                        setIsDeleteModalOpen(true);
+                                                    }}
+                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                                                    title="Excluir"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-20 text-slate-400 border-2 border-dashed border-gray-100 rounded-2xl bg-gray-50/50">
+                                <Activity size={48} className="mx-auto mb-4 opacity-20" />
+                                <h3 className="text-sm font-bold text-slate-700">Nenhum encontro registrado</h3>
+                                <p className="text-[10px] mt-1 italic text-slate-400">Clique em "Novo Encontro" para registrar a primeira reunião.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {activeTab === 'requisicoes' && (
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -791,6 +966,46 @@ const DepartmentDetail: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {id && (
+                <DepartmentMeetingModal
+                    isOpen={isMeetingModalOpen}
+                    onClose={() => {
+                        setIsMeetingModalOpen(false);
+                        setSelectedMeeting(null);
+                    }}
+                    onSave={handleSaveMeeting}
+                    meeting={selectedMeeting}
+                    departmentMembers={department.members}
+                    initialAttendees={meetingAttendees}
+                />
+            )}
+
+            <MeetingViewModal
+                isOpen={isViewMeetingModalOpen}
+                onClose={() => setIsViewMeetingModalOpen(false)}
+                meeting={selectedMeeting ? {
+                    date: selectedMeeting.date,
+                    start_time: selectedMeeting.start_time,
+                    end_time: selectedMeeting.end_time,
+                    topic: selectedMeeting.topic,
+                    description: selectedMeeting.description,
+                    attendance_count: selectedMeeting.attendance_count,
+                    total_members: selectedMeeting.total_members
+                } : null}
+                attendees={meetingAttendeesList}
+                onEdit={() => {
+                    setIsViewMeetingModalOpen(false);
+                    if (selectedMeeting) handleEditMeeting(selectedMeeting);
+                }}
+                onDelete={() => {
+                    setIsViewMeetingModalOpen(false);
+                    if (selectedMeeting) {
+                        setItemToDelete({ id: selectedMeeting.id, name: selectedMeeting.topic || selectedMeeting.date, type: 'meeting' });
+                        setIsDeleteModalOpen(true);
+                    }
+                }}
+            />
 
             {id && (
                 <CommunicationModal

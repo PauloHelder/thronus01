@@ -7,17 +7,20 @@ import { useDepartments } from '../hooks/useDepartments';
 import { useMembers } from '../hooks/useMembers';
 import { getIconEmoji } from '../data/departmentIcons';
 import DepartmentModal from '../components/modals/DepartmentModal';
+import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 
 import { useAuth } from '../contexts/AuthContext';
 
 const Departments: React.FC = () => {
     const navigate = useNavigate();
     const { user, hasPermission } = useAuth();
-    const { departments, loading, addDepartment, updateDepartment } = useDepartments();
+    const { departments, loading, addDepartment, updateDepartment, deleteDepartment } = useDepartments();
     const { members } = useMembers();
 
     const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+    const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
     const handleSaveDepartment = async (departmentData: Omit<Department, 'id'> | Department) => {
@@ -48,6 +51,26 @@ const Departments: React.FC = () => {
 
     const handleViewDetails = (departmentId: string) => {
         navigate(`/departments/${departmentId}`);
+    };
+
+    const handleDeleteDepartment = (department: Department) => {
+        if (department.isDefault) {
+            toast.error('Este é um departamento padrão e não pode ser excluído.');
+            return;
+        }
+        setDepartmentToDelete(department);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDeleteDepartment = async () => {
+        if (!departmentToDelete) return;
+
+        const success = await deleteDepartment(departmentToDelete.id);
+        if (success) {
+            toast.success('Departamento excluído com sucesso!');
+        } else {
+            toast.error('Erro ao excluir departamento.');
+        }
     };
 
     const filteredDepartments = departments.filter(dept =>
@@ -212,12 +235,23 @@ const Departments: React.FC = () => {
                                 Ver Detalhes
                             </button>
                             {hasPermission('departments_edit') && (
-                                <button
-                                    onClick={() => handleEditDepartment(department)}
-                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
-                                >
-                                    Editar
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleEditDepartment(department)}
+                                        className="flex-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+                                    >
+                                        Editar
+                                    </button>
+                                    {!department.isDefault && (
+                                        <button
+                                            onClick={() => handleDeleteDepartment(department)}
+                                            className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors border border-red-100"
+                                            title="Excluir Departamento"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
@@ -242,6 +276,17 @@ const Departments: React.FC = () => {
                 onSave={handleSaveDepartment}
                 department={editingDepartment}
                 members={members}
+            />
+
+            <GenericDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setDepartmentToDelete(null);
+                }}
+                onConfirm={confirmDeleteDepartment}
+                itemName={departmentToDelete?.name}
+                itemType="departamento"
             />
         </div>
     );

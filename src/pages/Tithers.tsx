@@ -21,6 +21,7 @@ import { useFinance } from '../hooks/useFinance';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatAOA } from '../utils/currency';
+import { formatDateForDisplay, parseFlexibleDate } from '../utils/dateUtils';
 
 const Tithers: React.FC = () => {
     const navigate = useNavigate();
@@ -29,7 +30,9 @@ const Tithers: React.FC = () => {
     const { transactions, loading: financeLoading, categories } = useFinance();
     
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterPeriod, setFilterPeriod] = useState<'all' | 'month' | 'year'>('all');
+    const [filterPeriod, setFilterPeriod] = useState<'all' | 'month' | 'year' | 'custom'>('all');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [viewMode, setViewMode] = useState<'active' | 'all'>('active');
     
     // Pagination
@@ -48,11 +51,27 @@ const Tithers: React.FC = () => {
     const titherStats = useMemo(() => {
         if (!members.length) return [];
 
-        const titheTransactions = transactions.filter(tx => 
-            tx.category_id === titheCategory?.id || 
-            tx.description.toLowerCase().includes('dízimo') ||
-            tx.description.toLowerCase().includes('dizimo')
-        );
+        const titheTransactions = transactions.filter(tx => {
+            const matchesCategory = tx.category_id === titheCategory?.id || 
+                tx.description.toLowerCase().includes('dízimo') ||
+                tx.description.toLowerCase().includes('dizimo');
+            
+            if (!matchesCategory) return false;
+
+            // Apply Date Filters
+            if (filterPeriod === 'month') {
+                const now = new Date();
+                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                return tx.date >= monthStart;
+            } else if (filterPeriod === 'year') {
+                const yearStart = `${new Date().getFullYear()}-01-01`;
+                return tx.date >= yearStart;
+            } else if (filterPeriod === 'custom' && startDate && endDate) {
+                return tx.date >= startDate && tx.date <= endDate;
+            }
+
+            return true;
+        });
 
         return members.map(member => {
             const memberTithes = titheTransactions.filter(tx => 
@@ -103,7 +122,7 @@ const Tithers: React.FC = () => {
                 'Código': t.memberCode || '-',
                 'Nome': t.name,
                 'Total Contribuído': t.totalTithes,
-                'Última Contribuição': t.lastTithedDate ? new Date(t.lastTithedDate).toLocaleDateString('pt-BR') : 'Nunca',
+                'Última Contribuição': t.lastTithedDate ? formatDateForDisplay(t.lastTithedDate) : 'Nunca',
                 'Qtd. Contribuições': t.titheCount
             }));
 
@@ -163,7 +182,7 @@ const Tithers: React.FC = () => {
                 
                 doc.text(t.name.substring(0, 35), 20, y + 5);
                 doc.text(t.memberCode || '-', 90, y + 5);
-                doc.text(t.lastTithedDate ? new Date(t.lastTithedDate).toLocaleDateString('pt-BR') : 'Nunca', 120, y + 5);
+                doc.text(t.lastTithedDate ? formatDateForDisplay(t.lastTithedDate) : 'Nunca', 120, y + 5);
                 doc.text(formatCurrency(t.totalTithes), 160, y + 5);
                 
                 y += 8;
@@ -262,7 +281,7 @@ const Tithers: React.FC = () => {
                         className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all" 
                     />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <select 
                         value={filterPeriod} 
                         onChange={(e) => setFilterPeriod(e.target.value as any)}
@@ -271,7 +290,27 @@ const Tithers: React.FC = () => {
                         <option value="all">Todo o período</option>
                         <option value="month">Este mês</option>
                         <option value="year">Este ano</option>
+                        <option value="custom">Personalizado</option>
                     </select>
+
+                    {filterPeriod === 'custom' && (
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                            <span className="text-slate-400">até</span>
+                            <input 
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                        </div>
+                    )}
+
                     <select 
                         value={viewMode} 
                         onChange={(e) => setViewMode(e.target.value as any)}
@@ -317,7 +356,7 @@ const Tithers: React.FC = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-slate-600">
-                                        {t.lastTithedDate ? new Date(t.lastTithedDate).toLocaleDateString('pt-BR') : 'Sem registros'}
+                                        {t.lastTithedDate ? formatDateForDisplay(t.lastTithedDate) : 'Sem registros'}
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold">

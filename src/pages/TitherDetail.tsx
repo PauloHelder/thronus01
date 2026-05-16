@@ -18,6 +18,7 @@ import { useMembers } from '../hooks/useMembers';
 import { Member } from '../types';
 import { toast } from 'sonner';
 import { formatAOA } from '../utils/currency';
+import { formatDateForDisplay, parseFlexibleDate } from '../utils/dateUtils';
 
 const TitherDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -29,6 +30,9 @@ const TitherDetail: React.FC = () => {
     const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterPeriod, setFilterPeriod] = useState<'all' | 'month' | 'year' | 'custom'>('all');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     useEffect(() => {
         if (id) {
@@ -61,11 +65,27 @@ const TitherDetail: React.FC = () => {
     };
 
     const filteredTransactions = useMemo(() => {
-        return transactions.filter(tx => 
-            tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            tx.date.includes(searchTerm)
-        );
-    }, [transactions, searchTerm]);
+        return transactions.filter(tx => {
+            const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tx.date.includes(searchTerm);
+            
+            if (!matchesSearch) return false;
+
+            // Apply Date Filters
+            if (filterPeriod === 'month') {
+                const now = new Date();
+                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                return tx.date >= monthStart;
+            } else if (filterPeriod === 'year') {
+                const yearStart = `${new Date().getFullYear()}-01-01`;
+                return tx.date >= yearStart;
+            } else if (filterPeriod === 'custom' && startDate && endDate) {
+                return tx.date >= startDate && tx.date <= endDate;
+            }
+
+            return true;
+        });
+    }, [transactions, searchTerm, filterPeriod, startDate, endDate]);
 
     const formatCurrency = (value: number) => formatAOA(value);
 
@@ -130,7 +150,7 @@ const TitherDetail: React.FC = () => {
                     doc.rect(14, y, 182, 8, 'F');
                 }
                 
-                doc.text(new Date(tx.date).toLocaleDateString('pt-BR'), 20, y + 5);
+                doc.text(formatDateForDisplay(tx.date), 20, y + 5);
                 doc.text(tx.description.substring(0, 30), 50, y + 5);
                 doc.text(tx.category?.name || 'Geral', 110, y + 5);
                 doc.text(formatCurrency(tx.amount), 170, y + 5);
@@ -211,7 +231,7 @@ const TitherDetail: React.FC = () => {
                         <div>
                             <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">Membro desde</p>
                             <p className="text-sm text-slate-700 font-medium">
-                                {member.joinDate ? new Date(member.joinDate).toLocaleDateString('pt-BR') : 'Data não registrada'}
+                                {member.joinDate ? formatDateForDisplay(member.joinDate) : 'Data não registrada'}
                             </p>
                         </div>
                     </div>
@@ -255,15 +275,46 @@ const TitherDetail: React.FC = () => {
                                 <History size={18} className="text-orange-500" />
                                 Histórico de Lançamentos
                             </h3>
-                            <div className="relative w-full md:w-64">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                <input 
-                                    type="text" 
-                                    placeholder="Filtrar lançamentos..." 
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all"
-                                />
+                            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
+                                <select 
+                                    value={filterPeriod} 
+                                    onChange={(e) => setFilterPeriod(e.target.value as any)}
+                                    className="px-3 py-2 bg-slate-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-orange-500"
+                                >
+                                    <option value="all">Todo período</option>
+                                    <option value="month">Este mês</option>
+                                    <option value="year">Este ano</option>
+                                    <option value="custom">Personalizado</option>
+                                </select>
+
+                                {filterPeriod === 'custom' && (
+                                    <div className="flex items-center gap-1">
+                                        <input 
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="px-2 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-orange-500"
+                                        />
+                                        <span className="text-slate-400 text-xs">a</span>
+                                        <input 
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="px-2 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-orange-500"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="relative w-full md:w-48">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Filtrar..." 
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                                    />
+                                </div>
                             </div>
                         </div>
                         
@@ -282,7 +333,7 @@ const TitherDetail: React.FC = () => {
                                     {filteredTransactions.map((tx) => (
                                         <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
                                             <td className="px-6 py-4 text-sm text-slate-600">
-                                                {new Date(tx.date).toLocaleDateString('pt-BR')}
+                                                {formatDateForDisplay(tx.date)}
                                             </td>
                                             <td className="px-6 py-4 text-sm font-medium text-slate-800">
                                                 {tx.description}

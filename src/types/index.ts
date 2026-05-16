@@ -143,6 +143,23 @@ export interface DepartmentSchedule {
   notes?: string;
 }
 
+export interface DepartmentMeeting {
+  id: string;
+  departmentId: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  topic?: string;
+  description?: string;
+  attendance: DepartmentMeetingAttendance[];
+}
+
+export interface DepartmentMeetingAttendance {
+  memberId: string;
+  status: 'Presente' | 'Ausente' | 'Justificado';
+  notes?: string;
+}
+
 export interface TeachingClass {
   id: string;
   name: string;

@@ -93,7 +93,7 @@ const GroupMeetingModal: React.FC<GroupMeetingModalProps> = ({
             title={meeting ? 'Editar Encontro' : 'Registrar Novo Encontro'}
         >
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Data do Encontro</label>
                         <input
@@ -110,6 +110,15 @@ const GroupMeetingModal: React.FC<GroupMeetingModalProps> = ({
                             type="time"
                             value={startTime}
                             onChange={(e) => setStartTime(e.target.value)}
+                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Horário (Fim)</label>
+                        <input
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => setEndTime(e.target.value)}
                             className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                         />
                     </div>

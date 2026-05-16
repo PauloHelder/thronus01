@@ -6,13 +6,18 @@ import { useGroupMeetings, GroupMeeting } from '../hooks/useGroupMeetings';
 import { useMembers } from '../hooks/useMembers';
 import AddGroupMemberModal from '../components/modals/AddGroupMemberModal';
 import GroupMeetingModal from '../components/modals/GroupMeetingModal';
+import MeetingViewModal from '../components/modals/MeetingViewModal';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import SmsHistoryTab from '../components/tabs/SmsHistoryTab';
 import WhatsappHistoryTab from '../components/tabs/WhatsappHistoryTab';
 import { useAuth } from '../contexts/AuthContext';
 import { useWhatsapp } from '../hooks/useWhatsapp';
-import { MessageCircle, MessageSquare } from 'lucide-react';
+import { MessageCircle, MessageSquare, Banknote } from 'lucide-react';
+import { useFinance, FinancialTransaction } from '../hooks/useFinance';
+import { formatAOA } from '../utils/currency';
+import { toast } from 'sonner';
+import { formatDateForDisplay, parseFlexibleDate } from '../utils/dateUtils';
 
 const GroupDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -39,22 +44,36 @@ const GroupDetail: React.FC = () => {
     } = useGroupMeetings();
 
     const { members: allMembers } = useMembers();
+    const { fetchGroupTransactions, addTransaction, accounts, categories } = useFinance();
 
     // State
     const [group, setGroup] = useState<Group | null>(null);
     const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
     const [meetings, setMeetings] = useState<GroupMeeting[]>([]);
+    const [groupTransactions, setGroupTransactions] = useState<FinancialTransaction[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Modals State
-    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'encontros' | 'whatsapp' | 'sms'>('geral');
+    const [activeTab, setActiveTab] = useState<'geral' | 'membros' | 'encontros' | 'whatsapp' | 'sms' | 'offertory'>('geral');
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
     const [isCommModalOpen, setIsCommModalOpen] = useState(false);
     const [editingMeeting, setEditingMeeting] = useState<GroupMeeting | null>(null);
     const [meetingAttendees, setMeetingAttendees] = useState<string[]>([]);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isAddTxModalOpen, setIsAddTxModalOpen] = useState(false);
+    const [isViewMeetingModalOpen, setIsViewMeetingModalOpen] = useState(false);
+    const [meetingAttendeesList, setMeetingAttendeesList] = useState<any[]>([]);
     const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'member' | 'meeting' } | null>(null);
+    const [newTx, setNewTx] = useState({
+        description: 'Oferta do Encontro semanal',
+        amount: '',
+        type: 'income' as 'income' | 'expense',
+        category_id: '',
+        account_id: '',
+        status: 'paid' as 'paid' | 'pending',
+        date: parseFlexibleDate(new Date())
+    });
 
     // Load Data
     const loadData = useCallback(async () => {
@@ -80,6 +99,16 @@ const GroupDetail: React.FC = () => {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    useEffect(() => {
+        const fetchTxs = async () => {
+            if (id && activeTab === 'offertory') {
+                const txs = await fetchGroupTransactions(id);
+                setGroupTransactions(txs);
+            }
+        };
+        fetchTxs();
+    }, [id, activeTab, fetchGroupTransactions]);
 
     // Handlers
     const handleAddMember = async (memberId: string) => {
@@ -138,6 +167,37 @@ const GroupDetail: React.FC = () => {
         setIsMeetingModalOpen(true);
     };
 
+    const handleViewMeeting = async (meeting: GroupMeeting) => {
+        setEditingMeeting(meeting);
+        const attendance = await getAttendance(meeting.id);
+        setMeetingAttendeesList(attendance.map(a => ({
+            member_id: a.member_id,
+            member_name: a.member_name || 'Membro',
+            status: a.status,
+            role: groupMembers.find(gm => gm.member_id === a.member_id)?.role
+        })));
+        setIsViewMeetingModalOpen(true);
+    };
+
+    const handleOpenAddTxModal = () => {
+        // Tenta encontrar uma categoria de oferta pré-definida
+        const offerCat = categories.find(c => 
+            c.type === 'income' && 
+            (c.name.toLowerCase().includes('oferta') || c.name.toLowerCase().includes('ofertório'))
+        );
+
+        setNewTx({
+            description: 'Oferta do Encontro semanal',
+            amount: '',
+            type: 'income',
+            category_id: offerCat?.id || '',
+            account_id: accounts[0]?.id || '',
+            status: 'paid',
+            date: parseFlexibleDate(new Date())
+        });
+        setIsAddTxModalOpen(true);
+    };
+
     const handleSaveMeeting = async (meetingData: any, attendees: string[]) => {
         if (!id) return;
 
@@ -181,9 +241,38 @@ const GroupDetail: React.FC = () => {
     };
 
     const formatDate = (dateStr: string) => {
-        if (!dateStr) return '';
-        const date = new Date(dateStr + 'T00:00:00');
-        return date.toLocaleDateString('pt-BR');
+        return formatDateForDisplay(dateStr);
+    };
+
+    const handleAddTransaction = async () => {
+        if (!id || !newTx.description || !newTx.amount || !newTx.account_id) {
+            toast.warning('Preencha os campos obrigatórios (Descrição, Valor e Conta)');
+            return;
+        }
+
+        try {
+            const success = await addTransaction({
+                description: newTx.description,
+                amount: Number(newTx.amount),
+                type: newTx.type,
+                date: parseFlexibleDate(new Date()),
+                category_id: newTx.category_id || undefined,
+                account_id: newTx.account_id,
+                status: newTx.status,
+                source_type: 'group',
+                source_id: id
+            });
+
+            if (success) {
+                const txs = await fetchGroupTransactions(id);
+                setGroupTransactions(txs);
+                setIsAddTxModalOpen(false);
+                toast.success('Lançamento realizado com sucesso!');
+            }
+        } catch (error) {
+            console.error('Error adding transaction:', error);
+            toast.error('Erro ao adicionar lançamento');
+        }
     };
 
     const getAttendanceRate = () => {
@@ -280,6 +369,7 @@ const GroupDetail: React.FC = () => {
                         { id: 'geral', label: 'Geral', icon: <LayoutDashboard size={18} /> },
                         { id: 'membros', label: 'Membros', icon: <Users size={18} /> },
                         { id: 'encontros', label: 'Encontros', icon: <ClipboardCheck size={18} /> },
+                        { id: 'offertory', label: 'Ofertório', icon: <Banknote size={18} /> },
                         ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
                         ...(hasRole('superuser') ? [{ id: 'sms', label: 'Comunicação SMS', icon: <MessageSquare size={18} /> }] : []),
                     ].map((tab) => (
@@ -499,7 +589,11 @@ const GroupDetail: React.FC = () => {
                                 {meetings
                                     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                                     .map(meeting => (
-                                        <div key={meeting.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-200 hover:shadow-md transition-all">
+                                        <div 
+                                            key={meeting.id} 
+                                            onClick={() => handleViewMeeting(meeting)}
+                                            className="p-5 bg-gray-50 rounded-2xl border border-gray-200 hover:border-orange-300 hover:bg-white hover:shadow-lg transition-all cursor-pointer group"
+                                        >
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="p-2.5 bg-white rounded-xl border border-gray-200 text-orange-500 shadow-sm">
@@ -519,15 +613,21 @@ const GroupDetail: React.FC = () => {
                                                             {meeting.attendance_count} <span className="text-xs text-slate-400 font-medium">/ {meeting.total_members}</span>
                                                         </p>
                                                     </div>
-                                                    <div className="flex gap-1 border-l pl-3 ml-1 border-gray-200">
+                                                    <div className="flex gap-1 border-l pl-3 ml-1 border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button
-                                                            onClick={() => handleEditMeeting(meeting)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleEditMeeting(meeting);
+                                                            }}
                                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                         >
                                                             <Pencil size={16} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteMeeting(meeting)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteMeeting(meeting);
+                                                            }}
                                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                         >
                                                             <Trash2 size={16} />
@@ -549,6 +649,96 @@ const GroupDetail: React.FC = () => {
                                 <p>Nenhum encontro registrado ainda.</p>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === 'offertory' && (
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                    <Banknote className="text-orange-500" />
+                                    Movimentações do Grupo
+                                </h2>
+                                <p className="text-sm text-slate-500">Gestão de ofertas e despesas vinculadas ao grupo</p>
+                            </div>
+                            <button 
+                                onClick={handleOpenAddTxModal}
+                                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors shadow-sm"
+                            >
+                                <Plus size={18} />
+                                Lançar Oferta/Despesa
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Total de Entradas</p>
+                                <p className="text-2xl font-bold text-green-600">
+                                    {formatAOA(
+                                        groupTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0)
+                                    )}
+                                </p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Total de Saídas</p>
+                                <p className="text-2xl font-bold text-red-600">
+                                    {formatAOA(
+                                        groupTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0)
+                                    )}
+                                </p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Saldo do Grupo</p>
+                                <p className="text-2xl font-bold text-slate-800">
+                                    {formatAOA(
+                                        groupTransactions.reduce((acc, t) => acc + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                        <tr className="text-xs font-bold text-slate-500 uppercase">
+                                            <th className="px-6 py-4">Descrição</th>
+                                            <th className="px-6 py-4">Categoria</th>
+                                            <th className="px-6 py-4">Conta</th>
+                                            <th className="px-6 py-4 text-right">Valor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {groupTransactions.length > 0 ? (
+                                            groupTransactions.map((tx) => (
+                                                <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <p className="font-medium text-slate-800">{tx.description}</p>
+                                                        <p className="text-xs text-slate-500">{formatDateForDisplay(tx.date)}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                                        {tx.category?.name || 'Geral'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                                        {tx.account?.name || '-'}
+                                                    </td>
+                                                    <td className={`px-6 py-4 text-right font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {tx.type === 'income' ? '+' : '-'} {formatAOA(tx.amount)}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
+                                                    Nenhum lançamento financeiro para este grupo.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -582,6 +772,29 @@ const GroupDetail: React.FC = () => {
                 initialAttendees={meetingAttendees}
             />
 
+            <MeetingViewModal
+                isOpen={isViewMeetingModalOpen}
+                onClose={() => setIsViewMeetingModalOpen(false)}
+                meeting={editingMeeting ? {
+                    date: editingMeeting.date,
+                    start_time: editingMeeting.start_time,
+                    end_time: editingMeeting.end_time,
+                    topic: editingMeeting.topic,
+                    notes: editingMeeting.notes,
+                    attendance_count: editingMeeting.attendance_count,
+                    total_members: editingMeeting.total_members
+                } : null}
+                attendees={meetingAttendeesList}
+                onEdit={() => {
+                    setIsViewMeetingModalOpen(false);
+                    if (editingMeeting) handleEditMeeting(editingMeeting);
+                }}
+                onDelete={() => {
+                    setIsViewMeetingModalOpen(false);
+                    if (editingMeeting) handleDeleteMeeting(editingMeeting);
+                }}
+            />
+
             {id && (
                 <CommunicationModal
                     isOpen={isCommModalOpen}
@@ -608,6 +821,116 @@ const GroupDetail: React.FC = () => {
                 itemName={itemToDelete?.name}
                 itemType={itemToDelete?.type === 'member' ? 'membro do grupo' : 'encontro'}
             />
+
+            {/* Modal de Novo Lançamento Financeiro */}
+            {isAddTxModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="bg-orange-500 p-6 text-white">
+                            <h3 className="text-xl font-bold">Lançar Oferta/Despesa</h3>
+                            <p className="text-orange-100 text-sm">Este lançamento será vinculado ao grupo {group.name}</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+                                <input 
+                                    type="text"
+                                    value={newTx.description}
+                                    onChange={(e) => setNewTx({...newTx, description: e.target.value})}
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    placeholder="Ex: Oferta do Encontro Semanal"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Valor (AOA)</label>
+                                    <input 
+                                        type="number"
+                                        value={newTx.amount}
+                                        onChange={(e) => setNewTx({...newTx, amount: e.target.value})}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                        placeholder="0,00"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
+                                    <input 
+                                        type="date"
+                                        value={newTx.date}
+                                        onChange={(e) => setNewTx({...newTx, date: e.target.value})}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                                    <select 
+                                        value={newTx.type}
+                                        onChange={(e) => {
+                                            const type = e.target.value as any;
+                                            const defaultCat = categories.find(c => 
+                                                c.type === type && 
+                                                (c.name.toLowerCase().includes('oferta') || c.name.toLowerCase().includes('ofertório'))
+                                            );
+                                            setNewTx({...newTx, type, category_id: defaultCat?.id || ''});
+                                        }}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        <option value="income">Entrada (Oferta)</option>
+                                        <option value="expense">Saída (Despesa)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Conta</label>
+                                    <select 
+                                        value={newTx.account_id}
+                                        onChange={(e) => setNewTx({...newTx, account_id: e.target.value})}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        <option value="">Selecione uma conta</option>
+                                        {accounts.map(acc => (
+                                            <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
+                                <select 
+                                    value={newTx.category_id}
+                                    onChange={(e) => setNewTx({...newTx, category_id: e.target.value})}
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                >
+                                    <option value="">Selecione uma categoria</option>
+                                    {categories
+                                        .filter(c => c.type === newTx.type)
+                                        .map(cat => (
+                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
+                            <button
+                                onClick={() => setIsAddTxModalOpen(false)}
+                                className="flex-1 py-2 text-slate-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleAddTransaction}
+                                className="flex-1 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30"
+                            >
+                                Confirmar Lançamento
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -142,7 +142,13 @@ export function useWhatsapp() {
             for (const phone of phones) {
                 try {
                     // Limpar o número (manter apenas dígitos)
-                    const cleanPhone = phone.replace(/\D/g, '');
+                    let cleanPhone = phone.replace(/\D/g, '');
+                    
+                    // Adicionar prefixo de Angola (244) se não tiver e for um número de 9 dígitos (padrão AO)
+                    if (cleanPhone.length === 9 && (cleanPhone.startsWith('9') || cleanPhone.startsWith('2'))) {
+                        cleanPhone = `244${cleanPhone}`;
+                    }
+                    
                     const whatsappId = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
                     
                     const res = await fetch(endpoint, {

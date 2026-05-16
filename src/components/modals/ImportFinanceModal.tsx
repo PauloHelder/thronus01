@@ -5,7 +5,7 @@ import { FinancialAccount, FinancialCategory, FinancialTransaction } from '../..
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { formatAOA } from '../../utils/currency';
-import { parseFlexibleDate, formatDateForDisplay } from '../../utils/dateUtils';
+import { parseFlexibleDate } from '../../utils/dateUtils';
 
 interface ImportFinanceModalProps {
     isOpen: boolean;
@@ -68,7 +68,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                 const getVal = (row: any, ...possibleKeys: string[]) => {
                     const rowKeys = Object.keys(row);
                     for (const pk of possibleKeys) {
-                        const foundKey = rowKeys.find(rk => rk.toLowerCase() === pk.toLowerCase() || 
+                        const foundKey = rowKeys.find(rk => rk.toLowerCase() === pk.toLowerCase() ||
                             rk.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === pk.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
                         if (foundKey) return row[foundKey];
                     }
@@ -107,18 +107,18 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                     const description = getVal(row, 'Descrição', 'Descricao', 'Description', 'Detalhes', 'Histórico', 'Historico', 'Nome') || 'Importado';
                     const memberCode = (getVal(row, 'Cod_Membro', 'Cod_membro', 'Membro', 'Member', 'ID', 'Codigo', 'Sócio', 'Socio') || '').toString().trim();
                     const rawDate = getVal(row, 'Data', 'data', 'Date', 'date', 'Competência', 'Competencia');
-                    
+
                     // Force 'Dízimo' if there is a member code and it's an income
                     if (memberCode && type === 'income') {
                         categoryName = 'Dízimo';
                     }
 
-                    const category = categories.find(c => 
-                        c.name.toLowerCase() === (categoryName || '').toString().toLowerCase() && 
+                    const category = categories.find(c =>
+                        c.name.toLowerCase() === (categoryName || '').toString().toLowerCase() &&
                         c.type === type
                     );
 
-                    const member = members.find(m => 
+                    const member = members.find(m =>
                         m.member_code?.toString().trim() === memberCode ||
                         (description && m.name.toLowerCase() === description.toString().toLowerCase())
                     );
@@ -229,7 +229,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                             })
                             .select()
                             .single();
-                        
+
                         if (!catError && newCat) {
                             finalCategoryId = newCat.id;
                             categoryCache[cacheKey] = newCat.id;
@@ -286,7 +286,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                         </div>
                     </div>
                     {!loading && (
-                        <button 
+                        <button
                             onClick={() => typeof onClose === 'function' && onClose()}
                             className="p-2 hover:bg-gray-100 rounded-full text-slate-400 transition-colors"
                         >
@@ -314,17 +314,16 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
 
                         <div className="space-y-2">
                             <label className="block text-sm font-semibold text-slate-700">2. Carregue o Arquivo</label>
-                            <div 
+                            <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${
-                                    file ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                                }`}
+                                className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${file ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                                    }`}
                             >
-                                <input 
-                                    type="file" 
+                                <input
+                                    type="file"
                                     ref={fileInputRef}
                                     onChange={handleFileChange}
-                                    className="hidden" 
+                                    className="hidden"
                                     accept=".xlsx,.xls,.csv"
                                 />
                                 {isParsing ? (
@@ -351,7 +350,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                             <div className="text-sm text-blue-700 flex-1">
                                 <p className="font-semibold mb-1">Colunas Esperadas:</p>
                                 <p className="mb-2">Data, Referencia, Descricao, Categoria, Codigo (opcional), tipo (Entrada/Saida), Valor</p>
-                                <button 
+                                <button
                                     onClick={downloadTemplate}
                                     className="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 mt-1 transition-colors underline decoration-2 underline-offset-4"
                                 >
@@ -389,7 +388,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                                         {previewData.map((tx, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-4 py-3 text-slate-600">
-                                                    {formatDateForDisplay(tx.date)}
+                                                    {tx.date instanceof Date ? tx.date.toLocaleDateString('pt-BR') : tx.date}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="font-medium text-slate-800">{tx.description}</div>
@@ -407,15 +406,13 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <span className={`px-2 py-0.5 rounded-full font-medium ${
-                                                        tx.type === 'income' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                                                    }`}>
+                                                    <span className={`px-2 py-0.5 rounded-full font-medium ${tx.type === 'income' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                                                        }`}>
                                                         {tx.type === 'income' ? 'Entrada' : 'Saída'}
                                                     </span>
                                                 </td>
-                                                <td className={`px-4 py-3 text-right font-bold ${
-                                                    tx.type === 'income' ? 'text-green-600' : 'text-red-600'
-                                                }`}>
+                                                <td className={`px-4 py-3 text-right font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'
+                                                    }`}>
                                                     {formatCurrency(tx.amount)}
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
@@ -449,7 +446,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                             Cancelar
                         </button>
                     )}
-                    
+
                     <button
                         onClick={handleImport}
                         disabled={loading || previewData.length === 0 || !selectedAccountId}
