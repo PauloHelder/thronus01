@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { parseFlexibleDate } from '../utils/dateUtils';
 
 // ==========================================
 // INTERFACES
@@ -527,7 +528,7 @@ export const useFinance = () => {
             if (reqError) throw reqError;
             if (!request) throw new Error('Requisição não encontrada');
 
-            const dateToUse = paymentDate || new Date().toISOString().split('T')[0];
+            const dateToUse = paymentDate || parseFlexibleDate(new Date());
 
             // 2. Criar a transação financeira (despesa)
             const { error: txError } = await (supabase

@@ -40,6 +40,7 @@ import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import { formatAOA } from '../utils/currency';
 import { toast } from 'sonner';
 import GenericDeleteModal from '../components/modals/GenericDeleteModal';
+import { formatDateForDisplay, parseFlexibleDate } from '../utils/dateUtils';
 
 const Finance = () => {
     const { hasPermission, user } = useAuth();
@@ -185,10 +186,7 @@ const Finance = () => {
     const formatCurrency = (value: number) => formatAOA(value);
 
     const formatDate = (dateStr: string) => {
-        if (!dateStr) return '-';
-        // Append time to prevent UTC shift when parsing YYYY-MM-DD
-        const date = new Date(dateStr + 'T00:00:00');
-        return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+        return formatDateForDisplay(dateStr);
     };
 
     // Summary Calculations
@@ -286,7 +284,7 @@ const Finance = () => {
 
     const handlePayRequestClick = (request: FinancialRequest) => {
         setRequestToPay(request);
-        setSelectedPayDate(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`);
+        setSelectedPayDate(parseFlexibleDate(new Date()));
         // Pre-select first account if available
         if (accounts.length > 0) {
             setSelectedPayAccountId(accounts[0].id);
@@ -703,7 +701,7 @@ const Finance = () => {
                                                 />
                                             </td>
                                             <td className="px-6 py-4 text-sm text-slate-600" onClick={() => toggleRequestSelection(request.id)}>
-                                                {new Date(request.created_at).toLocaleDateString()}
+                                                {formatDateForDisplay(request.created_at)}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2 font-medium text-slate-800">

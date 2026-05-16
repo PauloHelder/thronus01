@@ -5,7 +5,7 @@ import { FinancialAccount, FinancialCategory, FinancialTransaction } from '../..
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { formatAOA } from '../../utils/currency';
-import { parseFlexibleDate } from '../../utils/dateUtils';
+import { parseFlexibleDate, formatDateForDisplay } from '../../utils/dateUtils';
 
 interface ImportFinanceModalProps {
     isOpen: boolean;
@@ -58,7 +58,8 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
         reader.onload = (e) => {
             try {
                 const data = e.target?.result;
-                const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
+                // Usando 'array' para melhor compatibilidade com arquivos modernos
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 const json = XLSX.utils.sheet_to_json(worksheet);
@@ -122,10 +123,9 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                         (description && m.name.toLowerCase() === description.toString().toLowerCase())
                     );
 
-                    const today = new Date();
-                    const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
+                    // Ajuste de fuso horário centralizado no parseFlexibleDate (GMT+1 / Africa/Luanda)
                     const parsedDate = parseFlexibleDate(rawDate);
+                    const defaultDate = parseFlexibleDate(new Date()); // Hoje em Angola
 
                     return {
                         date: parsedDate || defaultDate,
@@ -138,7 +138,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                         member_code: memberCode,
                         member_id: member?.id,
                         status: 'paid',
-                        isValid: !!rawDate && amount > 0
+                        isValid: !!parsedDate && amount > 0
                     };
                 });
 
@@ -150,8 +150,9 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                 setIsParsing(false);
             }
         };
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
     };
+
 
     const downloadTemplate = () => {
         const templateData = [
@@ -240,7 +241,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                     description: tx.description,
                     amount: tx.amount,
                     type: tx.type,
-                    date: parseFlexibleDate(tx.date),
+                    date: tx.date, // Já está formatado como YYYY-MM-DD em Angola
                     category_id: finalCategoryId,
                     account_id: selectedAccountId,
                     source_type: tx.member_id ? 'member' : 'other',
@@ -388,7 +389,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                                         {previewData.map((tx, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-4 py-3 text-slate-600">
-                                                    {tx.date instanceof Date ? tx.date.toLocaleDateString('pt-BR') : tx.date}
+                                                    {formatDateForDisplay(tx.date)}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="font-medium text-slate-800">{tx.description}</div>

@@ -11,6 +11,7 @@ import { useWhatsapp } from '../hooks/useWhatsapp';
 import { useFinance, FinancialTransaction } from '../hooks/useFinance';
 import { formatAOA } from '../utils/currency';
 import { toast } from 'sonner';
+import { formatDateForDisplay, parseFlexibleDate } from '../utils/dateUtils';
 
 const ServiceDetail: React.FC = () => {
     const { id } = useParams();
@@ -202,7 +203,7 @@ const ServiceDetail: React.FC = () => {
                 description: newTx.description,
                 amount: Number(newTx.amount),
                 type: newTx.type,
-                date: service?.date || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
+                date: service?.date || parseFlexibleDate(new Date()),
                 category_id: newTx.category_id || undefined,
                 account_id: newTx.account_id,
                 status: newTx.status,
@@ -247,8 +248,7 @@ const ServiceDetail: React.FC = () => {
     };
 
     const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr + 'T00:00:00');
-        return date.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        return formatDateForDisplay(dateStr);
     };
 
     const getStatusColor = (status: string) => {
@@ -343,7 +343,7 @@ const ServiceDetail: React.FC = () => {
                 <div className="flex overflow-x-auto no-scrollbar gap-8">
                     {[
                         { id: 'stats', label: 'Estatísticas', icon: <Save size={18} /> },
-                        { id: 'team', label: 'Equipe Escalada', icon: <Users size={18} /> },
+                        { id: 'team', label: 'Escalas', icon: <Users size={18} /> },
                         { id: 'offertory', label: 'Ofertório', icon: <Banknote size={18} /> },
                         ...(hasPermission('whatsapp_send') && whatsappConnected ? [{ id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={18} /> }] : []),
                     ].map((tab) => (
@@ -874,7 +874,7 @@ const ServiceDetail: React.FC = () => {
                                                 <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
                                                     <td className="px-6 py-4">
                                                         <p className="font-medium text-slate-800">{tx.description}</p>
-                                                        <p className="text-xs text-slate-500">{new Date(tx.date).toLocaleDateString('pt-BR')}</p>
+                                                        <p className="text-xs text-slate-500">{formatDateForDisplay(tx.date)}</p>
                                                     </td>
                                                     <td className="px-6 py-4 text-sm text-slate-600">
                                                         {tx.category?.name || 'Geral'}
@@ -924,8 +924,8 @@ const ServiceDetail: React.FC = () => {
                     contextType="service"
                     contextId={id}
                     defaultMessage={specificRecipients && specificRecipients.length === 1 
-                        ? `Paz do Senhor, amado(a) ${specificRecipients[0].name}! Gostaria de falar com você sobre o nosso ${service.typeName} que será realizado no dia ${new Date(service.date + 'T00:00:00').toLocaleDateString('pt-BR')}. 🙏✨`
-                        : `Olá! Passando para lembrar do nosso ${service.typeName} que será realizado no dia ${new Date(service.date + 'T00:00:00').toLocaleDateString('pt-BR')} às ${service.startTime}. Sua presença é fundamental! ⛪🙏`
+                        ? `Paz do Senhor, amado(a) ${specificRecipients[0].name}! Gostaria de falar com você sobre o nosso ${service.typeName} que será realizado no dia ${formatDateForDisplay(service.date)}. 🙏✨`
+                        : `Olá! Passando para lembrar do nosso ${service.typeName} que será realizado no dia ${formatDateForDisplay(service.date)} às ${service.startTime}. Sua presença é fundamental! ⛪🙏`
                     }
                     onSuccess={() => {
                         if (hasPermission('whatsapp_send') && whatsappConnected) setActiveTab('whatsapp');

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Calendar, Hash, FileText } from 'lucide-react';
 import { FinancialTransaction, FinancialAccount, FinancialCategory } from '../../hooks/useFinance';
 import { supabase } from '../../lib/supabase';
+import { parseFlexibleDate, formatDateForDisplay } from '../../utils/dateUtils';
 
 interface TransactionModalProps {
     isOpen: boolean;
@@ -30,7 +31,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     const [formData, setFormData] = useState({
         amount: '',
-        date: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
+        date: parseFlexibleDate(new Date()),
         category_id: '',
         account_id: '',
         source_type: 'service', // service, member, other
@@ -78,7 +79,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 if (servicesData) {
                     setServices(servicesData.map((s: any) => ({
                         id: s.id,
-                        name: `${s.service_types?.name || 'Culto'} - ${new Date(s.date).toLocaleDateString('pt-BR')}`,
+                        name: `${s.service_types?.name || 'Culto'} - ${formatDateForDisplay(s.date)}`,
                         date: s.date
                     })));
                 }
@@ -106,7 +107,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             setActiveTab(initialType);
             setFormData({
                 amount: '',
-                date: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
+                date: parseFlexibleDate(new Date()),
                 category_id: '',
                 account_id: (accounts && accounts.length > 0) ? accounts[0].id : '',
                 source_type: 'service',
