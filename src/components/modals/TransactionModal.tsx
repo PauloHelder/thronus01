@@ -30,7 +30,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     const [formData, setFormData] = useState({
         amount: '',
-        date: new Date().toISOString().split('T')[0],
+        date: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
         category_id: '',
         account_id: '',
         source_type: 'service', // service, member, other
@@ -106,7 +106,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             setActiveTab(initialType);
             setFormData({
                 amount: '',
-                date: new Date().toISOString().split('T')[0],
+                date: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
                 category_id: '',
                 account_id: (accounts && accounts.length > 0) ? accounts[0].id : '',
                 source_type: 'service',

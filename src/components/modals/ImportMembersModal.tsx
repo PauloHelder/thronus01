@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
+import { parseFlexibleDate } from '../../utils/dateUtils';
 
 interface ImportMembersModalProps {
     isOpen: boolean;
@@ -94,7 +95,7 @@ const ImportMembersModal: React.FC<ImportMembersModalProps> = ({ isOpen, onClose
                         phone: row['Telefone'] || row['Phone'] || row['telefone'],
                         biNumber: row['BI'] || row['Nº BI'] || row['bi'] || row['bi_number'],
                         gender: row['Gênero'] || row['Gender'] || row['genero'],
-                        birthDate: row['Data de Nascimento'] || row['Birth Date'] || row['nascimento'],
+                        birthDate: parseFlexibleDate(row['Data de Nascimento'] || row['Birth Date'] || row['nascimento']),
                         maritalStatus: row['Estado Civil'] || row['Marital Status'],
                         address: row['Endereço'] || row['Address'],
                         neighborhood: row['Bairro'] || row['Neighborhood'],
@@ -102,7 +103,7 @@ const ImportMembersModal: React.FC<ImportMembersModalProps> = ({ isOpen, onClose
                         province: row['Província'] || row['Province'],
                         municipality: row['Município'] || row['Municipality'],
                         isBaptized: row['Batizado'] || row['Baptized'],
-                        baptismDate: row['Data de Batismo'] || row['Baptism Date'],
+                        baptismDate: parseFlexibleDate(row['Data de Batismo'] || row['Baptism Date']),
                         churchRole: row['Função na Igreja'] || row['Role'] || row['Função'],
                         status: row['Status']
                     })).filter(item => item.name); // Filter empty rows/names

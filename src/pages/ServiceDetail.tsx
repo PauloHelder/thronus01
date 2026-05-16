@@ -202,7 +202,7 @@ const ServiceDetail: React.FC = () => {
                 description: newTx.description,
                 amount: Number(newTx.amount),
                 type: newTx.type,
-                date: service?.date || new Date().toISOString().split('T')[0],
+                date: service?.date || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
                 category_id: newTx.category_id || undefined,
                 account_id: newTx.account_id,
                 status: newTx.status,

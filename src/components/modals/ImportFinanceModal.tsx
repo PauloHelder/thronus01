@@ -5,6 +5,7 @@ import { FinancialAccount, FinancialCategory, FinancialTransaction } from '../..
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { formatAOA } from '../../utils/currency';
+import { parseFlexibleDate } from '../../utils/dateUtils';
 
 interface ImportFinanceModalProps {
     isOpen: boolean;
@@ -121,8 +122,13 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                         (description && m.name.toLowerCase() === description.toString().toLowerCase())
                     );
 
+                    const today = new Date();
+                    const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+                    const parsedDate = parseFlexibleDate(rawDate);
+
                     return {
-                        date: rawDate || new Date().toISOString(),
+                        date: parsedDate || defaultDate,
                         description: description,
                         amount: amount,
                         type: type,
@@ -234,9 +240,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                     description: tx.description,
                     amount: tx.amount,
                     type: tx.type,
-                    date: tx.date instanceof Date 
-                        ? `${tx.date.getUTCFullYear()}-${String(tx.date.getUTCMonth() + 1).padStart(2, '0')}-${String(tx.date.getUTCDate()).padStart(2, '0')}`
-                        : tx.date,
+                    date: parseFlexibleDate(tx.date),
                     category_id: finalCategoryId,
                     account_id: selectedAccountId,
                     source_type: tx.member_id ? 'member' : 'other',

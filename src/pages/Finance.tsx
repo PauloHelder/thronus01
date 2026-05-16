@@ -286,7 +286,7 @@ const Finance = () => {
 
     const handlePayRequestClick = (request: FinancialRequest) => {
         setRequestToPay(request);
-        setSelectedPayDate(new Date().toISOString().split('T')[0]);
+        setSelectedPayDate(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`);
         // Pre-select first account if available
         if (accounts.length > 0) {
             setSelectedPayAccountId(accounts[0].id);
