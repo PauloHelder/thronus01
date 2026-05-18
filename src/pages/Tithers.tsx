@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
     Search, 
     Filter, 
@@ -109,9 +109,14 @@ const Tithers: React.FC = () => {
     }, [titherStats, searchTerm]);
 
     // Pagination Logic
-    const totalPages = Math.ceil(filteredTithers.length / itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(filteredTithers.length / itemsPerPage));
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedTithers = filteredTithers.slice(startIndex, startIndex + itemsPerPage);
+
+    // Reset pagination to page 1 when any filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterPeriod, startDate, endDate, viewMode]);
 
     const formatCurrency = (value: number) => formatAOA(value);
 
@@ -393,8 +398,12 @@ const Tithers: React.FC = () => {
                         </p>
                         <div className="flex items-center gap-2">
                             <button 
-                                onClick={() => setCurrentPage(c => Math.max(c - 1, 1))}
-                                disabled={currentPage === 1}
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCurrentPage(c => Math.max(c - 1, 1));
+                                }}
+                                disabled={currentPage <= 1}
                                 className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 <ChevronLeft size={18} />
@@ -403,8 +412,12 @@ const Tithers: React.FC = () => {
                                 {currentPage} / {totalPages}
                             </span>
                             <button 
-                                onClick={() => setCurrentPage(c => Math.min(c + 1, totalPages))}
-                                disabled={currentPage === totalPages}
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCurrentPage(c => Math.min(c + 1, totalPages));
+                                }}
+                                disabled={currentPage >= totalPages}
                                 className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 <ChevronRight size={18} />
