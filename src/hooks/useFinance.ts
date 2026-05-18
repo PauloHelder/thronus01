@@ -139,30 +139,52 @@ export const useFinance = () => {
         if (!user?.churchId) return;
         try {
             setLoading(true);
-            let query = supabase
-                .from('financial_transactions' as any)
-                .select(`
-                    *,
-                    category:financial_categories(name, color),
-                    account:financial_accounts(name)
-                `)
-                .eq('church_id', user.churchId)
-                .is('deleted_at', null)
-                .order('date', { ascending: false });
+            const buildQuery = () => {
+                let q = supabase
+                    .from('financial_transactions' as any)
+                    .select(`
+                        *,
+                        category:financial_categories(name, color),
+                        account:financial_accounts(name)
+                    `)
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null)
+                    .order('date', { ascending: false });
 
-            // Apply filters
-            if (filters) {
-                if (filters.startDate) query = query.gte('date', filters.startDate);
-                if (filters.endDate) query = query.lte('date', filters.endDate);
-                if (filters.type && filters.type !== 'all') query = query.eq('type', filters.type);
-                if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status);
-                if (filters.accountId) query = query.eq('account_id', filters.accountId);
-                if (filters.categoryId) query = query.eq('category_id', filters.categoryId);
+                // Apply filters
+                if (filters) {
+                    if (filters.startDate) q = q.gte('date', filters.startDate);
+                    if (filters.endDate) q = q.lte('date', filters.endDate);
+                    if (filters.type && filters.type !== 'all') q = q.eq('type', filters.type);
+                    if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
+                    if (filters.accountId) q = q.eq('account_id', filters.accountId);
+                    if (filters.categoryId) q = q.eq('category_id', filters.categoryId);
+                }
+                return q;
+            };
+
+            let allData: any[] = [];
+            let from = 0;
+            const step = 1000;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data, error } = await buildQuery().range(from, from + step - 1);
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    allData = [...allData, ...data];
+                    if (data.length < step) {
+                        hasMore = false;
+                    } else {
+                        from += step;
+                    }
+                } else {
+                    hasMore = false;
+                }
             }
 
-            const { data, error } = await query;
-            if (error) throw error;
-            setTransactions(data || []);
+            setTransactions(allData);
         } catch (err: any) {
             console.error('Error fetching transactions:', err);
             setError(err.message);
@@ -272,24 +294,46 @@ export const useFinance = () => {
         if (!user?.churchId) return;
         try {
             setLoading(true);
-            let query = supabase
-                .from('financial_requests' as any)
-                .select(`
-                    *,
-                    department:departments(name),
-                    category:financial_categories(name, color)
-                `)
-                .eq('church_id', user.churchId)
-                .is('deleted_at', null)
-                .order('created_at', { ascending: false });
+            const buildQuery = () => {
+                let q = supabase
+                    .from('financial_requests' as any)
+                    .select(`
+                        *,
+                        department:departments(name),
+                        category:financial_categories(name, color)
+                    `)
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null)
+                    .order('created_at', { ascending: false });
 
-            if (departmentId) {
-                query = query.eq('department_id', departmentId);
+                if (departmentId) {
+                    q = q.eq('department_id', departmentId);
+                }
+                return q;
+            };
+
+            let allData: any[] = [];
+            let from = 0;
+            const step = 1000;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data, error } = await buildQuery().range(from, from + step - 1);
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    allData = [...allData, ...data];
+                    if (data.length < step) {
+                        hasMore = false;
+                    } else {
+                        from += step;
+                    }
+                } else {
+                    hasMore = false;
+                }
             }
 
-            const { data, error } = await query;
-            if (error) throw error;
-            setRequests(data || []);
+            setRequests(allData);
         } catch (err: any) {
             console.error('Error fetching requests:', err);
             setError(err.message);
