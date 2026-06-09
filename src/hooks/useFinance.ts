@@ -26,6 +26,17 @@ export interface FinancialCategory {
     is_system: boolean;
 }
 
+export interface FinancialBudget {
+    id: string;
+    church_id: string;
+    category_id: string;
+    year: number;
+    month: number;
+    amount: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
 export interface FinancialTransaction {
     id: string;
     church_id: string;
@@ -91,6 +102,7 @@ export const useFinance = () => {
     const [categories, setCategories] = useState<FinancialCategory[]>([]);
     const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
     const [requests, setRequests] = useState<FinancialRequest[]>([]);
+    const [budgets, setBudgets] = useState<FinancialBudget[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -341,6 +353,47 @@ export const useFinance = () => {
             setLoading(false);
         }
     }, [user?.churchId]);
+
+    const fetchBudgets = useCallback(async () => {
+        if (!user?.churchId) return;
+        try {
+            const { data, error } = await supabase
+                .from('financial_budgets' as any)
+                .select('*')
+                .eq('church_id', user.churchId);
+
+            if (error) throw error;
+            setBudgets(data || []);
+        } catch (err: any) {
+            console.error('Error fetching budgets:', err);
+            setError(err.message);
+        }
+    }, [user?.churchId]);
+
+    const saveBudget = async (categoryId: string, year: number, month: number, amount: number) => {
+        if (!user?.churchId) return false;
+        try {
+            const { error } = await supabase
+                .from('financial_budgets' as any)
+                .upsert({
+                    church_id: user.churchId,
+                    category_id: categoryId,
+                    year,
+                    month,
+                    amount
+                }, {
+                    onConflict: 'church_id,category_id,year,month'
+                });
+
+            if (error) throw error;
+            await fetchBudgets();
+            return true;
+        } catch (err: any) {
+            console.error('Error saving budget:', err);
+            setError(err.message);
+            return false;
+        }
+    };
 
     // ==========================================
     // CRUD: TRANSACTIONS
@@ -771,7 +824,8 @@ export const useFinance = () => {
                         fetchAccounts(),
                         fetchCategories(),
                         fetchTransactions(),
-                        fetchRequests()
+                        fetchRequests(),
+                        fetchBudgets()
                     ]);
                 } catch (err) {
                     console.error('Error in initial load:', err);
@@ -803,6 +857,7 @@ export const useFinance = () => {
         categories,
         transactions: transactionsWithBalance,
         requests,
+        budgets,
         loading,
         error,
 
@@ -834,6 +889,10 @@ export const useFinance = () => {
         deleteCategory,
         fetchMemberTransactions,
         fetchServiceTransactions,
-        fetchGroupTransactions
+        fetchGroupTransactions,
+
+        // Actions - Budgets
+        fetchBudgets,
+        saveBudget
     };
 };

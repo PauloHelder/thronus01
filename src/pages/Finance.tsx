@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     Plus,
     TrendingUp,
@@ -23,7 +23,10 @@ import {
     Building2,
     ClipboardList,
     FileSpreadsheet,
-    ArrowRightLeft
+    ArrowRightLeft,
+    ChevronLeft,
+    ChevronRight,
+    ListChecks
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useFinance, FinancialTransaction, FinancialRequest } from '../hooks/useFinance';
@@ -42,6 +45,118 @@ import { toast } from 'sonner';
 import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { formatDateForDisplay, parseFlexibleDate } from '../utils/dateUtils';
 
+// ==========================================
+// BUDGET ROW COMPONENT
+// ==========================================
+interface BudgetRowProps {
+    category: any;
+    planned: number;
+    executed: number;
+    remaining: number;
+    progress: number;
+    year: number;
+    month: number;
+    onSave: (categoryId: string, year: number, month: number, amount: number) => Promise<boolean>;
+    formatCurrency: (val: number) => string;
+}
+
+const BudgetRow: React.FC<BudgetRowProps> = ({
+    category,
+    planned,
+    executed,
+    remaining,
+    progress,
+    year,
+    month,
+    onSave,
+    formatCurrency
+}) => {
+    const [inputValue, setInputValue] = React.useState(planned > 0 ? planned.toString() : '');
+    const [savingStatus, setSavingStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+    React.useEffect(() => {
+        setInputValue(planned > 0 ? planned.toString() : '');
+        setSavingStatus('idle');
+    }, [planned]);
+
+    const handleSave = async (valueStr: string) => {
+        const amount = parseFloat(valueStr) || 0;
+        if (amount === planned) return; // No change
+
+        setSavingStatus('saving');
+        const success = await onSave(category.id, year, month, amount);
+        if (success) {
+            setSavingStatus('saved');
+            setTimeout(() => setSavingStatus('idle'), 1500);
+        } else {
+            setSavingStatus('error');
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.currentTarget.blur();
+        }
+    };
+
+    const progressColor = progress <= 75 ? 'bg-green-500' : progress <= 100 ? 'bg-orange-500' : 'bg-red-500';
+
+    return (
+        <tr className="hover:bg-gray-50 transition-colors">
+            <td className="px-6 py-4">
+                <div className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded-full border border-gray-100" style={{ backgroundColor: category.color || '#CBD5E1' }}></span>
+                    <span className="font-bold text-slate-800">{category.name}</span>
+                </div>
+            </td>
+            <td className="px-6 py-4">
+                <div className="flex items-center justify-end gap-1.5">
+                    <div className="relative flex items-center">
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onBlur={(e) => handleSave(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder="0,00"
+                            className="w-32 px-2.5 py-1.5 text-right border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none text-sm font-semibold text-slate-800 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-gray-50/50 hover:bg-white focus:bg-white"
+                        />
+                    </div>
+                    <div className="w-5 h-5 flex items-center justify-center text-xs">
+                        {savingStatus === 'saving' && (
+                            <div className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                        )}
+                        {savingStatus === 'saved' && (
+                            <span className="text-green-500 font-bold">✓</span>
+                        )}
+                        {savingStatus === 'error' && (
+                            <span className="text-red-500 font-bold" title="Erro ao salvar">!</span>
+                        )}
+                    </div>
+                </div>
+            </td>
+            <td className="px-6 py-4 text-right font-bold text-slate-700">
+                {formatCurrency(executed)}
+            </td>
+            <td className={`px-6 py-4 text-right font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(remaining)}
+            </td>
+            <td className="px-6 py-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-full bg-gray-100 rounded-full h-2.5 max-w-[200px] border border-gray-100">
+                        <div
+                            className={`h-2.5 rounded-full transition-all duration-500 ${progressColor} ${progress > 100 ? 'animate-pulse' : ''}`}
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                        ></div>
+                    </div>
+                    <span className="text-xs font-bold text-slate-600">{progress.toFixed(1)}%</span>
+                </div>
+            </td>
+        </tr>
+    );
+};
+
 const Finance = () => {
     const { hasPermission, user } = useAuth();
 
@@ -54,6 +169,7 @@ const Finance = () => {
         accounts,
         categories,
         requests,
+        budgets,
         loading,
         addTransaction,
         updateTransaction,
@@ -67,7 +183,8 @@ const Finance = () => {
         payRequest,
         updateRequest,
         deleteRequest,
-        deleteMultipleRequests
+        deleteMultipleRequests,
+        saveBudget
     } = useFinance();
 
     // Debug log to help identify why the page might be blank for some users
@@ -117,6 +234,36 @@ const Finance = () => {
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
+
+    // Budget Month/Year State
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+    const handlePrevMonth = () => {
+        if (selectedMonth === 0) {
+            setSelectedMonth(11);
+            setSelectedYear(prev => prev - 1);
+        } else {
+            setSelectedMonth(prev => prev - 1);
+        }
+    };
+
+    const handleNextMonth = () => {
+        if (selectedMonth === 11) {
+            setSelectedMonth(0);
+            setSelectedYear(prev => prev + 1);
+        } else {
+            setSelectedMonth(prev => prev + 1);
+        }
+    };
+
+    const getMonthName = (m: number) => {
+        const months = [
+            'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+            'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+        ];
+        return months[m];
+    };
 
     // Reset to page 1 when filters or view change
     React.useEffect(() => {
@@ -200,6 +347,41 @@ const Finance = () => {
 
     const balance = totals.income - totals.expense;
     const totalAccountBalance = accounts.reduce((acc, curr) => acc + Number(curr.current_balance || 0), 0);
+
+    const budgetTotals = useMemo(() => {
+        const expenseCategories = categories.filter(c => c.type === 'expense');
+        let totalPlanned = 0;
+        let totalExecuted = 0;
+
+        expenseCategories.forEach(cat => {
+            const budget = budgets.find(b => b.category_id === cat.id && b.year === selectedYear && b.month === selectedMonth);
+            const planned = budget ? Number(budget.amount) : 0;
+            totalPlanned += planned;
+
+            const executed = transactions
+                .filter(t => {
+                    if (t.type !== 'expense' || t.category_id !== cat.id || t.deleted_at) return false;
+                    const parts = t.date.split('-');
+                    if (parts.length < 2) return false;
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10) - 1;
+                    return y === selectedYear && m === selectedMonth;
+                })
+                .reduce((sum, t) => sum + Number(t.amount), 0);
+            
+            totalExecuted += executed;
+        });
+
+        const remaining = totalPlanned - totalExecuted;
+        const percent = totalPlanned > 0 ? (totalExecuted / totalPlanned) * 100 : 0;
+
+        return {
+            planned: totalPlanned,
+            executed: totalExecuted,
+            remaining,
+            percent
+        };
+    }, [categories, budgets, transactions, selectedMonth, selectedYear]);
 
     const handleOpenTransactionModal = (transaction?: FinancialTransaction) => {
         setSelectedTransaction(transaction);
@@ -467,11 +649,13 @@ const Finance = () => {
                 {/* ... */}
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800">
-                        {currentView === 'requests' ? 'Requisições de Departamentos' : 'Finanças'}
+                        {currentView === 'requests' ? 'Requisições de Departamentos' : currentView === 'budget' ? 'Orçamento Mensal' : 'Finanças'}
                     </h1>
                     <p className="text-slate-600 mt-1">
                         {currentView === 'requests'
                             ? 'Acompanhamento e aprovação de solicitações de budget'
+                            : currentView === 'budget'
+                            ? 'Planejamento e acompanhamento de metas financeiras por categoria de despesa'
                             : 'Gestão financeira, dízimos, ofertas e despesas'}
                     </p>
                 </div>
@@ -546,6 +730,8 @@ const Finance = () => {
                             <Plus size={18} />
                             Nova Requisição
                         </button>
+                    ) : currentView === 'budget' ? (
+                        null
                     ) : (
                         <button
                             onClick={() => handleOpenTransactionModal()}
@@ -559,53 +745,103 @@ const Finance = () => {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-green-50 text-green-600 rounded-xl">
-                            <TrendingUp size={24} />
+            {currentView === 'budget' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-300">
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                                <TrendingUp size={24} />
+                            </div>
+                            <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">Programado</span>
                         </div>
-                        <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">Receitas</span>
+                        <p className="text-sm font-medium text-slate-500">Total Programado</p>
+                        <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(budgetTotals.planned)}</h3>
                     </div>
-                    <p className="text-sm font-medium text-slate-500">Total Receitas</p>
-                    <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totals.income)}</h3>
-                </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-red-50 text-red-600 rounded-xl">
-                            <TrendingDown size={24} />
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                                <TrendingDown size={24} />
+                            </div>
+                            <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">Despesas</span>
                         </div>
-                        <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">Despesas</span>
+                        <p className="text-sm font-medium text-slate-500">Total Executado</p>
+                        <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(budgetTotals.executed)}</h3>
                     </div>
-                    <p className="text-sm font-medium text-slate-500">Total Despesas</p>
-                    <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totals.expense)}</h3>
-                </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                            <Activity size={24} />
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                                <Activity size={24} />
+                            </div>
+                            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Saldo</span>
                         </div>
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Balanço</span>
+                        <p className="text-sm font-medium text-slate-500">Saldo Restante</p>
+                        <h3 className={`text-2xl font-bold ${budgetTotals.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(budgetTotals.remaining)}
+                        </h3>
                     </div>
-                    <p className="text-sm font-medium text-slate-500">Balanço do Período</p>
-                    <h3 className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(balance)}
-                    </h3>
-                </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
-                            <Wallet size={24} />
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
+                                <Wallet size={24} />
+                            </div>
+                            <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Consumo</span>
                         </div>
-                        <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Patrimônio</span>
+                        <p className="text-sm font-medium text-slate-500">% Consumido</p>
+                        <h3 className="text-2xl font-bold text-slate-800">{budgetTotals.percent.toFixed(1)}%</h3>
                     </div>
-                    <p className="text-sm font-medium text-slate-500">Saldo Total em Contas</p>
-                    <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totalAccountBalance)}</h3>
                 </div>
-            </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-green-50 text-green-600 rounded-xl">
+                                <TrendingUp size={24} />
+                            </div>
+                            <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">Receitas</span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-500">Total Receitas</p>
+                        <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totals.income)}</h3>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                                <TrendingDown size={24} />
+                            </div>
+                            <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">Despesas</span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-500">Total Despesas</p>
+                        <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totals.expense)}</h3>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                                <Activity size={24} />
+                            </div>
+                            <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Balanço</span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-500">Balanço do Período</p>
+                        <h3 className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(balance)}
+                        </h3>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
+                                <Wallet size={24} />
+                            </div>
+                            <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Patrimônio</span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-500">Saldo Total em Contas</p>
+                        <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totalAccountBalance)}</h3>
+                    </div>
+                </div>
+            )}
 
             {currentView === 'requests' ? (
                 /* Consolidated Requests View */
@@ -833,6 +1069,124 @@ const Finance = () => {
                             )}
                         </div>
                     )}
+                </div>
+            ) : currentView === 'budget' ? (
+                /* Budget View */
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
+                    <div className="p-4 border-b border-gray-200 bg-gray-50/50">
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                                <ListChecks className="text-orange-500 animate-pulse-slow" />
+                                Planejamento de Despesas
+                            </h3>
+                            
+                            {/* Month/Year selector */}
+                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-gray-200 rounded-lg shadow-sm">
+                                <button
+                                    onClick={handlePrevMonth}
+                                    className="p-1 hover:bg-gray-50 rounded text-slate-600 transition-colors"
+                                    title="Mês Anterior"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <span className="font-semibold text-slate-700 min-w-[120px] text-center capitalize">
+                                    {getMonthName(selectedMonth)}, {selectedYear}
+                                </span>
+                                <button
+                                    onClick={handleNextMonth}
+                                    className="p-1 hover:bg-gray-100 rounded text-slate-600 transition-colors"
+                                    title="Próximo Mês"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-slate-500 uppercase">
+                                    <th className="px-6 py-4">Categoria</th>
+                                    <th className="px-6 py-4 w-48 text-right">Programado</th>
+                                    <th className="px-6 py-4 w-48 text-right">Executado</th>
+                                    <th className="px-6 py-4 w-48 text-right">Saldo Restante</th>
+                                    <th className="px-6 py-4">Progresso de Consumo</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {categories.filter(c => c.type === 'expense').length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                                            Nenhuma categoria de despesa cadastrada. Clique em "Categorias" acima para criar.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    categories
+                                        .filter(c => c.type === 'expense')
+                                        .map(cat => {
+                                            const budget = budgets.find(b => b.category_id === cat.id && b.year === selectedYear && b.month === selectedMonth);
+                                            const plannedVal = budget ? Number(budget.amount) : 0;
+
+                                            // Calculate executed amount for this category in this month/year
+                                            const executedVal = transactions
+                                                .filter(t => {
+                                                    if (t.type !== 'expense' || t.category_id !== cat.id || t.deleted_at) return false;
+                                                    const parts = t.date.split('-');
+                                                    if (parts.length < 2) return false;
+                                                    const y = parseInt(parts[0], 10);
+                                                    const m = parseInt(parts[1], 10) - 1;
+                                                    return y === selectedYear && m === selectedMonth;
+                                                })
+                                                .reduce((sum, t) => sum + Number(t.amount), 0);
+
+                                            const remainingVal = plannedVal - executedVal;
+                                            const progressPercent = plannedVal > 0 ? (executedVal / plannedVal) * 100 : 0;
+
+                                            return (
+                                                <BudgetRow
+                                                    key={cat.id}
+                                                    category={cat}
+                                                    planned={plannedVal}
+                                                    executed={executedVal}
+                                                    remaining={remainingVal}
+                                                    progress={progressPercent}
+                                                    year={selectedYear}
+                                                    month={selectedMonth}
+                                                    onSave={saveBudget}
+                                                    formatCurrency={formatCurrency}
+                                                />
+                                            );
+                                        })
+                                )}
+                            </tbody>
+                            {categories.filter(c => c.type === 'expense').length > 0 && (
+                                <tfoot>
+                                    <tr className="bg-gray-50 border-t border-gray-200 font-bold text-slate-800">
+                                        <td className="px-6 py-4">Total</td>
+                                        <td className="px-6 py-4 text-right text-lg">{formatCurrency(budgetTotals.planned)}</td>
+                                        <td className="px-6 py-4 text-right text-lg text-red-600">{formatCurrency(budgetTotals.executed)}</td>
+                                        <td className={`px-6 py-4 text-right text-lg ${budgetTotals.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {formatCurrency(budgetTotals.remaining)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-full bg-gray-200 rounded-full h-3 max-w-[200px]">
+                                                    <div
+                                                        className={`h-3 rounded-full transition-all duration-500 ${
+                                                            budgetTotals.percent <= 75 ? 'bg-green-500' : budgetTotals.percent <= 100 ? 'bg-orange-500' : 'bg-red-500 animate-pulse'
+                                                        }`}
+                                                        style={{ width: `${Math.min(budgetTotals.percent, 100)}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className="text-sm">{budgetTotals.percent.toFixed(1)}%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            )}
+                        </table>
+                    </div>
                 </div>
             ) : (
                 /* Transactions View */
