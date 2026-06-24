@@ -125,6 +125,7 @@ const AppContent: React.FC = () => {
 
 import { Toaster } from 'sonner';
 import { OfflineIndicator, ReloadPrompt, IOSInstallPrompt, PWAInstallSheet } from './components/PWAComponents';
+import { Analytics } from '@vercel/analytics/react';
 
 const App: React.FC = () => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -155,6 +156,7 @@ const App: React.FC = () => {
       <ReloadPrompt />
       <IOSInstallPrompt />
       <PWAInstallSheet />
+      <Analytics />
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
