@@ -81,6 +81,41 @@ export interface FinancialRequest {
     category?: { name: string; color: string };
 }
 
+export interface FinancialRecurringBill {
+    id: string;
+    church_id: string;
+    description: string;
+    amount: number;
+    category_id?: string;
+    start_date: string;
+    end_date: string;
+    periodicity: string;
+    occurrences: number;
+    created_at?: string;
+    updated_at?: string;
+    // Joined fields
+    category?: { name: string; color: string };
+}
+
+export interface FinancialPayableInstallment {
+    id: string;
+    church_id: string;
+    recurring_bill_id: string;
+    installment_number: number;
+    amount: number;
+    due_date: string;
+    status: 'pending' | 'paid';
+    paid_at?: string;
+    account_id?: string;
+    transaction_id?: string;
+    created_at?: string;
+    updated_at?: string;
+    // Joined fields
+    recurring_bill?: FinancialRecurringBill;
+    account?: { name: string };
+    transaction?: { description: string };
+}
+
 export interface TransactionFilter {
     startDate?: string;
     endDate?: string;
@@ -103,6 +138,8 @@ export const useFinance = () => {
     const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
     const [requests, setRequests] = useState<FinancialRequest[]>([]);
     const [budgets, setBudgets] = useState<FinancialBudget[]>([]);
+    const [payables, setPayables] = useState<FinancialRecurringBill[]>([]);
+    const [installments, setInstallments] = useState<FinancialPayableInstallment[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -390,6 +427,189 @@ export const useFinance = () => {
             return true;
         } catch (err: any) {
             console.error('Error saving budget:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    const fetchPayables = useCallback(async () => {
+        if (!user?.churchId) return;
+        try {
+            const { data, error } = await (supabase as any)
+                .from('financial_recurring_bills')
+                .select(`
+                    *,
+                    category:financial_categories(name, color)
+                `)
+                .eq('church_id', user.churchId)
+                .is('deleted_at', null)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setPayables(data || []);
+        } catch (err: any) {
+            console.error('Error fetching recurring bills:', err);
+            setError(err.message);
+        }
+    }, [user?.churchId]);
+
+    const fetchInstallments = useCallback(async () => {
+        if (!user?.churchId) return;
+        try {
+            const { data, error } = await (supabase as any)
+                .from('financial_payable_installments')
+                .select(`
+                    *,
+                    recurring_bill:financial_recurring_bills(
+                        id,
+                        description,
+                        category_id,
+                        category:financial_categories(name, color)
+                    ),
+                    account:financial_accounts(name)
+                `)
+                .eq('church_id', user.churchId)
+                .is('deleted_at', null)
+                .order('due_date', { ascending: true });
+
+            if (error) throw error;
+            setInstallments(data || []);
+        } catch (err: any) {
+            console.error('Error fetching installments:', err);
+            setError(err.message);
+        }
+    }, [user?.churchId]);
+
+    const addRecurringBill = async (
+        bill: Omit<FinancialRecurringBill, 'id' | 'church_id' | 'created_at'>,
+        installmentsList: Array<Omit<FinancialPayableInstallment, 'id' | 'church_id' | 'recurring_bill_id' | 'created_at' | 'status'>>
+    ) => {
+        if (!user?.churchId) return false;
+        try {
+            // 1. Inserir a conta recorrente
+            const { data: newBill, error: billError } = await (supabase as any)
+                .from('financial_recurring_bills')
+                .insert({
+                    ...bill,
+                    church_id: user.churchId
+                })
+                .select()
+                .single();
+
+            if (billError) throw billError;
+            if (!newBill) throw new Error('Falha ao criar conta recorrente');
+
+            // 2. Inserir todas as parcelas
+            const installmentsPayload = installmentsList.map(inst => ({
+                ...inst,
+                recurring_bill_id: newBill.id,
+                church_id: user.churchId,
+                status: 'pending'
+            }));
+
+            const { error: instError } = await (supabase as any)
+                .from('financial_payable_installments')
+                .insert(installmentsPayload);
+
+            if (instError) throw instError;
+
+            await Promise.all([fetchPayables(), fetchInstallments()]);
+            return true;
+        } catch (err: any) {
+            console.error('Error adding recurring bill:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    const payInstallment = async (installmentId: string, accountId: string, paymentDate?: string) => {
+        if (!user?.churchId) return false;
+        try {
+            // 1. Buscar detalhes da parcela
+            const { data: installment, error: instError } = await (supabase as any)
+                .from('financial_payable_installments')
+                .select(`
+                    *,
+                    recurring_bill:financial_recurring_bills(*)
+                `)
+                .eq('id', installmentId)
+                .single();
+
+            if (instError) throw instError;
+            if (!installment) throw new Error('Parcela não encontrada');
+
+            const dateToUse = paymentDate || parseFlexibleDate(new Date());
+
+            // 2. Criar a transação financeira (despesa)
+            const { data: tx, error: txError } = await (supabase as any)
+                .from('financial_transactions')
+                .insert({
+                    church_id: user.churchId,
+                    description: `Pgmto: ${installment.recurring_bill?.description || 'Conta a Pagar'} (Parc. ${installment.installment_number})`,
+                    amount: installment.amount,
+                    type: 'expense',
+                    date: dateToUse,
+                    category_id: installment.recurring_bill?.category_id,
+                    account_id: accountId,
+                    status: 'paid',
+                    created_by: user.id,
+                    notes: `Pagamento automático da parcela #${installment.installment_number} de ${installment.recurring_bill?.description || ''}`
+                })
+                .select()
+                .single();
+
+            if (txError) throw txError;
+
+            // 3. Atualizar a parcela com o status pago e id da transação
+            const { error: updError } = await (supabase as any)
+                .from('financial_payable_installments')
+                .update({
+                    status: 'paid',
+                    paid_at: new Date().toISOString(),
+                    account_id: accountId,
+                    transaction_id: tx.id
+                })
+                .eq('id', installmentId);
+
+            if (updError) throw updError;
+
+            await Promise.all([
+                fetchInstallments(),
+                fetchTransactions(),
+                fetchAccounts()
+            ]);
+            return true;
+        } catch (err: any) {
+            console.error('Error paying installment:', err);
+            setError(err.message);
+            return false;
+        }
+    };
+
+    const deleteRecurringBill = async (billId: string) => {
+        try {
+            const nowStr = new Date().toISOString();
+            
+            // 1. Soft delete installments first
+            const { error: instError } = await (supabase as any)
+                .from('financial_payable_installments')
+                .update({ deleted_at: nowStr })
+                .eq('recurring_bill_id', billId);
+
+            if (instError) throw instError;
+
+            // 2. Soft delete recurring bill
+            const { error: billError } = await (supabase as any)
+                .from('financial_recurring_bills')
+                .update({ deleted_at: nowStr })
+                .eq('id', billId);
+
+            if (billError) throw billError;
+
+            await Promise.all([fetchPayables(), fetchInstallments()]);
+            return true;
+        } catch (err: any) {
+            console.error('Error deleting recurring bill:', err);
             setError(err.message);
             return false;
         }
@@ -825,7 +1045,9 @@ export const useFinance = () => {
                         fetchCategories(),
                         fetchTransactions(),
                         fetchRequests(),
-                        fetchBudgets()
+                        fetchBudgets(),
+                        fetchPayables(),
+                        fetchInstallments()
                     ]);
                 } catch (err) {
                     console.error('Error in initial load:', err);
@@ -849,7 +1071,7 @@ export const useFinance = () => {
             mounted = false;
             clearTimeout(timeout);
         };
-    }, [user, user?.churchId, fetchAccounts, fetchCategories, fetchTransactions, fetchRequests]);
+    }, [user, user?.churchId, fetchAccounts, fetchCategories, fetchTransactions, fetchRequests, fetchPayables, fetchInstallments]);
 
     return {
         // Data
@@ -858,6 +1080,8 @@ export const useFinance = () => {
         transactions: transactionsWithBalance,
         requests,
         budgets,
+        payables,
+        installments,
         loading,
         error,
 
@@ -893,6 +1117,13 @@ export const useFinance = () => {
 
         // Actions - Budgets
         fetchBudgets,
-        saveBudget
+        saveBudget,
+
+        // Actions - Payables
+        fetchPayables,
+        fetchInstallments,
+        addRecurringBill,
+        payInstallment,
+        deleteRecurringBill
     };
 };

@@ -29,8 +29,10 @@ import {
     ListChecks
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { useFinance, FinancialTransaction, FinancialRequest } from '../hooks/useFinance';
+import { useFinance, FinancialTransaction, FinancialRequest, FinancialRecurringBill, FinancialPayableInstallment } from '../hooks/useFinance';
 import TransactionModal from '../components/modals/TransactionModal';
+import PayableModal from '../components/modals/PayableModal';
+import PayInstallmentModal from '../components/modals/PayInstallmentModal';
 import AccountModal from '../components/modals/AccountModal';
 import CategoryModal from '../components/modals/CategoryModal';
 import TransactionDetailsModal from '../components/modals/TransactionDetailsModal';
@@ -170,6 +172,8 @@ const Finance = () => {
         categories,
         requests,
         budgets,
+        payables,
+        installments,
         loading,
         addTransaction,
         updateTransaction,
@@ -184,7 +188,10 @@ const Finance = () => {
         updateRequest,
         deleteRequest,
         deleteMultipleRequests,
-        saveBudget
+        saveBudget,
+        addRecurringBill,
+        payInstallment,
+        deleteRecurringBill
     } = useFinance();
 
     // Debug log to help identify why the page might be blank for some users
@@ -224,6 +231,14 @@ const Finance = () => {
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+    
+    // Payables state
+    const [isPayableModalOpen, setIsPayableModalOpen] = useState(false);
+    const [isPayInstallmentModalOpen, setIsPayInstallmentModalOpen] = useState(false);
+    const [selectedInstallment, setSelectedInstallment] = useState<FinancialPayableInstallment | null>(null);
+    const [payableSubView, setPayableSubView] = useState<'installments' | 'recurring'>('installments');
+    const [payableSearch, setPayableSearch] = useState('');
+    const [payableStatusFilter, setPayableStatusFilter] = useState<'All' | 'pending' | 'paid'>('All');
     
     // Selection state
     const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
@@ -505,6 +520,29 @@ const Finance = () => {
         return success;
     };
 
+    const handleSavePayable = async (billData: any, installmentsData: any[]) => {
+        const success = await addRecurringBill(billData, installmentsData);
+        if (success) {
+            toast.success('Programação de pagamento cadastrada e parcelas geradas com sucesso!');
+        } else {
+            toast.error('Erro ao cadastrar contas a pagar.');
+        }
+        return success;
+    };
+
+    const handleConfirmInstallmentPayment = async (accountId: string, paymentDate: string) => {
+        if (!selectedInstallment) return false;
+        const success = await payInstallment(selectedInstallment.id, accountId, paymentDate);
+        if (success) {
+            toast.success('Pagamento da parcela efetuado e despesa registrada!');
+            setIsPayInstallmentModalOpen(false);
+            setSelectedInstallment(null);
+        } else {
+            toast.error('Erro ao processar pagamento da parcela.');
+        }
+        return success;
+    };
+
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'approved': return <CheckCircle2 className="text-green-500 w-4 h-4" />;
@@ -576,6 +614,9 @@ const Finance = () => {
             } else if (itemToDelete.type === 'request') {
                 success = await deleteRequest(itemToDelete.id as string);
                 if (success) toast.success('Requisição apagada com sucesso!');
+            } else if (itemToDelete.type === 'recurring_bill') {
+                success = await deleteRecurringBill(itemToDelete.id as string);
+                if (success) toast.success('Programação de pagamento apagada com sucesso!');
             }
 
             if (!success && itemToDelete.type !== 'bulk_transactions' && itemToDelete.type !== 'bulk_requests') {
@@ -649,13 +690,15 @@ const Finance = () => {
                 {/* ... */}
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800">
-                        {currentView === 'requests' ? 'Requisições de Departamentos' : currentView === 'budget' ? 'Orçamento Mensal' : 'Finanças'}
+                        {currentView === 'requests' ? 'Requisições de Departamentos' : currentView === 'budget' ? 'Orçamento Mensal' : currentView === 'payables' ? 'Contas a Pagar' : 'Finanças'}
                     </h1>
                     <p className="text-slate-600 mt-1">
                         {currentView === 'requests'
                             ? 'Acompanhamento e aprovação de solicitações de budget'
                             : currentView === 'budget'
                             ? 'Planejamento e acompanhamento de metas financeiras por categoria de despesa'
+                            : currentView === 'payables'
+                            ? 'Gestão e agendamento de despesas recorrentes programadas'
                             : 'Gestão financeira, dízimos, ofertas e despesas'}
                     </p>
                 </div>
@@ -732,6 +775,14 @@ const Finance = () => {
                         </button>
                     ) : currentView === 'budget' ? (
                         null
+                    ) : currentView === 'payables' ? (
+                        <button
+                            onClick={() => setIsPayableModalOpen(true)}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+                        >
+                            <Plus size={18} />
+                            Programar Pagamento
+                        </button>
                     ) : (
                         <button
                             onClick={() => handleOpenTransactionModal()}
@@ -1069,6 +1120,316 @@ const Finance = () => {
                             )}
                         </div>
                     )}
+                </div>
+            ) : currentView === 'payables' ? (
+                /* Accounts Payable View */
+                <div className="space-y-6 animate-in fade-in duration-300">
+                    
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
+                                    <Clock size={24} />
+                                </div>
+                                <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">Pendentes</span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-500">Total Pendente</p>
+                            <h3 className="text-2xl font-bold text-slate-800">
+                                {formatCurrency(
+                                    installments
+                                        .filter(i => i.status === 'pending')
+                                        .reduce((acc, curr) => acc + Number(curr.amount), 0)
+                                )}
+                            </h3>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                                    <AlertCircle size={24} />
+                                </div>
+                                <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">Hoje</span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-500">Vence Hoje</p>
+                            <h3 className="text-2xl font-bold text-red-600">
+                                {formatCurrency(
+                                    installments
+                                        .filter(i => i.status === 'pending' && i.due_date === parseFlexibleDate(new Date()))
+                                        .reduce((acc, curr) => acc + Number(curr.amount), 0)
+                                )}
+                            </h3>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="p-3 bg-green-50 text-green-600 rounded-xl">
+                                    <CheckCircle2 size={24} />
+                                </div>
+                                <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">Pagas</span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-500">Total Pago</p>
+                            <h3 className="text-2xl font-bold text-slate-800">
+                                {formatCurrency(
+                                    installments
+                                        .filter(i => i.status === 'paid')
+                                        .reduce((acc, curr) => acc + Number(curr.amount), 0)
+                                )}
+                            </h3>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                                    <Wallet size={24} />
+                                </div>
+                                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Total</span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-500">Total Programado</p>
+                            <h3 className="text-2xl font-bold text-slate-800">
+                                {formatCurrency(
+                                    installments.reduce((acc, curr) => acc + Number(curr.amount), 0)
+                                )}
+                            </h3>
+                        </div>
+                    </div>
+
+                    {/* View Switcher and Filters */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-gray-200 bg-gray-50/50 space-y-4">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div className="flex bg-gray-100 p-1 rounded-lg">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPayableSubView('installments')}
+                                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                                            payableSubView === 'installments'
+                                                ? 'bg-white text-slate-800 shadow-sm'
+                                                : 'text-slate-500 hover:text-slate-800'
+                                        }`}
+                                    >
+                                        Fluxo de Parcelas
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPayableSubView('recurring')}
+                                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                                            payableSubView === 'recurring'
+                                                ? 'bg-white text-slate-800 shadow-sm'
+                                                : 'text-slate-500 hover:text-slate-800'
+                                        }`}
+                                    >
+                                        Contas Programadas
+                                    </button>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+                                    <div className="relative flex-1 md:w-64 min-w-[200px]">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="Pesquisar..."
+                                            value={payableSearch}
+                                            onChange={(e) => setPayableSearch(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm font-medium"
+                                        />
+                                    </div>
+                                    {payableSubView === 'installments' && (
+                                        <select
+                                            value={payableStatusFilter}
+                                            onChange={(e) => setPayableStatusFilter(e.target.value as any)}
+                                            className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none font-medium"
+                                        >
+                                            <option value="All">Todos Status</option>
+                                            <option value="pending">Pendentes</option>
+                                            <option value="paid">Pagas</option>
+                                        </select>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* List rendering */}
+                        {payableSubView === 'installments' ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-200 text-xs font-bold text-slate-500 uppercase">
+                                            <th className="px-6 py-4">Vencimento</th>
+                                            <th className="px-6 py-4">Descrição</th>
+                                            <th className="px-6 py-4">Categoria</th>
+                                            <th className="px-6 py-4">Parcela</th>
+                                            <th className="px-6 py-4 text-right">Valor</th>
+                                            <th className="px-6 py-4 text-center">Status</th>
+                                            <th className="px-6 py-4 text-center">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {installments
+                                            .filter(i => {
+                                                const matchesSearch = (i.recurring_bill?.description || '').toLowerCase().includes(payableSearch.toLowerCase());
+                                                const matchesStatus = payableStatusFilter === 'All' || i.status === payableStatusFilter;
+                                                return matchesSearch && matchesStatus;
+                                            })
+                                            .length === 0 ? (
+                                            <tr>
+                                                <td colSpan={7} className="px-6 py-12 text-center text-gray-400 font-medium">
+                                                    Nenhuma parcela encontrada.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            installments
+                                                .filter(i => {
+                                                    const matchesSearch = (i.recurring_bill?.description || '').toLowerCase().includes(payableSearch.toLowerCase());
+                                                    const matchesStatus = payableStatusFilter === 'All' || i.status === payableStatusFilter;
+                                                    return matchesSearch && matchesStatus;
+                                                })
+                                                .map((inst) => {
+                                                    const isOverdue = inst.status === 'pending' && new Date(inst.due_date) < new Date(parseFlexibleDate(new Date()));
+                                                    return (
+                                                        <tr key={inst.id} className="hover:bg-gray-50 transition-colors">
+                                                            <td className="px-6 py-4 text-sm font-semibold text-slate-700">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <Calendar size={14} className="text-slate-400" />
+                                                                    <span className={isOverdue ? 'text-red-600 font-bold' : ''}>
+                                                                        {formatDate(inst.due_date)}
+                                                                    </span>
+                                                                    {isOverdue && (
+                                                                        <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Atrasada</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <div className="font-bold text-slate-800">{inst.recurring_bill?.description || 'Sem Descrição'}</div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-sm font-medium">
+                                                                <span
+                                                                    className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                                                                    style={{
+                                                                        backgroundColor: inst.recurring_bill?.category?.color ? inst.recurring_bill.category.color + '20' : '#F3F4F6',
+                                                                        color: inst.recurring_bill?.category?.color || '#6B7280'
+                                                                    }}
+                                                                >
+                                                                    {inst.recurring_bill?.category?.name || 'Despesa'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-sm font-semibold text-slate-500">
+                                                                {inst.installment_number} de {inst.recurring_bill?.occurrences || 1}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right font-extrabold text-slate-800">
+                                                                {formatCurrency(inst.amount)}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                                                                    inst.status === 'paid'
+                                                                        ? 'bg-green-50 text-green-700 border-green-200'
+                                                                        : 'bg-orange-50 text-orange-700 border-orange-200'
+                                                                }`}>
+                                                                    {inst.status === 'paid' ? <Check size={12} /> : <Clock size={12} />}
+                                                                    {inst.status === 'paid' ? 'Pago' : 'Pendente'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                {inst.status === 'pending' ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setSelectedInstallment(inst);
+                                                                            setIsPayInstallmentModalOpen(true);
+                                                                        }}
+                                                                        className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 mx-auto"
+                                                                    >
+                                                                        <Check size={12} /> Efetuar Pagamento
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-xs text-slate-400 font-medium">Pago em {formatDate(inst.paid_at)}</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            /* Recurring configurations list */
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-200 text-xs font-bold text-slate-500 uppercase">
+                                            <th className="px-6 py-4">Descrição</th>
+                                            <th className="px-6 py-4">Categoria</th>
+                                            <th className="px-6 py-4">Periodicidade</th>
+                                            <th className="px-6 py-4">Início</th>
+                                            <th className="px-6 py-4">Fim</th>
+                                            <th className="px-6 py-4 text-center">Parcelas</th>
+                                            <th className="px-6 py-4 text-right">Valor Parcela</th>
+                                            <th className="px-6 py-4 text-center">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {payables.filter(p => p.description.toLowerCase().includes(payableSearch.toLowerCase())).length === 0 ? (
+                                            <tr>
+                                                <td colSpan={8} className="px-6 py-12 text-center text-gray-400 font-medium">
+                                                    Nenhuma programação de conta recorrente encontrada.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            payables
+                                                .filter(p => p.description.toLowerCase().includes(payableSearch.toLowerCase()))
+                                                .map((bill) => (
+                                                    <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-6 py-4 font-bold text-slate-800">
+                                                            {bill.description}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm font-medium">
+                                                            <span
+                                                                className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                                                                style={{
+                                                                    backgroundColor: bill.category?.color ? bill.category.color + '20' : '#F3F4F6',
+                                                                    color: bill.category?.color || '#6B7280'
+                                                                }}
+                                                            >
+                                                                {bill.category?.name || 'Despesa'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm font-bold text-slate-600 capitalize">
+                                                            {bill.periodicity}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600 font-semibold">
+                                                            {formatDate(bill.start_date)}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600 font-semibold">
+                                                            {formatDate(bill.end_date)}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center text-sm font-bold text-slate-700">
+                                                            {bill.occurrences}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right font-extrabold text-slate-800">
+                                                            {formatCurrency(bill.amount)}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setItemToDelete({ id: bill.id, name: bill.description, type: 'recurring_bill' });
+                                                                    setIsDeleteModalOpen(true);
+                                                                }}
+                                                                className="p-1.5 text-slate-400 hover:text-red-500 transition-colors hover:bg-red-50 rounded-lg border border-transparent hover:border-red-100"
+                                                                title="Excluir Programação"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             ) : currentView === 'budget' ? (
                 /* Budget View */
@@ -1502,6 +1863,24 @@ const Finance = () => {
                 transaction={selectedTransaction}
                 accounts={accounts}
                 categories={categories}
+            />
+
+            <PayableModal
+                isOpen={isPayableModalOpen}
+                onClose={() => setIsPayableModalOpen(false)}
+                onSave={handleSavePayable}
+                categories={categories}
+            />
+
+            <PayInstallmentModal
+                isOpen={isPayInstallmentModalOpen}
+                onClose={() => {
+                    setIsPayInstallmentModalOpen(false);
+                    setSelectedInstallment(null);
+                }}
+                onConfirm={handleConfirmInstallmentPayment}
+                accounts={accounts}
+                installment={selectedInstallment}
             />
 
             <AccountModal

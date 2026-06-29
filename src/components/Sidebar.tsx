@@ -28,6 +28,7 @@ import {
   ListChecks,
   Activity,
   ClipboardList,
+  Clock,
   Package,
   Wrench,
   Tag,
@@ -101,6 +102,7 @@ const Sidebar: React.FC = () => {
         { to: "/finance/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
         { to: "/finance", icon: Wallet, label: "Finanças", permission: 'finances_view', end: true },
         { to: "/finance/tithers", icon: Heart, label: "Dizimistas", permission: 'finances_view' },
+        { to: "/finance?view=payables", icon: Clock, label: "Contas a Pagar", permission: 'finances_view' },
         { to: "/finance?view=requests", icon: ClipboardList, label: "Requisições", permission: 'finances_view' },
         { to: "/finance?view=budget", icon: ListChecks, label: "Orçamento", permission: 'finances_view' },
       ]
