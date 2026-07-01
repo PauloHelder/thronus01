@@ -29,7 +29,7 @@ const Settings: React.FC = () => {
         { id: 'members', label: 'Membros' },
         { id: 'services', label: 'Cultos' },
         { id: 'groups', label: 'Grupos' },
-        { id: 'finances', label: 'Finanças' },
+        { id: 'finances', label: 'Tesouraria' },
         { id: 'teaching', label: 'Ensino' },
         { id: 'events', label: 'Eventos' },
         { id: 'departments', label: 'Departamentos' },
@@ -162,7 +162,7 @@ const Settings: React.FC = () => {
                     } else {
                         // Default permissions
                         setRolePermissions({
-                            'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'groups_create', 'groups_edit', 'groups_delete', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'events_delete', 'departments_view', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit', 'assets_view', 'assets_create', 'assets_edit', 'assets_delete'],
+                            'supervisor': ['members_view', 'members_edit', 'members_create', 'groups_view', 'groups_create', 'groups_edit', 'groups_delete', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'events_delete', 'departments_view', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit', 'assets_view', 'assets_create', 'assets_edit', 'assets_delete', 'finances_authorize', 'finances_pay'],
                             'leader': ['members_view', 'members_edit', 'groups_view', 'groups_create', 'groups_edit', 'discipleship_view', 'discipleship_create', 'discipleship_edit', 'events_view', 'events_create', 'events_edit', 'departments_edit', 'departments_create', 'teaching_view', 'teaching_create', 'teaching_edit', 'services_view', 'services_create', 'services_edit', 'assets_view', 'assets_create', 'assets_edit'],
                             'member': ['members_view', 'groups_view', 'discipleship_view', 'events_view', 'services_view', 'teaching_view', 'assets_view']
                         });
@@ -399,7 +399,7 @@ const Settings: React.FC = () => {
         view_departments: 'Ver Departamentos',
         view_teaching: 'Ver Ensino',
         view_events: 'Ver Eventos',
-        view_finances: 'Ver Finanças'
+        view_finances: 'Ver Tesouraria'
     };
 
     return (
@@ -895,12 +895,18 @@ const Settings: React.FC = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/3">Módulo</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/4">Módulo</th>
                                     {ACTIONS.map(action => (
                                         <th key={action.id} className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">
                                             {action.label}
                                         </th>
                                     ))}
+                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">
+                                        Autorizar
+                                    </th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">
+                                        Pagar
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -928,6 +934,45 @@ const Settings: React.FC = () => {
                                                 </td>
                                             );
                                         })}
+                                        
+                                        {/* Colunas extras específicas de Finanças */}
+                                        {module.id === 'finances' ? (
+                                            <>
+                                                {/* Autorizar */}
+                                                <td className="px-6 py-4 text-center">
+                                                    <label className="inline-flex items-center justify-center cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="sr-only peer"
+                                                            checked={(rolePermissions[selectedRole] || []).includes('finances_authorize')}
+                                                            onChange={() => handlePermissionToggle(selectedRole, 'finances', 'authorize')}
+                                                        />
+                                                        <div className="w-5 h-5 border-2 border-gray-300 rounded peer-checked:bg-orange-500 peer-checked:border-orange-500 transition-all flex items-center justify-center">
+                                                            {(rolePermissions[selectedRole] || []).includes('finances_authorize') && <Check size={12} className="text-white" />}
+                                                        </div>
+                                                    </label>
+                                                </td>
+                                                {/* Pagar */}
+                                                <td className="px-6 py-4 text-center">
+                                                    <label className="inline-flex items-center justify-center cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="sr-only peer"
+                                                            checked={(rolePermissions[selectedRole] || []).includes('finances_pay')}
+                                                            onChange={() => handlePermissionToggle(selectedRole, 'finances', 'pay')}
+                                                        />
+                                                        <div className="w-5 h-5 border-2 border-gray-300 rounded peer-checked:bg-orange-500 peer-checked:border-orange-500 transition-all flex items-center justify-center">
+                                                            {(rolePermissions[selectedRole] || []).includes('finances_pay') && <Check size={12} className="text-white" />}
+                                                        </div>
+                                                    </label>
+                                                </td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="px-6 py-4 text-center text-slate-300">-</td>
+                                                <td className="px-6 py-4 text-center text-slate-300">-</td>
+                                            </>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>

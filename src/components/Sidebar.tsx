@@ -97,10 +97,10 @@ const Sidebar: React.FC = () => {
       ]
     },
     finance: {
-      title: "Gestão Financeira",
+      title: "Tesouraria",
       items: [
         { to: "/finance/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
-        { to: "/finance", icon: Wallet, label: "Finanças", permission: 'finances_view', end: true },
+        { to: "/finance", icon: Wallet, label: "Tesouraria", permission: 'finances_view', end: true },
         { to: "/finance/tithers", icon: Heart, label: "Dizimistas", permission: 'finances_view' },
         { to: "/finance?view=payables", icon: Clock, label: "Contas a Pagar", permission: 'finances_view' },
         { to: "/finance?view=requests", icon: ClipboardList, label: "Requisições", permission: 'finances_view' },
@@ -150,7 +150,7 @@ const Sidebar: React.FC = () => {
 
     // Common Church Items
     items.push(
-      { to: "/finance", icon: Wallet, label: "Finanças", module: 'finance', permission: 'finances_view' },
+      { to: "/finance", icon: Wallet, label: "Tesouraria", module: 'finance', permission: 'finances_view' },
       { to: "/members", icon: Users, label: "Membros", module: 'members', permission: 'members_view' },
       { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view' },
       { to: "/groups", icon: Users2, label: "Grupos", permission: 'groups_view' },

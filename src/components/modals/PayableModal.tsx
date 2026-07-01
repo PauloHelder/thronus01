@@ -35,6 +35,12 @@ export const calculateOccurrences = (startDateStr: string, endDateStr: string, p
             const totalMonths = yearDiff * 12 + monthDiff;
             return Math.floor(totalMonths / 3) + 1;
         }
+        case 'semestral': {
+            const yearDiff = end.getFullYear() - start.getFullYear();
+            const monthDiff = end.getMonth() - start.getMonth();
+            const totalMonths = yearDiff * 12 + monthDiff;
+            return Math.floor(totalMonths / 6) + 1;
+        }
         case 'anual': {
             const yearDiff = end.getFullYear() - start.getFullYear();
             return yearDiff + 1;
@@ -58,6 +64,8 @@ export const generateInstallmentDates = (startDateStr: string, occurrences: numb
             d.setMonth(baseDate.getMonth() + i);
         } else if (periodicity === 'trimestral') {
             d.setMonth(baseDate.getMonth() + i * 3);
+        } else if (periodicity === 'semestral') {
+            d.setMonth(baseDate.getMonth() + i * 6);
         } else if (periodicity === 'anual') {
             d.setFullYear(baseDate.getFullYear() + i);
         }
@@ -287,6 +295,7 @@ const PayableModal: React.FC<PayableModalProps> = ({
                             <option value="semanal">Semanal</option>
                             <option value="mensal">Mensal</option>
                             <option value="trimestral">Trimestral</option>
+                            <option value="semestral">Semestral</option>
                             <option value="anual">Anual</option>
                         </select>
                     </div>

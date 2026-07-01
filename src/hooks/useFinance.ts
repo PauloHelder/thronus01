@@ -72,6 +72,7 @@ export interface FinancialRequest {
     requested_by: string;
     approved_by?: string;
     category_id?: string;
+    payable_installment_id?: string;
     notes?: string;
     created_at: string;
     approval_date?: string;
@@ -817,7 +818,7 @@ export const useFinance = () => {
     // CRUD: REQUESTS
     // ==========================================
 
-    const addRequest = async (request: Omit<FinancialRequest, 'id' | 'church_id' | 'created_at' | 'status'>) => {
+    const addRequest = async (request: Omit<FinancialRequest, 'id' | 'church_id' | 'created_at' | 'status' | 'requested_by'>) => {
         if (!user?.churchId) return false;
         try {
             const { error } = await (supabase
@@ -900,7 +901,21 @@ export const useFinance = () => {
 
             if (updError) throw updError;
 
-            await Promise.all([fetchRequests(), fetchTransactions(), fetchAccounts()]);
+            // 4. Se a requisição foi gerada por uma parcela de Contas a Pagar, dar baixa na parcela
+            if (request.payable_installment_id) {
+                const { error: instError } = await (supabase
+                    .from('financial_payable_installments' as any)
+                    .update({
+                        status: 'paid',
+                        paid_at: dateToUse,
+                        account_id: accountId
+                    })
+                    .eq('id', request.payable_installment_id) as any);
+                
+                if (instError) console.error('Erro ao atualizar status da parcela:', instError);
+            }
+
+            await Promise.all([fetchRequests(), fetchTransactions(), fetchAccounts(), fetchInstallments()]);
             return true;
         } catch (err: any) {
             console.error('Error paying request:', err);

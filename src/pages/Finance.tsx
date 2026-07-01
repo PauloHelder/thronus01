@@ -56,9 +56,6 @@ interface BudgetRowProps {
     executed: number;
     remaining: number;
     progress: number;
-    year: number;
-    month: number;
-    onSave: (categoryId: string, year: number, month: number, amount: number) => Promise<boolean>;
     formatCurrency: (val: number) => string;
 }
 
@@ -68,39 +65,8 @@ const BudgetRow: React.FC<BudgetRowProps> = ({
     executed,
     remaining,
     progress,
-    year,
-    month,
-    onSave,
     formatCurrency
 }) => {
-    const [inputValue, setInputValue] = React.useState(planned > 0 ? planned.toString() : '');
-    const [savingStatus, setSavingStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-    React.useEffect(() => {
-        setInputValue(planned > 0 ? planned.toString() : '');
-        setSavingStatus('idle');
-    }, [planned]);
-
-    const handleSave = async (valueStr: string) => {
-        const amount = parseFloat(valueStr) || 0;
-        if (amount === planned) return; // No change
-
-        setSavingStatus('saving');
-        const success = await onSave(category.id, year, month, amount);
-        if (success) {
-            setSavingStatus('saved');
-            setTimeout(() => setSavingStatus('idle'), 1500);
-        } else {
-            setSavingStatus('error');
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.currentTarget.blur();
-        }
-    };
-
     const progressColor = progress <= 75 ? 'bg-green-500' : progress <= 100 ? 'bg-orange-500' : 'bg-red-500';
 
     return (
@@ -111,42 +77,18 @@ const BudgetRow: React.FC<BudgetRowProps> = ({
                     <span className="font-bold text-slate-800">{category.name}</span>
                 </div>
             </td>
-            <td className="px-6 py-4">
-                <div className="flex items-center justify-end gap-1.5">
-                    <div className="relative flex items-center">
-                        <input
-                            type="number"
-                            step="0.01"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            onBlur={(e) => handleSave(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="0,00"
-                            className="w-32 px-2.5 py-1.5 text-right border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none text-sm font-semibold text-slate-800 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-gray-50/50 hover:bg-white focus:bg-white"
-                        />
-                    </div>
-                    <div className="w-5 h-5 flex items-center justify-center text-xs">
-                        {savingStatus === 'saving' && (
-                            <div className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                        )}
-                        {savingStatus === 'saved' && (
-                            <span className="text-green-500 font-bold">✓</span>
-                        )}
-                        {savingStatus === 'error' && (
-                            <span className="text-red-500 font-bold" title="Erro ao salvar">!</span>
-                        )}
-                    </div>
-                </div>
+            <td className="px-6 py-4 text-right font-semibold text-slate-700">
+                {formatCurrency(planned)}
             </td>
-            <td className="px-6 py-4 text-right font-bold text-slate-700">
+            <td className="px-6 py-4 text-right font-semibold text-red-600">
                 {formatCurrency(executed)}
             </td>
             <td className={`px-6 py-4 text-right font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatCurrency(remaining)}
             </td>
             <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-full bg-gray-100 rounded-full h-2.5 max-w-[200px] border border-gray-100">
+                <div className="flex items-center gap-2">
+                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
                         <div
                             className={`h-2.5 rounded-full transition-all duration-500 ${progressColor} ${progress > 100 ? 'animate-pulse' : ''}`}
                             style={{ width: `${Math.min(progress, 100)}%` }}
@@ -160,10 +102,12 @@ const BudgetRow: React.FC<BudgetRowProps> = ({
 };
 
 const Finance = () => {
-    const { hasPermission, user } = useAuth();
+    const { hasPermission, hasRole, user } = useAuth();
 
     // Permission check
     const canView = hasPermission('finances_view');
+    const canAuthorize = hasPermission('finances_authorize') || hasRole('admin') || hasRole('superuser') || hasPermission('all');
+    const canPay = hasPermission('finances_pay') || hasRole('admin') || hasRole('superuser') || hasPermission('all');
 
     // Hooks need to be called unconditionally, so we just condition the return render
     const {
@@ -256,6 +200,31 @@ const Finance = () => {
     // Budget Month/Year State
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+    // Budget Year/Period State for Tesouraria Orçamento
+    const [budgetYearFilter, setBudgetYearFilter] = useState(new Date().getFullYear());
+    const [budgetPeriodType, setBudgetPeriodType] = useState<'monthly' | 'quarterly' | 'semesterly' | 'yearly'>('yearly');
+    const [budgetPeriodValue, setBudgetPeriodValue] = useState<number>(new Date().getMonth());
+
+    const activeMonths = useMemo(() => {
+        if (budgetPeriodType === 'yearly') {
+            return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        }
+        if (budgetPeriodType === 'monthly') {
+            return [budgetPeriodValue];
+        }
+        if (budgetPeriodType === 'quarterly') {
+            if (budgetPeriodValue === 1) return [0, 1, 2];
+            if (budgetPeriodValue === 2) return [3, 4, 5];
+            if (budgetPeriodValue === 3) return [6, 7, 8];
+            return [9, 10, 11];
+        }
+        if (budgetPeriodType === 'semesterly') {
+            if (budgetPeriodValue === 1) return [0, 1, 2, 3, 4, 5];
+            return [6, 7, 8, 9, 10, 11];
+        }
+        return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    }, [budgetPeriodType, budgetPeriodValue]);
 
     const handlePrevMonth = () => {
         if (selectedMonth === 0) {
@@ -372,8 +341,16 @@ const Finance = () => {
         let totalExecuted = 0;
 
         expenseCategories.forEach(cat => {
-            const budget = budgets.find(b => b.category_id === cat.id && b.year === selectedYear && b.month === selectedMonth);
-            const planned = budget ? Number(budget.amount) : 0;
+            const planned = installments
+                .filter(inst => {
+                    if (!inst.recurring_bill || inst.recurring_bill.category_id !== cat.id) return false;
+                    const dateParts = inst.due_date.split('-');
+                    if (dateParts.length < 2) return false;
+                    const y = parseInt(dateParts[0], 10);
+                    const m = parseInt(dateParts[1], 10) - 1;
+                    return y === budgetYearFilter && activeMonths.includes(m);
+                })
+                .reduce((sum, inst) => sum + Number(inst.amount), 0);
             totalPlanned += planned;
 
             const executed = transactions
@@ -383,7 +360,7 @@ const Finance = () => {
                     if (parts.length < 2) return false;
                     const y = parseInt(parts[0], 10);
                     const m = parseInt(parts[1], 10) - 1;
-                    return y === selectedYear && m === selectedMonth;
+                    return y === budgetYearFilter && activeMonths.includes(m);
                 })
                 .reduce((sum, t) => sum + Number(t.amount), 0);
             
@@ -399,7 +376,7 @@ const Finance = () => {
             remaining,
             percent
         };
-    }, [categories, budgets, transactions, selectedMonth, selectedYear]);
+    }, [categories, installments, budgetYearFilter, activeMonths, transactions]);
 
     const handleOpenTransactionModal = (transaction?: FinancialTransaction) => {
         setSelectedTransaction(transaction);
@@ -469,6 +446,10 @@ const Finance = () => {
     };
 
     const handleUpdateStatus = async (requestId: string, newStatus: 'approved' | 'rejected' | 'paid') => {
+        if (!canAuthorize) {
+            toast.error('Você não tem permissão para autorizar requisições.');
+            return;
+        }
         const updateData: any = { status: newStatus };
         if (newStatus === 'approved') {
             updateData.approval_date = new Date().toISOString();
@@ -483,6 +464,10 @@ const Finance = () => {
     };
 
     const handlePayRequestClick = (request: FinancialRequest) => {
+        if (!canPay) {
+            toast.error('Você não tem permissão para efetuar pagamentos.');
+            return;
+        }
         setRequestToPay(request);
         setSelectedPayDate(parseFlexibleDate(new Date()));
         // Pre-select first account if available
@@ -493,6 +478,10 @@ const Finance = () => {
     };
 
     const handleConfirmPayment = async () => {
+        if (!canPay) {
+            toast.error('Você não tem permissão para efetuar pagamentos.');
+            return;
+        }
         if (!requestToPay || !selectedPayAccountId || !selectedPayDate) return;
 
         const success = await payRequest(requestToPay.id, selectedPayAccountId, selectedPayDate);
@@ -507,20 +496,31 @@ const Finance = () => {
 
     const handleSaveRequest = async (data: any) => {
         let success;
-        if (selectedRequest) {
+        if (selectedRequest && selectedRequest.id) {
             success = await updateRequest(selectedRequest.id, data);
         } else {
             success = await addRequest(data);
         }
 
         if (success) {
-            toast.success(selectedRequest ? 'Requisição atualizada!' : 'Requisição enviada com sucesso!');
+            toast.success(selectedRequest?.id ? 'Requisição atualizada!' : 'Requisição enviada com sucesso!');
             setIsRequestModalOpen(false);
             setSelectedRequest(null);
         } else {
             toast.error('Erro ao salvar requisição.');
         }
         return success;
+    };
+    const handleGenerateRequestFromInstallment = (installment: FinancialPayableInstallment) => {
+        setSelectedRequest({
+            title: `Pgmto: ${installment.recurring_bill?.description || 'Contas a Pagar'} (Parc. ${installment.installment_number})`,
+            amount: installment.amount,
+            category_id: installment.recurring_bill?.category_id || '',
+            department_id: '',
+            description: `Solicitação de pagamento gerada a partir do Contas a Pagar "${installment.recurring_bill?.description || 'Contas a Pagar'}" (Parcela ${installment.installment_number} de ${installment.recurring_bill?.occurrences || 1}).`,
+            payable_installment_id: installment.id
+        } as any);
+        setIsRequestModalOpen(true);
     };
 
     const handleSavePayable = async (billData: any, installmentsData: any[]) => {
@@ -696,7 +696,7 @@ const Finance = () => {
                 {/* ... */}
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800">
-                        {currentView === 'requests' ? 'Requisições de Departamentos' : currentView === 'budget' ? 'Orçamento Mensal' : currentView === 'payables' ? 'Contas a Pagar' : currentView === 'categories' ? 'Configurações de Categorias' : 'Finanças'}
+                        {currentView === 'requests' ? 'Requisições de Departamentos' : currentView === 'budget' ? 'Orçamento Mensal' : currentView === 'payables' ? 'Contas a Pagar' : currentView === 'categories' ? 'Configurações de Categorias' : 'Tesouraria'}
                     </h1>
                     <p className="text-slate-600 mt-1">
                         {currentView === 'requests'
@@ -707,7 +707,7 @@ const Finance = () => {
                             ? 'Gestão e agendamento de despesas recorrentes programadas'
                             : currentView === 'categories'
                             ? 'Gerenciamento de categorias de receitas e despesas da igreja'
-                            : 'Gestão financeira, dízimos, ofertas e despesas'}
+                            : 'Gestão de tesouraria, dízimos, ofertas e despesas'}
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -1034,7 +1034,7 @@ const Finance = () => {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    {request.status === 'pending' && (
+                                                    {request.status === 'pending' && canAuthorize && (
                                                         <>
                                                             <button
                                                                 onClick={() => handleUpdateStatus(request.id, 'approved')}
@@ -1052,7 +1052,7 @@ const Finance = () => {
                                                             </button>
                                                         </>
                                                     )}
-                                                    {request.status === 'approved' && (
+                                                    {request.status === 'approved' && canPay && (
                                                         <button
                                                             onClick={() => handlePayRequestClick(request)}
                                                             className="px-3 py-1 bg-blue-500 text-white hover:bg-blue-600 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1"
@@ -1343,30 +1343,87 @@ const Finance = () => {
                                                                 {formatCurrency(inst.amount)}
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
-                                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${
-                                                                    inst.status === 'paid'
-                                                                        ? 'bg-green-50 text-green-700 border-green-200'
-                                                                        : 'bg-orange-50 text-orange-700 border-orange-200'
-                                                                }`}>
-                                                                    {inst.status === 'paid' ? <Check size={12} /> : <Clock size={12} />}
-                                                                    {inst.status === 'paid' ? 'Pago' : 'Pendente'}
-                                                                </span>
+                                                                {(() => {
+                                                                    const assocReq = requests.find(r => r.payable_installment_id === inst.id && !r.deleted_at);
+                                                                    if (inst.status === 'paid') {
+                                                                        return (
+                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border bg-green-50 text-green-700 border-green-200">
+                                                                                <Check size={12} /> Pago
+                                                                            </span>
+                                                                        );
+                                                                    }
+                                                                    if (assocReq) {
+                                                                        if (assocReq.status === 'pending') {
+                                                                            return (
+                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border bg-yellow-50 text-yellow-700 border-yellow-200">
+                                                                                    <Clock size={12} /> Aguardando Aprovação
+                                                                                </span>
+                                                                            );
+                                                                        }
+                                                                        if (assocReq.status === 'approved') {
+                                                                            return (
+                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border bg-blue-50 text-blue-700 border-blue-200">
+                                                                                    <Clock size={12} /> Aprovada (Aguardando Pgto)
+                                                                                </span>
+                                                                            );
+                                                                        }
+                                                                        if (assocReq.status === 'rejected') {
+                                                                            return (
+                                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border bg-red-50 text-red-700 border-red-200">
+                                                                                    <X size={12} /> Solicitação Recusada
+                                                                                </span>
+                                                                            );
+                                                                        }
+                                                                    }
+                                                                    return (
+                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border bg-orange-50 text-orange-700 border-orange-200">
+                                                                            <Clock size={12} /> Pendente
+                                                                        </span>
+                                                                    );
+                                                                })()}
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
-                                                                {inst.status === 'pending' ? (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setSelectedInstallment(inst);
-                                                                            setIsPayInstallmentModalOpen(true);
-                                                                        }}
-                                                                        className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 mx-auto"
-                                                                    >
-                                                                        <Check size={12} /> Efetuar Pagamento
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-xs text-slate-400 font-medium">Pago em {formatDate(inst.paid_at)}</span>
-                                                                )}
+                                                                {(() => {
+                                                                    const assocReq = requests.find(r => r.payable_installment_id === inst.id && !r.deleted_at);
+                                                                    if (inst.status === 'paid') {
+                                                                        return (
+                                                                            <span className="text-xs text-slate-400 font-medium">Pago em {formatDate(inst.paid_at)}</span>
+                                                                        );
+                                                                    }
+                                                                    if (assocReq) {
+                                                                        if (assocReq.status === 'pending' || assocReq.status === 'approved') {
+                                                                            return (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setSearchParams({ view: 'requests' })}
+                                                                                    className="px-3 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-lg text-xs font-bold transition-all border border-yellow-200 flex items-center gap-1 mx-auto"
+                                                                                >
+                                                                                    Ver Requisição
+                                                                                </button>
+                                                                            );
+                                                                        }
+                                                                        if (assocReq.status === 'rejected') {
+                                                                            return (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleGenerateRequestFromInstallment(inst)}
+                                                                                    className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 mx-auto"
+                                                                                >
+                                                                                    <Check size={12} /> Solicitar Novamente
+                                                                                </button>
+                                                                            );
+                                                                        }
+                                                                    }
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleGenerateRequestFromInstallment(inst)}
+                                                                            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 mx-auto"
+                                                                        >
+                                                                            <Check size={12} /> Solicitar Pagamento
+                                                                        </button>
+                                                                    );
+                                                                })()}
                                                             </td>
                                                         </tr>
                                                     );
@@ -1464,25 +1521,75 @@ const Finance = () => {
                                 Planejamento de Despesas
                             </h3>
                             
-                            {/* Month/Year selector */}
-                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-gray-200 rounded-lg shadow-sm">
-                                <button
-                                    onClick={handlePrevMonth}
-                                    className="p-1 hover:bg-gray-50 rounded text-slate-600 transition-colors"
-                                    title="Mês Anterior"
-                                >
-                                    <ChevronLeft size={18} />
-                                </button>
-                                <span className="font-semibold text-slate-700 min-w-[120px] text-center capitalize">
-                                    {getMonthName(selectedMonth)}, {selectedYear}
-                                </span>
-                                <button
-                                    onClick={handleNextMonth}
-                                    className="p-1 hover:bg-gray-100 rounded text-slate-600 transition-colors"
-                                    title="Próximo Mês"
-                                >
-                                    <ChevronRight size={18} />
-                                </button>
+                            {/* Filters for Budget: Year and Period */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                {/* Ano */}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-slate-500 uppercase">Ano:</span>
+                                    <select
+                                        value={budgetYearFilter}
+                                        onChange={(e) => setBudgetYearFilter(parseInt(e.target.value, 10))}
+                                        className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 shadow-sm"
+                                    >
+                                        {[budgetYearFilter - 2, budgetYearFilter - 1, budgetYearFilter, budgetYearFilter + 1, budgetYearFilter + 2].map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Período */}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-slate-500 uppercase">Período:</span>
+                                    <select
+                                        value={budgetPeriodType}
+                                        onChange={(e) => {
+                                            const val = e.target.value as any;
+                                            setBudgetPeriodType(val);
+                                            // Set sensible default value for period value
+                                            if (val === 'monthly') setBudgetPeriodValue(new Date().getMonth());
+                                            else if (val === 'quarterly') setBudgetPeriodValue(Math.floor(new Date().getMonth() / 3) + 1);
+                                            else if (val === 'semesterly') setBudgetPeriodValue(new Date().getMonth() < 6 ? 1 : 2);
+                                        }}
+                                        className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 shadow-sm"
+                                    >
+                                        <option value="yearly">Anual</option>
+                                        <option value="semesterly">Semestral</option>
+                                        <option value="quarterly">Trimestral</option>
+                                        <option value="monthly">Mensal</option>
+                                    </select>
+                                </div>
+
+                                {/* Valor do Período (Mês, Trimestre, Semestre) */}
+                                {budgetPeriodType !== 'yearly' && (
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs font-bold text-slate-500 uppercase">Detalhe:</span>
+                                        <select
+                                            value={budgetPeriodValue}
+                                            onChange={(e) => setBudgetPeriodValue(parseInt(e.target.value, 10))}
+                                            className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 shadow-sm capitalize"
+                                        >
+                                            {budgetPeriodType === 'monthly' && (
+                                                Array.from({ length: 12 }, (_, i) => (
+                                                    <option key={i} value={i}>{getMonthName(i)}</option>
+                                                ))
+                                            )}
+                                            {budgetPeriodType === 'quarterly' && (
+                                                <>
+                                                    <option value={1}>1º Trimestre (Jan - Mar)</option>
+                                                    <option value={2}>2º Trimestre (Abr - Jun)</option>
+                                                    <option value={3}>3º Trimestre (Jul - Set)</option>
+                                                    <option value={4}>4º Trimestre (Out - Dez)</option>
+                                                </>
+                                            )}
+                                            {budgetPeriodType === 'semesterly' && (
+                                                <>
+                                                    <option value={1}>1º Semestre (Jan - Jun)</option>
+                                                    <option value={2}>2º Semestre (Jul - Dez)</option>
+                                                </>
+                                            )}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1509,8 +1616,16 @@ const Finance = () => {
                                     categories
                                         .filter(c => c.type === 'expense')
                                         .map(cat => {
-                                            const budget = budgets.find(b => b.category_id === cat.id && b.year === selectedYear && b.month === selectedMonth);
-                                            const plannedVal = budget ? Number(budget.amount) : 0;
+                                            const plannedVal = installments
+                                                .filter(inst => {
+                                                    if (!inst.recurring_bill || inst.recurring_bill.category_id !== cat.id) return false;
+                                                    const dateParts = inst.due_date.split('-');
+                                                    if (dateParts.length < 2) return false;
+                                                    const y = parseInt(dateParts[0], 10);
+                                                    const m = parseInt(dateParts[1], 10) - 1;
+                                                    return y === budgetYearFilter && activeMonths.includes(m);
+                                                })
+                                                .reduce((sum, inst) => sum + Number(inst.amount), 0);
 
                                             // Calculate executed amount for this category in this month/year
                                             const executedVal = transactions
@@ -1520,7 +1635,7 @@ const Finance = () => {
                                                     if (parts.length < 2) return false;
                                                     const y = parseInt(parts[0], 10);
                                                     const m = parseInt(parts[1], 10) - 1;
-                                                    return y === selectedYear && m === selectedMonth;
+                                                    return y === budgetYearFilter && activeMonths.includes(m);
                                                 })
                                                 .reduce((sum, t) => sum + Number(t.amount), 0);
 
@@ -1535,9 +1650,6 @@ const Finance = () => {
                                                     executed={executedVal}
                                                     remaining={remainingVal}
                                                     progress={progressPercent}
-                                                    year={selectedYear}
-                                                    month={selectedMonth}
-                                                    onSave={saveBudget}
                                                     formatCurrency={formatCurrency}
                                                 />
                                             );

@@ -28,7 +28,8 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
         description: '',
         amount: '',
         category_id: '',
-        department_id: departmentId || ''
+        department_id: departmentId || '',
+        payable_installment_id: ''
     });
     const [loading, setLoading] = useState(false);
 
@@ -40,7 +41,8 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                     description: request.description || '',
                     amount: request.amount?.toString() || '',
                     category_id: request.category_id || '',
-                    department_id: request.department_id || departmentId || ''
+                    department_id: request.department_id || departmentId || '',
+                    payable_installment_id: request.payable_installment_id || ''
                 });
             } else {
                 setFormData({
@@ -48,7 +50,8 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                     description: '',
                     amount: '',
                     category_id: '',
-                    department_id: departmentId || ''
+                    department_id: departmentId || '',
+                    payable_installment_id: ''
                 });
             }
         }
@@ -89,7 +92,7 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                             <ClipboardList size={24} />
                         </div>
                         <h2 className="text-xl font-bold text-slate-800">
-                            {request ? 'Editar Requisição Financeira' : 'Nova Requisição Financeira'}
+                            {request?.id ? 'Editar Requisição Financeira' : 'Nova Requisição Financeira'}
                         </h2>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
@@ -98,8 +101,8 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {/* Only show department selection if not in a specific department context AND not editing */}
-                    {!departmentId && departments && !request && (
+                    {/* Only show department selection if not in a specific department context AND not editing an existing one */}
+                    {!departmentId && departments && !request?.id && (
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Departamento</label>
                             <div className="relative">
@@ -122,7 +125,7 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                     )}
 
                     {/* If editing, show read-only department name if needed, or just skip it */}
-                    {request && departments && (
+                    {request?.id && departments && (
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5 opacity-50">Departamento (Não Editável)</label>
                             <div className="px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-slate-500 flex items-center gap-2">
@@ -205,7 +208,7 @@ const FinanceRequestModal: React.FC<FinanceRequestModalProps> = ({
                             disabled={loading}
                             className="flex-1 px-6 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? 'Salvando...' : (request ? 'Atualizar Requisição' : 'Enviar Requisição')}
+                            {loading ? 'Salvando...' : (request?.id ? 'Atualizar Requisição' : 'Enviar Requisição')}
                         </button>
                     </div>
                 </form>
