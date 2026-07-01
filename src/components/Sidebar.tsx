@@ -150,7 +150,7 @@ const Sidebar: React.FC = () => {
 
     // Common Church Items
     items.push(
-      { to: "/finance", icon: Wallet, label: "Tesouraria", module: 'finance', permission: 'finances_view' },
+      { to: "/finance", icon: Wallet, label: "Finanças", module: 'finance', permission: 'finances_view' },
       { to: "/members", icon: Users, label: "Membros", module: 'members', permission: 'members_view' },
       { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view' },
       { to: "/groups", icon: Users2, label: "Grupos", permission: 'groups_view' },
