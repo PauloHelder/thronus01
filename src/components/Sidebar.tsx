@@ -105,6 +105,7 @@ const Sidebar: React.FC = () => {
         { to: "/finance?view=payables", icon: Clock, label: "Contas a Pagar", permission: 'finances_view' },
         { to: "/finance?view=requests", icon: ClipboardList, label: "Requisições", permission: 'finances_view' },
         { to: "/finance?view=budget", icon: ListChecks, label: "Orçamento", permission: 'finances_view' },
+        { to: "/finance?view=categories", icon: Settings, label: "Configurações", permission: 'finances_view' },
       ]
     },
     discipleship: {

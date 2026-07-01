@@ -183,6 +183,8 @@ const Finance = () => {
         transferFunds,
         addAccount,
         addCategory,
+        updateCategory,
+        deleteCategory,
         addRequest,
         payRequest,
         updateRequest,
@@ -199,7 +201,7 @@ const Finance = () => {
 
     const { departments } = useDepartments();
 
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const currentView = searchParams.get('view') || 'transactions';
 
     // Filters State for Transactions
@@ -226,6 +228,7 @@ const Finance = () => {
     const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | undefined>(undefined);
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [editingCategory, setEditingCategory] = useState<any | undefined>(undefined);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [viewingTransaction, setViewingTransaction] = useState<FinancialTransaction | undefined>(undefined);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -244,7 +247,7 @@ const Finance = () => {
     const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
     const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<{ id: string | string[]; name: string; type: 'transaction' | 'request' | 'bulk_transactions' | 'bulk_requests' } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string | string[]; name: string; type: 'transaction' | 'request' | 'bulk_transactions' | 'bulk_requests' | 'category' | 'recurring_bill' } | null>(null);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -617,6 +620,9 @@ const Finance = () => {
             } else if (itemToDelete.type === 'recurring_bill') {
                 success = await deleteRecurringBill(itemToDelete.id as string);
                 if (success) toast.success('Programação de pagamento apagada com sucesso!');
+            } else if (itemToDelete.type === 'category') {
+                success = await deleteCategory(itemToDelete.id as string);
+                if (success) toast.success('Categoria excluída com sucesso!');
             }
 
             if (!success && itemToDelete.type !== 'bulk_transactions' && itemToDelete.type !== 'bulk_requests') {
@@ -690,7 +696,7 @@ const Finance = () => {
                 {/* ... */}
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800">
-                        {currentView === 'requests' ? 'Requisições de Departamentos' : currentView === 'budget' ? 'Orçamento Mensal' : currentView === 'payables' ? 'Contas a Pagar' : 'Finanças'}
+                        {currentView === 'requests' ? 'Requisições de Departamentos' : currentView === 'budget' ? 'Orçamento Mensal' : currentView === 'payables' ? 'Contas a Pagar' : currentView === 'categories' ? 'Configurações de Categorias' : 'Finanças'}
                     </h1>
                     <p className="text-slate-600 mt-1">
                         {currentView === 'requests'
@@ -699,6 +705,8 @@ const Finance = () => {
                             ? 'Planejamento e acompanhamento de metas financeiras por categoria de despesa'
                             : currentView === 'payables'
                             ? 'Gestão e agendamento de despesas recorrentes programadas'
+                            : currentView === 'categories'
+                            ? 'Gerenciamento de categorias de receitas e despesas da igreja'
                             : 'Gestão financeira, dízimos, ofertas e despesas'}
                     </p>
                 </div>
@@ -711,10 +719,14 @@ const Finance = () => {
                         Contas
                     </button>
                     <button
-                        onClick={() => setIsCategoryModalOpen(true)}
-                        className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors font-medium shadow-sm"
+                        onClick={() => setSearchParams({ view: 'categories' })}
+                        className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors font-medium ${
+                            currentView === 'categories'
+                                ? 'bg-orange-50 border-orange-200 text-orange-600'
+                                : 'bg-white border-gray-200 text-slate-700 hover:bg-gray-50'
+                        } shadow-sm`}
                     >
-                        <Filter size={18} className="text-slate-400" />
+                        <Filter size={18} className={currentView === 'categories' ? 'text-orange-500' : 'text-slate-400'} />
                         Categorias
                     </button>
                     <div className="relative">
@@ -783,6 +795,17 @@ const Finance = () => {
                             <Plus size={18} />
                             Programar Pagamento
                         </button>
+                    ) : currentView === 'categories' ? (
+                        <button
+                            onClick={() => {
+                                setEditingCategory(undefined);
+                                setIsCategoryModalOpen(true);
+                            }}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+                        >
+                            <Plus size={18} />
+                            Nova Categoria
+                        </button>
                     ) : (
                         <button
                             onClick={() => handleOpenTransactionModal()}
@@ -796,7 +819,7 @@ const Finance = () => {
             </div>
 
             {/* Summary Cards */}
-            {currentView === 'budget' ? (
+            {currentView === 'categories' ? null : currentView === 'budget' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-300">
                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex justify-between items-start mb-4">
@@ -1549,6 +1572,101 @@ const Finance = () => {
                         </table>
                     </div>
                 </div>
+            ) : currentView === 'categories' ? (
+                /* Categories settings view */
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-300">
+                    {/* Coluna 1: Receitas */}
+                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                                Categorias de Receitas
+                            </h3>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                            {categories.filter(c => c.type === 'income').length === 0 ? (
+                                <p className="text-sm text-slate-500 py-4 text-center">Nenhuma categoria de receita cadastrada.</p>
+                            ) : (
+                                categories.filter(c => c.type === 'income').map(cat => (
+                                    <div key={cat.id} className="flex justify-between items-center py-3 hover:bg-slate-50/50 px-2 rounded-lg transition-colors group">
+                                        <div className="flex items-center gap-3">
+                                            <span className="w-4 h-4 rounded-full border border-gray-200 shadow-inner" style={{ backgroundColor: cat.color || '#4b5563' }}></span>
+                                            <span className="font-semibold text-slate-700">{cat.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingCategory(cat);
+                                                    setIsCategoryModalOpen(true);
+                                                }}
+                                                className="p-1.5 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
+                                                title="Editar Categoria"
+                                            >
+                                                <Pencil size={15} />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setItemToDelete({ id: cat.id, name: cat.name, type: 'category' });
+                                                    setIsDeleteModalOpen(true);
+                                                }}
+                                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                title="Excluir Categoria"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Coluna 2: Despesas */}
+                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                                Categorias de Despesas
+                            </h3>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                            {categories.filter(c => c.type === 'expense').length === 0 ? (
+                                <p className="text-sm text-slate-500 py-4 text-center">Nenhuma categoria de despesa cadastrada.</p>
+                            ) : (
+                                categories.filter(c => c.type === 'expense').map(cat => (
+                                    <div key={cat.id} className="flex justify-between items-center py-3 hover:bg-slate-50/50 px-2 rounded-lg transition-colors group">
+                                        <div className="flex items-center gap-3">
+                                            <span className="w-4 h-4 rounded-full border border-gray-200 shadow-inner" style={{ backgroundColor: cat.color || '#4b5563' }}></span>
+                                            <span className="font-semibold text-slate-700">{cat.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingCategory(cat);
+                                                    setIsCategoryModalOpen(true);
+                                                }}
+                                                className="p-1.5 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
+                                                title="Editar Categoria"
+                                            >
+                                                <Pencil size={15} />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setItemToDelete({ id: cat.id, name: cat.name, type: 'category' });
+                                                    setIsDeleteModalOpen(true);
+                                                }}
+                                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                title="Excluir Categoria"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
             ) : (
                 /* Transactions View */
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -1851,6 +1969,7 @@ const Finance = () => {
                 itemType={
                     itemToDelete?.type === 'transaction' ? 'transação' :
                     itemToDelete?.type === 'request' ? 'requisição' :
+                    itemToDelete?.type === 'category' ? 'categoria' :
                     itemToDelete?.type === 'bulk_transactions' ? 'transações selecionadas' :
                     'requisições selecionadas'
                 }
@@ -1891,8 +2010,18 @@ const Finance = () => {
 
             <CategoryModal
                 isOpen={isCategoryModalOpen}
-                onClose={() => setIsCategoryModalOpen(false)}
-                onSave={addCategory}
+                onClose={() => {
+                    setIsCategoryModalOpen(false);
+                    setEditingCategory(undefined);
+                }}
+                onSave={async (formData) => {
+                    if (editingCategory) {
+                        return await updateCategory(editingCategory.id, formData);
+                    } else {
+                        return await addCategory(formData);
+                    }
+                }}
+                category={editingCategory}
             />
 
             <TransactionDetailsModal
