@@ -380,7 +380,7 @@ export default function SmsStore() {
                             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
                                 <Clock className="text-blue-600 shrink-0" size={20} />
                                 <p className="text-xs text-blue-700 leading-relaxed">
-                                    Após clicar em "Confirmar Pedido", o Super Admin irá verificar o pagamento no extrato e libertar o seu saldo em até **24 horas úteis**.
+                                    Após clicar em "Confirmar Pedido", o Super Admin irá verificar o pagamento no extracto e libertar o seu saldo em até **24 horas úteis**.
                                 </p>
                             </div>
 

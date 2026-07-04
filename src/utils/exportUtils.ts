@@ -52,7 +52,7 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
 
     const headerRows = [
         [churchName.toUpperCase()],
-        ['RELATÓRIO DE EXTRATO FINANCEIRO'],
+        ['RELATÓRIO DE EXTRACTO FINANCEIRO'],
         [`Gerado em: ${new Date().toLocaleString('pt-BR')}`],
         [`Filtros: Tipo: ${filters.type === 'All' ? 'Todos' : (filters.type === 'income' ? 'Receitas' : 'Despesas')}, Categoria: ${filters.category}, Conta: ${filters.account}, Período: ${filters.startDate || 'Início'} a ${filters.endDate || 'Fim'}`],
         [],
@@ -61,7 +61,7 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
         ['Total Despesas', formatCurrency(summary.totalExpense)],
         ['Saldo Líquido', formatCurrency(summary.balance)],
         [],
-        ['DATA', 'DATA DE REGISTO', 'DESCRIÇÃO', 'REFERÊNCIA', 'CATEGORIA', 'MEMBRO', 'ENTRADA', 'SAÍDA', 'SALDO']
+        ['DATA', 'DATA DE REGISTO', 'DESCRIÇÃO', 'REFERÊNCIA', 'CATEGORIA', 'ENTRADA', 'SAÍDA', 'SALDO']
     ];
 
     const openingBalanceRow = [
@@ -72,27 +72,18 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
         '-',
         '-',
         '-',
-        '-',
         openingBalance !== undefined ? openingBalance : 0
     ];
 
     const transactionRows = [
         openingBalanceRow,
         ...transactions.map(tx => {
-            let memberInfo = '-';
-            if (tx.source_type === 'member') {
-                memberInfo = tx.other_source_name || '-';
-            } else if (tx.notes && tx.notes.includes('Código Membro:')) {
-                memberInfo = tx.notes.replace('Código Membro:', '').trim();
-            }
-
             return [
                 formatDate(tx.date),
                 tx.created_at ? formatDate(tx.created_at.split('T')[0]) : '-',
                 tx.description,
                 tx.document_number || '-',
                 getCategoryName(tx.category_id),
-                memberInfo,
                 tx.type === 'income' ? tx.amount : 0,
                 tx.type === 'expense' ? tx.amount : 0,
                 tx.running_balance !== undefined ? tx.running_balance : 0
@@ -110,7 +101,6 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
         { wch: 40 }, // Descrição
         { wch: 20 }, // Referência
         { wch: 20 }, // Categoria
-        { wch: 20 }, // Membro
         { wch: 15 }, // Entrada
         { wch: 15 }, // Saída
         { wch: 15 }, // Saldo
@@ -119,7 +109,7 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Financeiro');
 
-    const fileName = `Extrato_${churchName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `Extracto_${churchName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
 };
 
@@ -158,7 +148,7 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
-    doc.text('EXTRATO FINANCEIRO', pageWidth / 2, 40, { align: 'center' });
+    doc.text('EXTRACTO FINANCEIRO', pageWidth / 2, 40, { align: 'center' });
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -205,11 +195,10 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
         doc.text('DATA / REGISTO', 16, y);
-        doc.text('DESCRIÇÃO', 35, y);
-        doc.text('REFERÊNCIA', 85, y);
-        doc.text('CATEGORIA', 110, y);
-        doc.text('MEMBRO', 135, y);
-        doc.text('VALOR (AOA)', 175, y, { align: 'right' });
+        doc.text('DESCRIÇÃO', 38, y);
+        doc.text('REFERÊNCIA', 88, y);
+        doc.text('CATEGORIA', 108, y);
+        doc.text('VALOR (AOA)', 163, y, { align: 'right' });
         doc.text('SALDO (AOA)', pageWidth - 16, y, { align: 'right' });
         y += 10;
     };
@@ -284,31 +273,22 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
 
         let desc = tx.description || '';
         if (desc.length > 25) desc = desc.substring(0, 23) + '...';
-        doc.text(desc, 35, y);
+        doc.text(desc, 38, y);
 
         let ref = tx.document_number || '-';
         if (ref.length > 12) ref = ref.substring(0, 10) + '..';
-        doc.text(ref, 85, y);
+        doc.text(ref, 88, y);
 
         let catName = getCategoryName(tx.category_id);
         if (catName.length > 15) catName = catName.substring(0, 13) + '..';
-        doc.text(catName, 110, y);
-
-        let memberInfo = '-';
-        if (tx.source_type === 'member') {
-            memberInfo = tx.other_source_name || '-';
-        } else if (tx.notes && tx.notes.includes('Código Membro:')) {
-            memberInfo = tx.notes.replace('Código Membro:', '').trim();
-        }
-        if (memberInfo.length > 15) memberInfo = memberInfo.substring(0, 13) + '..';
-        doc.text(memberInfo, 135, y);
+        doc.text(catName, 108, y);
 
         if (tx.type === 'income') {
             doc.setTextColor(COLORS.green600[0], COLORS.green600[1], COLORS.green600[2]);
-            doc.text(`+ ${formatCurrency(tx.amount)}`, 175, y, { align: 'right' });
+            doc.text(`+ ${formatCurrency(tx.amount)}`, 163, y, { align: 'right' });
         } else {
             doc.setTextColor(COLORS.red600[0], COLORS.red600[1], COLORS.red600[2]);
-            doc.text(`- ${formatCurrency(tx.amount)}`, 175, y, { align: 'right' });
+            doc.text(`- ${formatCurrency(tx.amount)}`, 163, y, { align: 'right' });
         }
 
         doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
@@ -341,6 +321,6 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     doc.setTextColor(COLORS.slate400[0], COLORS.slate400[1], COLORS.slate400[2]);
     doc.text('Relatório gerado automaticamente pelo Sistema Tronus Church Management.', pageWidth / 2, pageHeight - 10, { align: 'center' });
 
-    const fileName = `Extrato_${churchName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `Extracto_${churchName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
 };
