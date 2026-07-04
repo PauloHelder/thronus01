@@ -6,6 +6,7 @@ import { MOCK_CATEGORIES } from '../mocks/finance';
 import { DEFAULT_CHRISTIAN_STAGES, DEFAULT_TEACHING_CATEGORIES } from '../data/teachingDefaults';
 import { useFinance } from '../hooks/useFinance';
 import { useTeaching } from '../hooks/useTeaching';
+import { useEventTypes } from '../hooks/useEventTypes';
 import AccountModal from '../components/modals/AccountModal';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -66,6 +67,10 @@ const Settings: React.FC = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: string } | null>(null);
     const [activeTab, setActiveTab] = useState('general');
+    const [categoriesSubTab, setCategoriesSubTab] = useState<'financial' | 'teaching' | 'event'>('financial');
+    const { eventTypes, createEventType, deleteEventType } = useEventTypes();
+    const [newEventTypeName, setNewEventTypeName] = useState('');
+    const [newEventDescription, setNewEventDescription] = useState('');
 
     const handleSaveAccount = async (data: any) => {
         if (editingAccount) {
@@ -263,6 +268,9 @@ const Settings: React.FC = () => {
                 case 'teaching_category':
                     await deleteTeachingCategoryFunc(itemToDelete.id);
                     break;
+                case 'event_type':
+                    await deleteEventType(itemToDelete.id);
+                    break;
                 case 'system_role':
                     const updatedRoles = customSystemRoles.filter(r => r !== itemToDelete.id);
                     setCustomSystemRoles(updatedRoles);
@@ -408,12 +416,11 @@ const Settings: React.FC = () => {
 
             <div className="flex gap-2 overflow-x-auto pb-2 border-b border-gray-200 bg-white p-2 rounded-lg sticky top-0 z-10">
                 <button onClick={() => setActiveTab('general')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'general' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Geral</button>
-                <button onClick={() => setActiveTab('financial')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'financial' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Financeiro</button>
-                <button onClick={() => setActiveTab('teaching')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'teaching' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Ensino</button>
-                <button onClick={() => setActiveTab('roles')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'roles' || activeTab === 'permissions' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Perfis</button>
-                <button onClick={() => setActiveTab('links')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'links' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Vínculos</button>
+                <button onClick={() => setActiveTab('categories')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'categories' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Categorias</button>
+                <button onClick={() => setActiveTab('roles')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'roles' || activeTab === 'permissions' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Perfil</button>
+                <button onClick={() => setActiveTab('links')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'links' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500 hover:text-slate-700'}`}>Vínculo</button>
                 {(hasRole('admin') || hasRole('superuser')) && (
-                    <button onClick={() => setActiveTab('whatsapp')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'whatsapp' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500 hover:text-slate-700'}`}>WhatsApp</button>
+                    <button onClick={() => setActiveTab('whatsapp')} className={`px-4 py-2 font-medium transition-colors ${activeTab === 'whatsapp' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500 hover:text-slate-700'}`}>Whatsap</button>
                 )}
             </div>
 
@@ -568,113 +575,220 @@ const Settings: React.FC = () => {
                 </div>
             )}
 
-            {activeTab === 'financial' && (
-
+            {activeTab === 'categories' && (
                 <div className="space-y-6">
-                    {/* Accounts Section */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h2 className="text-lg font-semibold text-slate-800">Contas Bancárias / Caixas</h2>
-                                <p className="text-sm text-slate-500">Gerencie as contas onde o dinheiro entra e sai</p>
-                            </div>
-                            <button
-                                onClick={openNewAccountModal}
-                                className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2"
-                            >
-                                <Plus size={16} /> Nova Conta
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {accounts.map(account => (
-                                <div key={account.id} className="p-4 rounded-lg border border-gray-200 hover:border-orange-500 transition-colors bg-gray-50 group relative">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            {account.type === 'Bank' ? <Building size={18} className="text-slate-400" /> : <Wallet size={18} className="text-slate-400" />}
-                                            <span className="font-semibold text-slate-800">{account.name}</span>
-                                        </div>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => openEditAccountModal(account)} className="p-1 text-blue-600 hover:bg-blue-100 rounded">
-                                                <Pencil size={14} />
-                                            </button>
-                                            <button onClick={() => {
-                                                setItemToDelete({ id: account.id, name: account.name, type: 'account' });
-                                                setIsDeleteModalOpen(true);
-                                            }} className="p-1 text-red-600 hover:bg-red-100 rounded">
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <p className="text-sm text-slate-500 mb-1">{account.bank || 'Carteira'}</p>
-                                    <p className="font-mono font-medium text-slate-700">
-                                        {formatAOA(account.balance)}
-                                    </p>
-                                </div>
-                            ))}
-                            {accounts.length === 0 && (
-                                <div className="col-span-full py-8 text-center text-slate-500 border-2 border-dashed border-gray-200 rounded-lg">
-                                    Nenhuma conta cadastrada ainda.
-                                </div>
-                            )}
-                        </div>
+                    <div className="flex gap-2 border-b border-gray-200 pb-3">
+                        <button
+                            onClick={() => setCategoriesSubTab('financial')}
+                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                                categoriesSubTab === 'financial'
+                                    ? 'bg-orange-500 text-white shadow-sm'
+                                    : 'bg-gray-100 text-slate-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Finanças
+                        </button>
+                        <button
+                            onClick={() => setCategoriesSubTab('teaching')}
+                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                                categoriesSubTab === 'teaching'
+                                    ? 'bg-orange-500 text-white shadow-sm'
+                                    : 'bg-gray-100 text-slate-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Ensino
+                        </button>
+                        <button
+                            onClick={() => setCategoriesSubTab('event')}
+                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                                categoriesSubTab === 'event'
+                                    ? 'bg-orange-500 text-white shadow-sm'
+                                    : 'bg-gray-100 text-slate-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Eventos
+                        </button>
                     </div>
 
-                    {/* Transaction Categories Section */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                        <div className="mb-6">
-                            <h2 className="text-lg font-semibold text-slate-800">Categorias Financeiras</h2>
-                            <p className="text-sm text-slate-500">Categorias para classificar receitas e despesas</p>
-                        </div>
+                    {categoriesSubTab === 'financial' && (
+                        <div className="space-y-6">
+                            {/* Accounts Section */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-slate-800">Contas Bancárias / Caixas</h2>
+                                        <p className="text-sm text-slate-500">Gerencie as contas onde o dinheiro entra e sai</p>
+                                    </div>
+                                    <button
+                                        onClick={openNewAccountModal}
+                                        className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2"
+                                    >
+                                        <Plus size={16} /> Nova Conta
+                                    </button>
+                                </div>
 
-                        <div className="flex gap-4 mb-6 items-end">
-                            <div className="flex-1">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Nome da Categoria</label>
-                                <input
-                                    type="text"
-                                    value={newCategoryName}
-                                    onChange={(e) => setNewCategoryName(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                    placeholder="Ex: Dízimos, Conta de Luz..."
-                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {accounts.map(account => (
+                                        <div key={account.id} className="p-4 rounded-lg border border-gray-200 hover:border-orange-500 transition-colors bg-gray-50 group relative">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    {account.type === 'Bank' ? <Building size={18} className="text-slate-400" /> : <Wallet size={18} className="text-slate-400" />}
+                                                    <span className="font-semibold text-slate-800">{account.name}</span>
+                                                </div>
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => openEditAccountModal(account)} className="p-1 text-blue-600 hover:bg-blue-100 rounded">
+                                                        <Pencil size={14} />
+                                                    </button>
+                                                    <button onClick={() => {
+                                                        setItemToDelete({ id: account.id, name: account.name, type: 'account' });
+                                                        setIsDeleteModalOpen(true);
+                                                    }} className="p-1 text-red-600 hover:bg-red-100 rounded">
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-slate-500 mb-1">{account.bank || 'Carteira'}</p>
+                                            <p className="font-mono font-medium text-slate-700">
+                                                {formatAOA(account.balance)}
+                                            </p>
+                                        </div>
+                                    ))}
+                                    {accounts.length === 0 && (
+                                        <div className="col-span-full py-8 text-center text-slate-500 border-2 border-dashed border-gray-200 rounded-lg">
+                                            Nenhuma conta cadastrada ainda.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <div className="w-40">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-                                <select
-                                    value={newCategoryType}
-                                    onChange={(e) => setNewCategoryType(e.target.value as 'income' | 'expense')}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                                >
-                                    <option value="income">Receita</option>
-                                    <option value="expense">Despesa</option>
-                                </select>
-                            </div>
-                            <button
-                                onClick={async () => {
-                                    if (newCategoryName) {
-                                        await addCategory({ name: newCategoryName, type: newCategoryType, is_system: false });
-                                        setNewCategoryName('');
-                                    }
-                                }}
-                                className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors flex items-center gap-2"
-                            >
-                                <Plus size={18} /> Adicionar
-                            </button>
-                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <h3 className="text-sm font-semibold text-green-600 mb-3 uppercase tracking-wider">Receitas</h3>
+                            {/* Transaction Categories Section */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-6">
+                                <div className="mb-6">
+                                    <h2 className="text-lg font-semibold text-slate-800">Categorias Financeiras</h2>
+                                    <p className="text-sm text-slate-500">Categorias para classificar receitas e despesas</p>
+                                </div>
+
+                                <div className="flex gap-4 mb-6 items-end">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Nome da Categoria</label>
+                                        <input
+                                            type="text"
+                                            value={newCategoryName}
+                                            onChange={(e) => setNewCategoryName(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                            placeholder="Ex: Dízimos, Conta de Luz..."
+                                        />
+                                    </div>
+                                    <div className="w-40">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                                        <select
+                                            value={newCategoryType}
+                                            onChange={(e) => setNewCategoryType(e.target.value as 'income' | 'expense')}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                                        >
+                                            <option value="income">Receita</option>
+                                            <option value="expense">Despesa</option>
+                                        </select>
+                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            if (newCategoryName) {
+                                                await addCategory({ name: newCategoryName, type: newCategoryType, is_system: false });
+                                                setNewCategoryName('');
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors flex items-center gap-2"
+                                    >
+                                        <Plus size={18} /> Adicionar
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-green-600 mb-3 uppercase tracking-wider">Receitas</h3>
+                                        <div className="space-y-2">
+                                            {categories.filter(c => c.type === 'income').map(category => (
+                                                <div key={category.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 group">
+                                                    <span className="text-slate-700">{category.name}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setItemToDelete({ id: category.id, name: category.name, type: 'category' });
+                                                            setIsDeleteModalOpen(true);
+                                                        }}
+                                                        className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-red-600 mb-3 uppercase tracking-wider">Despesas</h3>
+                                        <div className="space-y-2">
+                                            {categories.filter(c => c.type === 'expense').map(category => (
+                                                <div key={category.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100 group">
+                                                    <span className="text-slate-700">{category.name}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setItemToDelete({ id: category.id, name: category.name, type: 'category' });
+                                                            setIsDeleteModalOpen(true);
+                                                        }}
+                                                        className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {categoriesSubTab === 'teaching' && (
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-xl border border-gray-200 p-6">
+                                <div className="mb-6">
+                                    <h2 className="text-lg font-semibold text-slate-800">Estágios de Crescimento</h2>
+                                    <p className="text-sm text-slate-500">Defina os níveis da jornada cristã</p>
+                                </div>
+                                <div className="flex gap-4 mb-4">
+                                    <input
+                                        type="text"
+                                        value={newStageName}
+                                        onChange={(e) => setNewStageName(e.target.value)}
+                                        placeholder="Novo estágio (ex: Batismo)"
+                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (newStageName) {
+                                                addStage(newStageName);
+                                                setNewStageName('');
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors flex items-center gap-2"
+                                    >
+                                        <Plus size={18} /> Adicionar
+                                    </button>
+                                </div>
                                 <div className="space-y-2">
-                                    {categories.filter(c => c.type === 'income').map(category => (
-                                        <div key={category.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100 group">
-                                            <span className="text-slate-700">{category.name}</span>
+                                    {stages.map((stage) => (
+                                        <div key={stage.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group">
+                                            <div className="flex items-center gap-3">
+                                                <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
+                                                    {stage.order}
+                                                </span>
+                                                <span className="font-medium text-slate-700">{stage.name}</span>
+                                            </div>
                                             <button
                                                 onClick={() => {
-                                                    setItemToDelete({ id: category.id, name: category.name, type: 'category' });
+                                                    setItemToDelete({ id: stage.id, name: stage.name, type: 'stage' });
                                                     setIsDeleteModalOpen(true);
                                                 }}
-                                                className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -682,18 +796,45 @@ const Settings: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
-                            <div>
-                                <h3 className="text-sm font-semibold text-red-600 mb-3 uppercase tracking-wider">Despesas</h3>
+
+                            <div className="bg-white rounded-xl border border-gray-200 p-6">
+                                <div className="mb-6">
+                                    <h2 className="text-lg font-semibold text-slate-800">Categorias de Ensino</h2>
+                                    <p className="text-sm text-slate-500">Tipos de aulas e cursos oferecidos</p>
+                                </div>
+                                <div className="flex gap-4 mb-4">
+                                    <input
+                                        type="text"
+                                        value={newTeachingCategoryName}
+                                        onChange={(e) => setNewTeachingCategoryName(e.target.value)}
+                                        placeholder="Nova categoria (ex: Curso de Noivos)"
+                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (newTeachingCategoryName) {
+                                                addTeachingCategoryFunc(newTeachingCategoryName);
+                                                setNewTeachingCategoryName('');
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors flex items-center gap-2"
+                                    >
+                                        <Plus size={18} /> Adicionar
+                                    </button>
+                                </div>
                                 <div className="space-y-2">
-                                    {categories.filter(c => c.type === 'expense').map(category => (
-                                        <div key={category.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100 group">
-                                            <span className="text-slate-700">{category.name}</span>
+                                    {teachingCategories.map((cat) => (
+                                        <div key={cat.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group">
+                                            <div className="flex items-center gap-3">
+                                                <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                                                <span className="font-medium text-slate-700">{cat.name}</span>
+                                            </div>
                                             <button
                                                 onClick={() => {
-                                                    setItemToDelete({ id: category.id, name: category.name, type: 'category' });
+                                                    setItemToDelete({ id: cat.id, name: cat.name, type: 'teaching_category' });
                                                     setIsDeleteModalOpen(true);
                                                 }}
-                                                className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -702,105 +843,65 @@ const Settings: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    )}
 
-            {activeTab === 'teaching' && (
-                <div className="space-y-6">
-                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                        <div className="mb-6">
-                            <h2 className="text-lg font-semibold text-slate-800">Estágios de Crescimento</h2>
-                            <p className="text-sm text-slate-500">Defina os níveis da jornada cristã</p>
-                        </div>
-                        <div className="flex gap-4 mb-4">
-                            <input
-                                type="text"
-                                value={newStageName}
-                                onChange={(e) => setNewStageName(e.target.value)}
-                                placeholder="Novo estágio (ex: Batismo)"
-                                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                            <button
-                                onClick={() => {
-                                    if (newStageName) {
-                                        addStage(newStageName);
-                                        setNewStageName('');
-                                    }
-                                }}
-                                className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors flex items-center gap-2"
-                            >
-                                <Plus size={18} /> Adicionar
-                            </button>
-                        </div>
-                        <div className="space-y-2">
-                            {stages.map((stage) => (
-                                <div key={stage.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group">
-                                    <div className="flex items-center gap-3">
-                                        <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
-                                            {stage.order}
-                                        </span>
-                                        <span className="font-medium text-slate-700">{stage.name}</span>
-                                    </div>
+                    {categoriesSubTab === 'event' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <div className="bg-white rounded-xl border border-gray-200 p-6">
+                                <div className="mb-6">
+                                    <h2 className="text-lg font-semibold text-slate-800">Categorias de Eventos (Agenda)</h2>
+                                    <p className="text-sm text-slate-500">Defina os tipos/categorias de eventos para a agenda da igreja</p>
+                                </div>
+                                <div className="flex gap-4 mb-4">
+                                    <input
+                                        type="text"
+                                        value={newEventTypeName}
+                                        onChange={(e) => setNewEventTypeName(e.target.value)}
+                                        placeholder="Nome da categoria (ex: Culto Jovem, Ação Social)"
+                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
                                     <button
-                                        onClick={() => {
-                                            setItemToDelete({ id: stage.id, name: stage.name, type: 'stage' });
-                                            setIsDeleteModalOpen(true);
+                                        onClick={async () => {
+                                            if (newEventTypeName) {
+                                                await createEventType(newEventTypeName, newEventDescription);
+                                                setNewEventTypeName('');
+                                                setNewEventDescription('');
+                                                toast.success('Categoria de evento criada!');
+                                            }
                                         }}
-                                        className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2"
                                     >
-                                        <Trash2 size={16} />
+                                        <Plus size={16} /> Adicionar
                                     </button>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
 
-                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                        <div className="mb-6">
-                            <h2 className="text-lg font-semibold text-slate-800">Categorias de Ensino</h2>
-                            <p className="text-sm text-slate-500">Tipos de aulas e cursos oferecidos</p>
-                        </div>
-                        <div className="flex gap-4 mb-4">
-                            <input
-                                type="text"
-                                value={newTeachingCategoryName}
-                                onChange={(e) => setNewTeachingCategoryName(e.target.value)}
-                                placeholder="Nova categoria (ex: Curso de Noivos)"
-                                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                            <button
-                                onClick={() => {
-                                    if (newTeachingCategoryName) {
-                                        addTeachingCategoryFunc(newTeachingCategoryName);
-                                        setNewTeachingCategoryName('');
-                                    }
-                                }}
-                                className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors flex items-center gap-2"
-                            >
-                                <Plus size={18} /> Adicionar
-                            </button>
-                        </div>
-                        <div className="space-y-2">
-                            {teachingCategories.map((cat) => (
-                                <div key={cat.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group">
-                                    <div className="flex items-center gap-3">
-                                        <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-                                        <span className="font-medium text-slate-700">{cat.name}</span>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setItemToDelete({ id: cat.id, name: cat.name, type: 'teaching_category' });
-                                            setIsDeleteModalOpen(true);
-                                        }}
-                                        className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                <div className="space-y-2">
+                                    {eventTypes.map((type) => (
+                                        <div key={type.id} className="flex justify-between items-center p-3 bg-gray-50 border border-gray-200 rounded-lg group">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`w-2.5 h-2.5 rounded-full bg-orange-500`}></span>
+                                                <span className="text-slate-700 font-medium">{type.name}</span>
+                                            </div>
+                                            {!type.isDefault && (
+                                                <button
+                                                    onClick={() => {
+                                                        setItemToDelete({ id: type.id, name: type.name, type: 'event_type' });
+                                                        setIsDeleteModalOpen(true);
+                                                    }}
+                                                    className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {eventTypes.length === 0 && (
+                                        <p className="text-sm text-slate-500 text-center py-4">Nenhuma categoria de evento cadastrada ainda.</p>
+                                    )}
                                 </div>
-                            ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
 
@@ -1037,6 +1138,7 @@ const Settings: React.FC = () => {
                     itemToDelete?.type === 'category' ? 'categoria financeira' :
                     itemToDelete?.type === 'stage' ? 'estágio de crescimento' :
                     itemToDelete?.type === 'teaching_category' ? 'categoria de ensino' :
+                    itemToDelete?.type === 'event_type' ? 'categoria de evento' :
                     'perfil de usuário'
                 }
             />

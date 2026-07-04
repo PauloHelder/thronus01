@@ -20,6 +20,7 @@ import Groups from './pages/Groups';
 import GroupDetail from './pages/GroupDetail';
 import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
+import CalendarView from './pages/CalendarView';
 import Finance from './pages/Finance'; // Novo módulo
 import FinanceDashboard from './pages/FinanceDashboard';
 import Finances from './pages/Finances'; // Antigo (manter por enquanto se necessário, ou remover)
@@ -78,6 +79,7 @@ const AppContent: React.FC = () => {
             <Route path="/groups/:id" element={<GroupDetail />} />
             <Route path="/events" element={<Events />} />
             <Route path="/events/:id" element={<EventDetail />} />
+            <Route path="/calendar" element={<CalendarView />} />
 
             {/* Finance Module */}
             <Route path="/finance" element={<Finance />} />

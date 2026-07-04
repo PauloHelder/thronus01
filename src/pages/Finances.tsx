@@ -241,7 +241,7 @@ const Finances: React.FC = () => {
                                     <div className="p-1.5 bg-red-50 text-red-600 rounded">
                                         <Download size={14} />
                                     </div>
-                                    Estrato em PDF
+                                    Extrato em PDF
                                 </button>
                                 <button
                                     onClick={() => handleExport('excel')}

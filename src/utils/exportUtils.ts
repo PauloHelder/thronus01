@@ -1,4 +1,3 @@
-
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { FinancialTransaction, FinancialCategory } from '../hooks/useFinance';
@@ -8,6 +7,7 @@ interface ExportData {
     transactions: FinancialTransaction[];
     categories: FinancialCategory[];
     churchName: string;
+    openingBalance?: number;
     summary: {
         totalIncome: number;
         totalExpense: number;
@@ -26,7 +26,6 @@ const formatCurrency = (value: number) => formatAOA(value);
 
 const formatDate = (dateStr: string) => {
     if (!dateStr) return '-';
-    // Ensure we parse the date correctly by adding time if it's just a date string
     const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
     if (isNaN(date.getTime())) return dateStr;
     return date.toLocaleDateString('pt-BR');
@@ -45,7 +44,7 @@ const COLORS = {
     gray200: [229, 231, 235],
 };
 
-export const exportToExcel = ({ transactions, categories, churchName, filters, summary }: ExportData) => {
+export const exportToExcel = ({ transactions, categories, churchName, filters, summary, openingBalance }: ExportData) => {
     const getCategoryName = (id?: string) => {
         if (!id) return 'Sem Categoria';
         return categories.find(c => c.id === id)?.name || 'Desconhecido';
@@ -53,7 +52,7 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
 
     const headerRows = [
         [churchName.toUpperCase()],
-        ['RELATÓRIO DE ESTRATO FINANCEIRO'],
+        ['RELATÓRIO DE EXTRATO FINANCEIRO'],
         [`Gerado em: ${new Date().toLocaleString('pt-BR')}`],
         [`Filtros: Tipo: ${filters.type === 'All' ? 'Todos' : (filters.type === 'income' ? 'Receitas' : 'Despesas')}, Categoria: ${filters.category}, Conta: ${filters.account}, Período: ${filters.startDate || 'Início'} a ${filters.endDate || 'Fim'}`],
         [],
@@ -62,58 +61,74 @@ export const exportToExcel = ({ transactions, categories, churchName, filters, s
         ['Total Despesas', formatCurrency(summary.totalExpense)],
         ['Saldo Líquido', formatCurrency(summary.balance)],
         [],
-        ['DATA', 'DESCRIÇÃO', 'REFERÊNCIA', 'CATEGORIA', 'MEMBRO', 'ENTRADA', 'SAÍDA']
+        ['DATA', 'DATA DE REGISTO', 'DESCRIÇÃO', 'REFERÊNCIA', 'CATEGORIA', 'MEMBRO', 'ENTRADA', 'SAÍDA', 'SALDO']
     ];
 
-    const transactionRows = transactions.map(tx => {
-        // Try to get member code from notes if it follows the import pattern
-        let memberInfo = '-';
-        if (tx.source_type === 'member') {
-            memberInfo = tx.other_source_name || '-';
-        } else if (tx.notes && tx.notes.includes('Código Membro:')) {
-            memberInfo = tx.notes.replace('Código Membro:', '').trim();
-        }
+    const openingBalanceRow = [
+        '-',
+        '-',
+        'SALDO INICIAL DO PERÍODO',
+        '-',
+        '-',
+        '-',
+        '-',
+        '-',
+        openingBalance !== undefined ? openingBalance : 0
+    ];
 
-        return [
-            formatDate(tx.date),
-            tx.description,
-            tx.document_number || '-',
-            getCategoryName(tx.category_id),
-            memberInfo,
-            tx.type === 'income' ? tx.amount : 0,
-            tx.type === 'expense' ? tx.amount : 0
-        ];
-    });
+    const transactionRows = [
+        openingBalanceRow,
+        ...transactions.map(tx => {
+            let memberInfo = '-';
+            if (tx.source_type === 'member') {
+                memberInfo = tx.other_source_name || '-';
+            } else if (tx.notes && tx.notes.includes('Código Membro:')) {
+                memberInfo = tx.notes.replace('Código Membro:', '').trim();
+            }
+
+            return [
+                formatDate(tx.date),
+                tx.created_at ? formatDate(tx.created_at.split('T')[0]) : '-',
+                tx.description,
+                tx.document_number || '-',
+                getCategoryName(tx.category_id),
+                memberInfo,
+                tx.type === 'income' ? tx.amount : 0,
+                tx.type === 'expense' ? tx.amount : 0,
+                tx.running_balance !== undefined ? tx.running_balance : 0
+            ];
+        })
+    ];
 
     const finalData = [...headerRows, ...transactionRows];
 
     const ws = XLSX.utils.aoa_to_sheet(finalData);
 
-    // Set column widths
     ws['!cols'] = [
         { wch: 15 }, // Data
+        { wch: 18 }, // Data de Registo
         { wch: 40 }, // Descrição
         { wch: 20 }, // Referência
         { wch: 20 }, // Categoria
         { wch: 20 }, // Membro
         { wch: 15 }, // Entrada
         { wch: 15 }, // Saída
+        { wch: 15 }, // Saldo
     ];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Financeiro');
 
-    const fileName = `Estrato_${churchName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `Extrato_${churchName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
 };
 
-export const exportToPDF = ({ transactions, categories, churchName, summary, filters }: ExportData) => {
+export const exportToPDF = ({ transactions, categories, churchName, summary, filters, openingBalance }: ExportData) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
     const drawHeader = (pageNum: number) => {
-        // Logo representation
         doc.setFillColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
         doc.roundedRect(14, 10, 12, 12, 2, 2, 'F');
         doc.setTextColor(255, 255, 255);
@@ -121,7 +136,6 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
         doc.setFontSize(10);
         doc.text('Tr', 17, 18);
 
-        // Church Name & Title
         doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
         doc.setFontSize(14);
         doc.text(churchName, 30, 15);
@@ -130,12 +144,10 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
         doc.setTextColor(COLORS.slate600[0], COLORS.slate600[1], COLORS.slate600[2]);
         doc.text('Sistema de Gestão Tronus', 30, 20);
 
-        // Right side info
         doc.setFontSize(8);
         doc.text(`Página ${pageNum}`, pageWidth - 25, 15);
         doc.text(new Date().toLocaleDateString('pt-BR'), pageWidth - 30, 20);
 
-        // Divider
         doc.setDrawColor(COLORS.gray200[0], COLORS.gray200[1], COLORS.gray200[2]);
         doc.line(14, 25, pageWidth - 14, 25);
     };
@@ -143,13 +155,11 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     let currentPage = 1;
     drawHeader(currentPage);
 
-    // Report Title
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
-    doc.text('ESTRATO FINANCEIRO', pageWidth / 2, 40, { align: 'center' });
+    doc.text('EXTRATO FINANCEIRO', pageWidth / 2, 40, { align: 'center' });
 
-    // Filters Summary
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(COLORS.slate600[0], COLORS.slate600[1], COLORS.slate600[2]);
@@ -159,12 +169,10 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     filterLine += `  |  Período: ${filters.startDate || 'Início'} a ${filters.endDate || 'Fim'}`;
     doc.text(filterLine, pageWidth / 2, 47, { align: 'center' });
 
-    // Summary Scoreboard
     doc.setFillColor(COLORS.gray50[0], COLORS.gray50[1], COLORS.gray50[2]);
     doc.setDrawColor(COLORS.gray200[0], COLORS.gray200[1], COLORS.gray200[2]);
     doc.roundedRect(14, 55, pageWidth - 28, 30, 3, 3, 'FD');
 
-    // Income
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(COLORS.slate600[0], COLORS.slate600[1], COLORS.slate600[2]);
@@ -173,7 +181,6 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     doc.setFontSize(12);
     doc.text(formatCurrency(summary.totalIncome), 25, 75);
 
-    // Expense
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(COLORS.slate600[0], COLORS.slate600[1], COLORS.slate600[2]);
@@ -182,7 +189,6 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     doc.setFontSize(12);
     doc.text(formatCurrency(summary.totalExpense), 85, 75);
 
-    // Balance
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(COLORS.slate600[0], COLORS.slate600[1], COLORS.slate600[2]);
@@ -191,64 +197,90 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
     doc.setFontSize(14);
     doc.text(formatCurrency(summary.balance), 145, 75);
 
-    // Table Header
     let y = 100;
-    doc.setFillColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
-    doc.roundedRect(14, y - 6, pageWidth - 28, 10, 1, 1, 'F');
+    const drawTableHeader = () => {
+        doc.setFillColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
+        doc.roundedRect(14, y - 6, pageWidth - 28, 10, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('DATA / REGISTO', 16, y);
+        doc.text('DESCRIÇÃO', 35, y);
+        doc.text('REFERÊNCIA', 85, y);
+        doc.text('CATEGORIA', 110, y);
+        doc.text('MEMBRO', 135, y);
+        doc.text('VALOR (AOA)', 175, y, { align: 'right' });
+        doc.text('SALDO (AOA)', pageWidth - 16, y, { align: 'right' });
+        y += 10;
+    };
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-
-    doc.text('DATA', 16, y);
-    doc.text('DESCRIÇÃO', 35, y);
-    doc.text('REFERÊNCIA', 85, y);
-    doc.text('CATEGORIA', 115, y);
-    doc.text('MEMBRO', 145, y);
-    doc.text('VALOR (AOA)', pageWidth - 16, y, { align: 'right' });
-
-    y += 10;
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
+    drawTableHeader();
 
     const getCategoryName = (id?: string) => {
         if (!id) return 'Sem Categoria';
         return categories.find(c => c.id === id)?.name || 'Desconhecido';
     };
 
+    doc.setFillColor(COLORS.gray100[0], COLORS.gray100[1], COLORS.gray100[2]);
+    doc.rect(14, y - 5, pageWidth - 28, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
+    doc.text('SALDO INICIAL DO PERÍODO', 16, y);
+    doc.text(formatCurrency(openingBalance || 0), pageWidth - 16, y, { align: 'right' });
+    doc.line(14, y + 3, pageWidth - 14, y + 3);
+    y += 9;
+
     transactions.forEach((tx, index) => {
-        // Page break logic
         if (y > pageHeight - 20) {
+            doc.setFillColor(COLORS.gray100[0], COLORS.gray100[1], COLORS.gray100[2]);
+            doc.rect(14, y - 5, pageWidth - 28, 8, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
+            doc.text('A TRANSPORTAR (PÁG. SEGUINTE)', 16, y);
+            const currentRunning = tx.running_balance !== undefined ? tx.running_balance : 0;
+            doc.text(formatCurrency(currentRunning), pageWidth - 16, y, { align: 'right' });
+            doc.line(14, y + 3, pageWidth - 14, y + 3);
+
             doc.addPage();
             currentPage++;
             drawHeader(currentPage);
 
-            // Re-draw table header on new page
             y = 40;
-            doc.setFillColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
-            doc.roundedRect(14, y - 6, pageWidth - 28, 10, 1, 1, 'F');
-            doc.setTextColor(255, 255, 255);
+            drawTableHeader();
+
+            doc.setFillColor(COLORS.gray100[0], COLORS.gray100[1], COLORS.gray100[2]);
+            doc.rect(14, y - 5, pageWidth - 28, 8, 'F');
             doc.setFont('helvetica', 'bold');
-            doc.text('DATA', 16, y);
-            doc.text('DESCRIÇÃO', 35, y);
-            doc.text('CONTA', 95, y);
-            doc.text('CATEGORIA', 125, y);
-            doc.text('TIPO', 155, y);
-            doc.text('VALOR (AOA)', pageWidth - 16, y, { align: 'right' });
-            y += 10;
+            doc.setFontSize(7.5);
+            doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
+            doc.text('SALDO TRANSPORTADO (PÁG. ANTERIOR)', 16, y);
+            doc.text(formatCurrency(currentRunning), pageWidth - 16, y, { align: 'right' });
+            doc.line(14, y + 3, pageWidth - 14, y + 3);
+            y += 9;
         }
 
-        // Zebra striping
         if (index % 2 === 0) {
             doc.setFillColor(COLORS.gray50[0], COLORS.gray50[1], COLORS.gray50[2]);
             doc.rect(14, y - 5, pageWidth - 28, 8, 'F');
         }
 
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
+        doc.text(formatDate(tx.date), 16, y);
+
+        if (tx.created_at) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6);
+            doc.setTextColor(COLORS.slate600[0], COLORS.slate600[1], COLORS.slate600[2]);
+            doc.text(`Reg: ${formatDate(tx.created_at.split('T')[0])}`, 16, y + 3);
+        }
+
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
         doc.setFontSize(8);
-
-        doc.text(formatDate(tx.date), 16, y);
 
         let desc = tx.description || '';
         if (desc.length > 25) desc = desc.substring(0, 23) + '...';
@@ -260,9 +292,8 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
 
         let catName = getCategoryName(tx.category_id);
         if (catName.length > 15) catName = catName.substring(0, 13) + '..';
-        doc.text(catName, 115, y);
+        doc.text(catName, 110, y);
 
-        // Member Info
         let memberInfo = '-';
         if (tx.source_type === 'member') {
             memberInfo = tx.other_source_name || '-';
@@ -270,29 +301,46 @@ export const exportToPDF = ({ transactions, categories, churchName, summary, fil
             memberInfo = tx.notes.replace('Código Membro:', '').trim();
         }
         if (memberInfo.length > 15) memberInfo = memberInfo.substring(0, 13) + '..';
-        doc.text(memberInfo, 145, y);
+        doc.text(memberInfo, 135, y);
 
-        // Color for value
         if (tx.type === 'income') {
             doc.setTextColor(COLORS.green600[0], COLORS.green600[1], COLORS.green600[2]);
-            doc.text(`+ ${formatCurrency(tx.amount)}`, pageWidth - 16, y, { align: 'right' });
+            doc.text(`+ ${formatCurrency(tx.amount)}`, 175, y, { align: 'right' });
         } else {
             doc.setTextColor(COLORS.red600[0], COLORS.red600[1], COLORS.red600[2]);
-            doc.text(`- ${formatCurrency(tx.amount)}`, pageWidth - 16, y, { align: 'right' });
+            doc.text(`- ${formatCurrency(tx.amount)}`, 175, y, { align: 'right' });
         }
 
-        // Border line
-        doc.setDrawColor(COLORS.gray100[0], COLORS.gray100[1], COLORS.gray100[2]);
-        doc.line(14, y + 3, pageWidth - 14, y + 3);
+        doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
+        doc.text(tx.running_balance !== undefined ? formatCurrency(tx.running_balance) : '-', pageWidth - 16, y, { align: 'right' });
 
-        y += 8;
+        doc.setDrawColor(COLORS.gray100[0], COLORS.gray100[1], COLORS.gray100[2]);
+        doc.line(14, y + 4, pageWidth - 14, y + 4);
+
+        y += 9;
     });
 
-    // Footer at the bottom of the last page
+    if (y > pageHeight - 20) {
+        doc.addPage();
+        currentPage++;
+        drawHeader(currentPage);
+        y = 40;
+        drawTableHeader();
+    }
+    doc.setFillColor(COLORS.gray100[0], COLORS.gray100[1], COLORS.gray100[2]);
+    doc.rect(14, y - 5, pageWidth - 28, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(COLORS.slate800[0], COLORS.slate800[1], COLORS.slate800[2]);
+    doc.text('SALDO FINAL DO PERÍODO', 16, y);
+    const finalBalanceVal = transactions[transactions.length - 1]?.running_balance || summary.balance;
+    doc.text(formatCurrency(finalBalanceVal), pageWidth - 16, y, { align: 'right' });
+    doc.line(14, y + 3, pageWidth - 14, y + 3);
+
     doc.setFontSize(7);
     doc.setTextColor(COLORS.slate400[0], COLORS.slate400[1], COLORS.slate400[2]);
     doc.text('Relatório gerado automaticamente pelo Sistema Tronus Church Management.', pageWidth / 2, pageHeight - 10, { align: 'center' });
 
-    const fileName = `Estrato_${churchName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `Extrato_${churchName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
 };

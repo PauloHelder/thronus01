@@ -47,14 +47,14 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event,
                 title: '',
                 date: '',
                 time: '',
-                type: 'Service',
+                type: eventTypes[0]?.name || 'Service',
                 description: '',
                 attendees: [],
                 coverUrl: '',
             });
             setSelectedFile(undefined);
         }
-    }, [event, isOpen]);
+    }, [event, isOpen, eventTypes]);
 
     // ... (handleToggleMember stays same)
     const handleToggleMember = (memberId: string) => {

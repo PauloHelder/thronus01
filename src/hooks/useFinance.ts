@@ -199,7 +199,8 @@ export const useFinance = () => {
                     `)
                     .eq('church_id', user.churchId)
                     .is('deleted_at', null)
-                    .order('date', { ascending: false });
+                    .order('date', { ascending: true })
+                    .order('created_at', { ascending: true });
 
                 // Apply filters
                 if (filters) {
@@ -257,7 +258,7 @@ export const useFinance = () => {
                 .eq('source_id', memberId)
                 .eq('source_type', 'member')
                 .is('deleted_at', null)
-                .order('date', { ascending: false });
+                .order('date', { ascending: true });
 
             if (error) throw error;
             return data || [];
@@ -281,7 +282,7 @@ export const useFinance = () => {
                 .eq('source_id', serviceId)
                 .eq('source_type', 'service')
                 .is('deleted_at', null)
-                .order('date', { ascending: false });
+                .order('date', { ascending: true });
 
             if (error) throw error;
             return data || [];
@@ -305,7 +306,7 @@ export const useFinance = () => {
                 .eq('source_id', groupId)
                 .eq('source_type', 'group')
                 .is('deleted_at', null)
-                .order('date', { ascending: false });
+                .order('date', { ascending: true });
 
             if (error) throw error;
             return data || [];
@@ -323,9 +324,11 @@ export const useFinance = () => {
         accounts.forEach(acc => accMap.set(acc.id, Number(acc.initial_balance) || 0));
 
         // Sort ASC for calculation (oldest first)
-        const sortedAsc = [...txsWithBalance].sort((a, b) => 
-            new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
+        const sortedAsc = [...txsWithBalance].sort((a, b) => {
+            const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+            if (dateDiff !== 0) return dateDiff;
+            return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        });
 
         sortedAsc.forEach(tx => {
             const currentAccBalance = accMap.get(tx.account_id || '') || 0;
@@ -337,7 +340,7 @@ export const useFinance = () => {
             accMap.set(tx.account_id || '', newBalance);
         });
 
-        return txsWithBalance;
+        return sortedAsc;
     }, [transactions, accounts]);
 
     const fetchRequests = useCallback(async (departmentId?: string) => {
@@ -799,13 +802,22 @@ export const useFinance = () => {
 
     const deleteMultipleRequests = async (ids: string[]) => {
         try {
+            const paidIds = requests
+                .filter(r => ids.includes(r.id) && r.status === 'paid')
+                .map(r => r.id);
+            const idsToDelete = ids.filter(id => !paidIds.includes(id));
+            
+            if (idsToDelete.length === 0) {
+                throw new Error('Nenhuma das requisições selecionadas pode ser excluída (estão pagas).');
+            }
+
             const { error } = await (supabase
                 .from('financial_requests' as any)
                 .update({ deleted_at: new Date().toISOString() })
-                .in('id', ids) as any);
+                .in('id', idsToDelete) as any);
 
             if (error) throw error;
-            setRequests(prev => prev.filter(r => !ids.includes(r.id)));
+            setRequests(prev => prev.filter(r => !idsToDelete.includes(r.id)));
             return true;
         } catch (err: any) {
             console.error('Error deleting multiple requests:', err);
@@ -842,6 +854,10 @@ export const useFinance = () => {
 
     const updateRequest = async (id: string, updates: Partial<FinancialRequest>) => {
         try {
+            const req = requests.find(r => r.id === id);
+            if (req && req.status === 'paid') {
+                throw new Error('Não é permitido alterar uma requisição já paga.');
+            }
             const { error } = await (supabase
                 .from('financial_requests' as any)
                 .update(updates)
@@ -926,6 +942,10 @@ export const useFinance = () => {
 
     const deleteRequest = async (id: string) => {
         try {
+            const req = requests.find(r => r.id === id);
+            if (req && req.status === 'paid') {
+                throw new Error('Não é permitido excluir uma requisição já paga.');
+            }
             const { error } = await (supabase
                 .from('financial_requests' as any)
                 .update({ deleted_at: new Date().toISOString() })

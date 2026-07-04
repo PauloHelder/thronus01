@@ -1,120 +1,163 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { supabase, getCurrentUserChurchId } from '../lib/supabase';
 
 export interface EventType {
     id: string;
+    churchId: string;
     name: string;
     color: string;
+    description: string | null;
     isDefault: boolean;
-    description?: string;
 }
 
-const DEFAULT_EVENT_TYPES: EventType[] = [
-    { id: 'Service', name: 'Culto', color: 'bg-blue-100 text-blue-700', isDefault: true },
-    { id: 'Meeting', name: 'Reunião', color: 'bg-purple-100 text-purple-700', isDefault: true },
-    { id: 'Social', name: 'Social', color: 'bg-green-100 text-green-700', isDefault: true },
-    { id: 'Youth', name: 'Jovens', color: 'bg-orange-100 text-orange-700', isDefault: true },
-    { id: 'Conference', name: 'Conferência', color: 'bg-indigo-100 text-indigo-700', isDefault: true },
-];
-
-export const useEventTypes = () => {
-    const { user } = useAuth();
+export function useEventTypes() {
     const [eventTypes, setEventTypes] = useState<EventType[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const fetchEventTypes = async () => {
-        if (!user?.churchId) return;
-
         try {
             setLoading(true);
-            const { data, error } = await supabase
+            setError(null);
+
+            const churchId = await getCurrentUserChurchId();
+            if (!churchId) {
+                setEventTypes([]);
+                setLoading(false);
+                return;
+            }
+
+            const { data, error: fetchError } = await supabase
                 .from('event_types')
                 .select('*')
-                .eq('church_id', user.churchId)
+                .eq('church_id', churchId)
                 .is('deleted_at', null)
-                .order('name');
+                .order('name', { ascending: true });
 
-            if (error) throw error;
+            if (fetchError) throw fetchError;
 
-            const customTypes = data.map(t => ({
-                id: t.name, // Using name as ID for compatibility with current event.type string
-                name: t.name,
-                color: t.color,
-                isDefault: false,
-                description: t.description
+            const mappedTypes: EventType[] = (data || []).map((dbType: any) => ({
+                id: dbType.id,
+                churchId: dbType.church_id,
+                name: dbType.name,
+                color: dbType.color || 'bg-gray-100 text-gray-700',
+                description: dbType.description,
+                isDefault: dbType.is_default
             }));
 
-            // Combine defaults with custom types
-            // If custom type overrides default (same name), custom takes precedence (though DB should prevent duplicates ideally)
-            setEventTypes([...DEFAULT_EVENT_TYPES, ...customTypes]);
+            setEventTypes(mappedTypes);
         } catch (err) {
             console.error('Error fetching event types:', err);
-            // Fallback to defaults
-            setEventTypes(DEFAULT_EVENT_TYPES);
+            setError(err instanceof Error ? err.message : 'Failed to fetch event types');
         } finally {
             setLoading(false);
         }
     };
 
-    const addEventType = async (name: string, color: string) => {
-        if (!user?.churchId) return false;
-
+    const createEventType = async (name: string, description?: string, color?: string) => {
         try {
-            const { error } = await supabase
-                .from('event_types')
-                .insert({
-                    church_id: user.churchId,
-                    name,
-                    color
-                });
+            const churchId = await getCurrentUserChurchId();
+            if (!churchId) {
+                throw new Error('No church ID found. Please make sure you are logged in.');
+            }
 
-            if (error) throw error;
-            await fetchEventTypes();
-            return true;
+            const insertData = {
+                church_id: churchId,
+                name: name,
+                description: description || null,
+                color: color || 'bg-gray-100 text-gray-700',
+                is_default: false
+            };
+
+            const { data, error: insertError } = await supabase
+                .from('event_types')
+                .insert(insertData as any)
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+
+            const newType: EventType = {
+                id: data.id,
+                churchId: data.church_id,
+                name: data.name,
+                color: data.color || 'bg-gray-100 text-gray-700',
+                description: data.description,
+                isDefault: data.is_default
+            };
+
+            setEventTypes(prev => [...prev, newType]);
+            return newType;
         } catch (err) {
-            console.error('Error adding event type:', err);
-            setError('Erro ao criar tipo de evento');
-            return false;
+            console.error('Error creating event type:', err);
+            throw err;
         }
     };
 
-    const deleteEventType = async (id: string, name: string) => {
-        if (!user?.churchId) return false;
-
-        // Can only delete custom types (which have UUIDs usually, but here we mapped name to ID for the UI list)
-        // We need to find the real UUID from the fetch or just delete by name + church_id
-        // Using name is risky if not unique, better to store real ID.
-        // Let's refactor fetch to store Real ID.
-
+    const updateEventType = async (id: string, name: string, description?: string, color?: string) => {
         try {
-            // We need to delete by name because our UI ID for defaults is the name 'Service' etc.
-            // But for custom types, we want to look up the record.
-            // Simplified: Delete by name and church_id
-            const { error } = await supabase
-                .from('event_types')
-                .update({ deleted_at: new Date().toISOString() })
-                .eq('church_id', user.churchId)
-                .eq('name', name);
+            const updateData: any = { name };
+            if (description !== undefined) updateData.description = description || null;
+            if (color !== undefined) updateData.color = color || 'bg-gray-100 text-gray-700';
 
-            if (error) throw error;
-            await fetchEventTypes();
-            return true;
+            const { data, error: updateError } = await supabase
+                .from('event_types')
+                .update(updateData)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (updateError) throw updateError;
+
+            const updatedType: EventType = {
+                id: data.id,
+                churchId: data.church_id,
+                name: data.name,
+                color: data.color || 'bg-gray-100 text-gray-700',
+                description: data.description,
+                isDefault: data.is_default
+            };
+
+            setEventTypes(prev => prev.map(t => t.id === id ? updatedType : t));
+            return updatedType;
+        } catch (err) {
+            console.error('Error updating event type:', err);
+            throw err;
+        }
+    };
+
+    const deleteEventType = async (id: string) => {
+        try {
+            const typeToDelete = eventTypes.find(t => t.id === id);
+            if (typeToDelete?.isDefault) {
+                throw new Error('Não é possível excluir categorias de evento padrão');
+            }
+
+            const { error: deleteError } = await supabase
+                .from('event_types')
+                .update({ deleted_at: new Date().toISOString() } as any)
+                .eq('id', id);
+
+            if (deleteError) throw deleteError;
+
+            setEventTypes(prev => prev.filter(t => t.id !== id));
         } catch (err) {
             console.error('Error deleting event type:', err);
-            return false;
+            throw err;
         }
     };
 
     useEffect(() => {
         fetchEventTypes();
-    }, [user?.churchId]);
+    }, []);
 
     return {
         eventTypes,
         loading,
-        addEventType,
+        error,
+        refetch: fetchEventTypes,
+        createEventType,
+        updateEventType,
         deleteEventType
     };
-};
+}

@@ -26,7 +26,8 @@ import {
     ArrowRightLeft,
     ChevronLeft,
     ChevronRight,
-    ListChecks
+    ListChecks,
+    Undo2
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useFinance, FinancialTransaction, FinancialRequest, FinancialRecurringBill, FinancialPayableInstallment } from '../hooks/useFinance';
@@ -152,9 +153,11 @@ const Finance = () => {
     const [filterType, setFilterType] = useState<'All' | 'income' | 'expense'>('All');
     const [filterCategory, setFilterCategory] = useState<string>('All');
     const [searchTerm, setSearchTerm] = useState('');
+    const [periodFilter, setPeriodFilter] = useState<'current-month' | 'custom'>('current-month');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [filterAccount, setFilterAccount] = useState<string>('All');
+    const [dateFilterField, setDateFilterField] = useState<'date' | 'created_at'>('date');
     const [showFilters, setShowFilters] = useState(false);
 
     // Filters State for Requests
@@ -273,13 +276,55 @@ const Finance = () => {
                 (t.description?.toLowerCase() || '').includes(searchLower) ||
                 (t.category?.name?.toLowerCase() || '').includes(searchLower);
 
-            const transactionDate = new Date(t.date);
-            const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
-            const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
+            let matchesDate = true;
+            const targetDateStr = dateFilterField === 'date' ? t.date : (t.created_at ? t.created_at.split('T')[0] : t.date);
+            if (periodFilter === 'current-month') {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth();
+                
+                const [tYear, tMonth] = targetDateStr.split('-').map(Number);
+                matchesDate = tYear === currentYear && (tMonth - 1) === currentMonth;
+            } else {
+                const transactionDate = new Date(targetDateStr);
+                const matchesStartDate = !startDate || transactionDate >= new Date(startDate);
+                const matchesEndDate = !endDate || transactionDate <= new Date(endDate);
+                matchesDate = matchesStartDate && matchesEndDate;
+            }
 
-            return matchesType && matchesCategory && matchesAccount && matchesSearch && matchesStartDate && matchesEndDate;
+            return matchesType && matchesCategory && matchesAccount && matchesSearch && matchesDate;
         });
-    }, [transactions, filterType, filterCategory, filterAccount, searchTerm, startDate, endDate]);
+    }, [transactions, filterType, filterCategory, filterAccount, searchTerm, periodFilter, startDate, endDate, dateFilterField]);
+
+    // Opening balance of the period
+    const openingBalance = useMemo(() => {
+        if (filteredTransactions.length === 0) {
+            if (filterAccount === 'All') {
+                return accounts.reduce((sum, acc) => sum + (Number(acc.initial_balance) || 0), 0) +
+                       transactions.reduce((sum, tx) => sum + (tx.type === 'income' ? Number(tx.amount) : -Number(tx.amount)), 0);
+            } else {
+                const acc = accounts.find(a => a.id === filterAccount);
+                const initial = acc ? (Number(acc.initial_balance) || 0) : 0;
+                const txsSum = transactions
+                    .filter(tx => tx.account_id === filterAccount)
+                    .reduce((sum, tx) => sum + (tx.type === 'income' ? Number(tx.amount) : -Number(tx.amount)), 0);
+                return initial + txsSum;
+            }
+        }
+        
+        const firstTx = filteredTransactions[0];
+        const mainIndex = transactions.findIndex(tx => tx.id === firstTx.id);
+        if (mainIndex > 0) {
+            return transactions[mainIndex - 1].running_balance || 0;
+        } else {
+            if (filterAccount === 'All') {
+                return accounts.reduce((sum, acc) => sum + (Number(acc.initial_balance) || 0), 0);
+            } else {
+                const acc = accounts.find(a => a.id === filterAccount);
+                return acc ? (Number(acc.initial_balance) || 0) : 0;
+            }
+        }
+    }, [transactions, filteredTransactions, accounts, filterAccount]);
 
     // Paginated Transactions
     const paginatedTransactions = useMemo(() => {
@@ -288,6 +333,27 @@ const Finance = () => {
     }, [filteredTransactions, currentPage, itemsPerPage]);
 
     const totalTransactionPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+
+    // Page opening balance
+    const pageOpeningBalance = useMemo(() => {
+        if (currentPage === 1) {
+            return openingBalance;
+        }
+        const lastTxIdx = (currentPage - 1) * itemsPerPage - 1;
+        if (lastTxIdx >= 0 && lastTxIdx < filteredTransactions.length) {
+            return filteredTransactions[lastTxIdx].running_balance || 0;
+        }
+        return openingBalance;
+    }, [currentPage, filteredTransactions, itemsPerPage, openingBalance]);
+
+    // Page ending balance
+    const pageEndingBalance = useMemo(() => {
+        const lastTxIdx = Math.min(currentPage * itemsPerPage - 1, filteredTransactions.length - 1);
+        if (lastTxIdx >= 0 && lastTxIdx < filteredTransactions.length) {
+            return filteredTransactions[lastTxIdx].running_balance || 0;
+        }
+        return pageOpeningBalance;
+    }, [currentPage, filteredTransactions, itemsPerPage, pageOpeningBalance]);
 
     // Filter Requests
     const filteredRequests = useMemo(() => {
@@ -401,8 +467,10 @@ const Finance = () => {
         setFilterCategory('All');
         setFilterAccount('All');
         setSearchTerm('');
+        setPeriodFilter('current-month');
         setStartDate('');
         setEndDate('');
+        setDateFilterField('date');
     };
 
     const handleExport = (format: 'pdf' | 'excel') => {
@@ -421,6 +489,7 @@ const Finance = () => {
             transactions: filteredTransactions,
             categories,
             churchName: user?.churchName || 'Minha Igreja',
+            openingBalance,
             summary,
             filters: {
                 type: filterType,
@@ -445,7 +514,7 @@ const Finance = () => {
         }
     };
 
-    const handleUpdateStatus = async (requestId: string, newStatus: 'approved' | 'rejected' | 'paid') => {
+    const handleUpdateStatus = async (requestId: string, newStatus: 'approved' | 'rejected' | 'paid' | 'pending') => {
         if (!canAuthorize) {
             toast.error('Você não tem permissão para autorizar requisições.');
             return;
@@ -453,11 +522,20 @@ const Finance = () => {
         const updateData: any = { status: newStatus };
         if (newStatus === 'approved') {
             updateData.approval_date = new Date().toISOString();
+        } else if (newStatus === 'pending') {
+            updateData.approval_date = null;
+            updateData.approved_by = null;
         }
 
         const success = await updateRequest(requestId, updateData);
         if (success) {
-            toast.success(`Status atualizado para ${newStatus}`);
+            const statusLabels: Record<string, string> = {
+                approved: 'aprovada',
+                rejected: 'rejeitada',
+                paid: 'paga',
+                pending: 'pendente'
+            };
+            toast.success(`Status atualizado para ${statusLabels[newStatus] || newStatus}`);
         } else {
             toast.error('Erro ao atualizar status.');
         }
@@ -665,7 +743,7 @@ const Finance = () => {
         }
     };
 
-    const hasActiveFilters = filterType !== 'All' || filterCategory !== 'All' || filterAccount !== 'All' || searchTerm !== '' || startDate !== '' || endDate !== '';
+    const hasActiveFilters = filterType !== 'All' || filterCategory !== 'All' || filterAccount !== 'All' || searchTerm !== '' || startDate !== '' || endDate !== '' || periodFilter !== 'current-month' || dateFilterField !== 'date';
 
     // If no permission, return Access Denied immediately
     if (!canView) {
@@ -1004,9 +1082,14 @@ const Finance = () => {
                                             <td className="px-6 py-4">
                                                 <input 
                                                     type="checkbox" 
-                                                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                                                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    disabled={request.status === 'paid'}
                                                     checked={selectedRequests.includes(request.id)}
-                                                    onChange={() => toggleRequestSelection(request.id)}
+                                                    onChange={() => {
+                                                        if (request.status !== 'paid') {
+                                                            toggleRequestSelection(request.id);
+                                                        }
+                                                    }}
                                                     onClick={(e) => e.stopPropagation()}
                                                 />
                                             </td>
@@ -1052,6 +1135,16 @@ const Finance = () => {
                                                             </button>
                                                         </>
                                                     )}
+                                                    {(request.status === 'approved' || request.status === 'rejected') && canAuthorize && (
+                                                        <button
+                                                            onClick={() => handleUpdateStatus(request.id, 'pending')}
+                                                            className="p-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 flex items-center gap-1 shadow-sm"
+                                                            title="Desfazer decisão (voltar para pendente)"
+                                                        >
+                                                            <Undo2 size={14} />
+                                                            <span className="text-xs font-bold">Desfazer</span>
+                                                        </button>
+                                                    )}
                                                     {request.status === 'approved' && canPay && (
                                                         <button
                                                             onClick={() => handlePayRequestClick(request)}
@@ -1069,15 +1162,18 @@ const Finance = () => {
                                                             <Pencil size={16} />
                                                         </button>
                                                     )}
-                                                    <button
-                                                        onClick={() => {
-                                                            setItemToDelete({ id: request.id, name: request.title, type: 'request' });
-                                                            setIsDeleteModalOpen(true);
-                                                        }}
-                                                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                    {request.status !== 'paid' && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setItemToDelete({ id: request.id, name: request.title, type: 'request' });
+                                                                setIsDeleteModalOpen(true);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                                                            title="Excluir"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -1867,24 +1963,66 @@ const Finance = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-600 mb-1">Data Inicial</label>
-                                        <input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
-                                        />
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Período</label>
+                                        <select
+                                            value={periodFilter}
+                                            onChange={(e) => {
+                                                const val = e.target.value as 'current-month' | 'custom';
+                                                setPeriodFilter(val);
+                                                if (val === 'current-month') {
+                                                    setStartDate('');
+                                                    setEndDate('');
+                                                } else {
+                                                    const now = new Date();
+                                                    const year = now.getFullYear();
+                                                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                                                    const day = String(now.getDate()).padStart(2, '0');
+                                                    setStartDate(`${year}-${month}-01`);
+                                                    setEndDate(`${year}-${month}-${day}`);
+                                                }
+                                            }}
+                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm font-medium"
+                                        >
+                                            <option value="current-month">Mês Atual</option>
+                                            <option value="custom">Personalizado</option>
+                                        </select>
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-600 mb-1">Data Final</label>
-                                        <input
-                                            type="date"
-                                            value={endDate}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
-                                        />
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Filtrar por</label>
+                                        <select
+                                            value={dateFilterField}
+                                            onChange={(e) => setDateFilterField(e.target.value as 'date' | 'created_at')}
+                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm font-medium"
+                                        >
+                                            <option value="date">Data da Transação</option>
+                                            <option value="created_at">Data de Registo (Criação)</option>
+                                        </select>
                                     </div>
+
+                                    {periodFilter === 'custom' && (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-600 mb-1">Data Inicial</label>
+                                                <input
+                                                    type="date"
+                                                    value={startDate}
+                                                    onChange={(e) => setStartDate(e.target.value)}
+                                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-600 mb-1">Data Final</label>
+                                                <input
+                                                    type="date"
+                                                    value={endDate}
+                                                    onChange={(e) => setEndDate(e.target.value)}
+                                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 {hasActiveFilters && (
@@ -1906,7 +2044,7 @@ const Finance = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-slate-500 uppercase">
-                                    <th className="px-6 py-4 w-10">
+                                    <th className="px-3 py-2 w-8">
                                         <input 
                                             type="checkbox" 
                                             className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
@@ -1914,13 +2052,13 @@ const Finance = () => {
                                             onChange={toggleAllTransactions}
                                         />
                                     </th>
-                                    <th className="px-6 py-4">Data</th>
-                                    <th className="px-6 py-4">Descrição</th>
-                                    <th className="px-6 py-4">Conta</th>
-                                    <th className="px-6 py-4">Categoria</th>
-                                    <th className="px-6 py-4 text-right">Valor</th>
-                                    <th className="px-6 py-4 text-right">Saldo</th>
-                                    <th className="px-6 py-4 text-center">Ações</th>
+                                    <th className="px-3 py-2">Data</th>
+                                    <th className="px-3 py-2">Descrição</th>
+                                    <th className="px-3 py-2">Conta</th>
+                                    <th className="px-3 py-2">Categoria</th>
+                                    <th className="px-3 py-2 text-right">Valor</th>
+                                    <th className="px-3 py-2 text-right">Saldo</th>
+                                    <th className="px-3 py-2 text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -1934,80 +2072,115 @@ const Finance = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    paginatedTransactions.map((tx) => (
-                                        <tr key={tx.id} className={`hover:bg-gray-50 transition-colors ${selectedTransactions.includes(tx.id) ? 'bg-orange-50/50' : ''}`}>
-                                            <td className="px-6 py-4">
-                                                <input 
-                                                    type="checkbox" 
-                                                    className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
-                                                    checked={selectedTransactions.includes(tx.id)}
-                                                    onChange={() => toggleTransactionSelection(tx.id)}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                />
+                                    <>
+                                        {/* Row for Page Opening Balance */}
+                                        <tr className="bg-slate-50 font-semibold border-b border-gray-200 text-xs">
+                                            <td className="px-3 py-1.5"></td>
+                                            <td className="px-3 py-1.5 text-slate-500 text-[10px] uppercase tracking-wider whitespace-nowrap" colSpan={4}>
+                                                {currentPage === 1 ? 'Saldo Inicial do Período' : 'Saldo Transportado (Pág. Anterior)'}
                                             </td>
-                                            <td className="px-6 py-4 text-slate-700 whitespace-nowrap" onClick={() => toggleTransactionSelection(tx.id)}>
-                                                <div className="flex items-center gap-2 font-medium">
-                                                    <Calendar size={16} className="text-slate-400" />
-                                                    <span>{formatDate(tx.date)}</span>
-                                                </div>
+                                            <td className="px-3 py-1.5"></td>
+                                            <td className="px-3 py-1.5 text-right text-slate-700 font-mono whitespace-nowrap">
+                                                {formatCurrency(pageOpeningBalance)}
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-slate-800">{tx.description}</div>
-                                                {tx.notes && (
-                                                    <div className="text-xs text-slate-500 mt-0.5">{tx.notes}</div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">
-                                                {tx.account?.name || '-'}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span
-                                                    className="px-2.5 py-1 rounded-full text-xs font-medium"
-                                                    style={{
-                                                        backgroundColor: tx.category?.color ? tx.category.color + '20' : '#F3F4F6',
-                                                        color: tx.category?.color || '#6B7280'
-                                                    }}
-                                                >
-                                                    {tx.category?.name || 'Geral'}
-                                                </span>
-                                            </td>
-                                            <td className={`px-6 py-4 text-right font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'
-                                                }`}>
-                                                {tx.type === 'income' ? '+' : '-'} {formatCurrency(tx.amount)}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-medium text-slate-600">
-                                                {tx.running_balance !== undefined ? formatCurrency(tx.running_balance) : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        onClick={() => handleViewTransaction(tx)}
-                                                        className="text-slate-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded"
-                                                        title="Visualizar Detalhes"
-                                                    >
-                                                        <Eye size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleOpenTransactionModal(tx)}
-                                                        className="text-slate-400 hover:text-orange-600 transition-colors p-1 hover:bg-orange-50 rounded"
-                                                        title="Editar"
-                                                    >
-                                                        <Pencil size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setItemToDelete({ id: tx.id, name: tx.description, type: 'transaction' });
-                                                            setIsDeleteModalOpen(true);
-                                                        }}
-                                                        className="text-slate-400 hover:text-red-600 transition-colors p-1 hover:bg-red-50 rounded"
-                                                        title="Excluir"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            <td className="px-3 py-1.5"></td>
                                         </tr>
-                                    ))
+
+                                        {/* Main Paginated Transactions */}
+                                        {paginatedTransactions.map((tx) => (
+                                            <tr key={tx.id} className={`hover:bg-gray-50 transition-colors text-xs ${selectedTransactions.includes(tx.id) ? 'bg-orange-50/50' : ''}`}>
+                                                <td className="px-3 py-2">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                                                        checked={selectedTransactions.includes(tx.id)}
+                                                        onChange={() => toggleTransactionSelection(tx.id)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-2 text-slate-700 whitespace-nowrap" onClick={() => toggleTransactionSelection(tx.id)}>
+                                                    <div className="flex flex-col gap-0.5 justify-center">
+                                                        <div className="flex items-center gap-1.5 font-medium">
+                                                            <Calendar size={14} className="text-slate-400" />
+                                                            <span>{formatDate(tx.date)}</span>
+                                                        </div>
+                                                        {tx.created_at && (
+                                                            <div className="text-[9px] text-slate-400 font-normal">
+                                                                Reg: {formatDate(tx.created_at.split('T')[0])}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-2 max-w-xs truncate">
+                                                    <div className="font-medium text-slate-800 truncate" title={tx.description}>{tx.description}</div>
+                                                    {tx.notes && (
+                                                        <div className="text-[10px] text-slate-500 mt-0.5 truncate" title={tx.notes}>{tx.notes}</div>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 text-slate-600 whitespace-nowrap truncate max-w-[120px]" title={tx.account?.name || ''}>
+                                                    {tx.account?.name || '-'}
+                                                </td>
+                                                <td className="px-3 py-2 whitespace-nowrap">
+                                                    <span
+                                                        className="px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap"
+                                                        style={{
+                                                            backgroundColor: tx.category?.color ? tx.category.color + '20' : '#F3F4F6',
+                                                            color: tx.category?.color || '#6B7280'
+                                                        }}
+                                                    >
+                                                        {tx.category?.name || 'Geral'}
+                                                    </span>
+                                                </td>
+                                                <td className={`px-3 py-2 text-right font-bold font-mono whitespace-nowrap ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right font-semibold text-slate-600 font-mono whitespace-nowrap">
+                                                    {tx.running_balance !== undefined ? formatCurrency(tx.running_balance) : '-'}
+                                                </td>
+                                                <td className="px-3 py-2 text-center whitespace-nowrap">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <button
+                                                            onClick={() => handleViewTransaction(tx)}
+                                                            className="text-slate-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded"
+                                                            title="Visualizar Detalhes"
+                                                        >
+                                                            <Eye size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenTransactionModal(tx)}
+                                                            className="text-slate-400 hover:text-orange-600 transition-colors p-1 hover:bg-orange-50 rounded"
+                                                            title="Editar"
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setItemToDelete({ id: tx.id, name: tx.description, type: 'transaction' });
+                                                                setIsDeleteModalOpen(true);
+                                                            }}
+                                                            className="text-slate-400 hover:text-red-600 transition-colors p-1 hover:bg-red-50 rounded"
+                                                            title="Excluir"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+
+                                        {/* Row for Page Ending Balance */}
+                                        <tr className="bg-slate-50 font-semibold border-t border-gray-200 text-xs">
+                                            <td className="px-3 py-1.5"></td>
+                                            <td className="px-3 py-1.5 text-slate-500 text-[10px] uppercase tracking-wider whitespace-nowrap" colSpan={4}>
+                                                {currentPage === totalTransactionPages ? 'Saldo Final do Período' : 'A Transportar (Pág. Seguinte)'}
+                                            </td>
+                                            <td className="px-3 py-1.5"></td>
+                                            <td className="px-3 py-1.5 text-right text-slate-700 font-mono whitespace-nowrap">
+                                                {formatCurrency(pageEndingBalance)}
+                                            </td>
+                                            <td className="px-3 py-1.5"></td>
+                                        </tr>
+                                    </>
                                 )}
                             </tbody>
                         </table>

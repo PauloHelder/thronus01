@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Edit3, Trash2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Event } from '../types';
 import EventModal from '../components/modals/EventModal';
@@ -21,7 +21,6 @@ const Events: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | undefined>(undefined);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | undefined>(undefined);
-  const [currentDate, setCurrentDate] = useState(new Date());
 
   const handleAddEvent = () => {
     setSelectedEvent(undefined);
@@ -60,27 +59,6 @@ const Events: React.FC = () => {
     if (success) {
       setIsModalOpen(false);
     }
-  };
-
-  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-
-  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-  const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-  const prevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
-  };
-
-  const getEventsForDate = (day: number) => {
-    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return events.filter(e => e.date === dateStr);
   };
 
   const getEventTypeColor = (type: string) => {
@@ -129,17 +107,25 @@ const Events: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Eventos</h1>
-          <p className="text-slate-600 mt-1">Calendário de eventos e atividades da igreja</p>
+          <h1 className="text-3xl font-bold text-slate-800 font-outfit">Agenda</h1>
+          <p className="text-slate-600 mt-1">Agenda de eventos e atividades da igreja</p>
         </div>
-        {hasPermission('events_create') && (
+        <div className="flex items-center gap-3">
           <button
-            onClick={handleAddEvent}
-            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors w-fit"
+            onClick={() => navigate('/calendar')}
+            className="px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-lg font-medium flex items-center gap-2 transition-all shadow-sm"
           >
-            <Plus size={20} /> Novo Evento
+            <Calendar size={18} /> Ver Calendário
           </button>
-        )}
+          {hasPermission('events_create') && (
+            <button
+              onClick={handleAddEvent}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+            >
+              <Plus size={20} /> Novo Evento
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -165,89 +151,6 @@ const Events: React.FC = () => {
           <p className="text-xl md:text-3xl font-bold text-orange-700 mt-1">
             {events.filter(e => e.type === 'Youth').length}
           </p>
-        </div>
-      </div>
-
-      {/* Calendar */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        {/* Calendar Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-slate-800">
-            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-          </h2>
-          <div className="flex gap-2">
-            <button
-              onClick={prevMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <button
-              onClick={nextMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-2">
-          {/* Day Headers */}
-          {dayNames.map(day => (
-            <div key={day} className="text-center font-semibold text-sm text-slate-600 py-2">
-              {day}
-            </div>
-          ))}
-
-          {/* Empty cells for days before month starts */}
-          {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square" />
-          ))}
-
-          {/* Calendar Days */}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const dayEvents = getEventsForDate(day);
-            const isToday = day === new Date().getDate() &&
-              currentDate.getMonth() === new Date().getMonth() &&
-              currentDate.getFullYear() === new Date().getFullYear();
-
-            return (
-              <div
-                key={day}
-                className={`aspect-square border rounded-lg p-2 ${isToday ? 'bg-orange-50 border-orange-300' : 'border-gray-200 hover:bg-gray-50'
-                  } transition-colors cursor-pointer overflow-hidden min-h-[100px]`}
-                onClick={() => {
-                  // Could implement daily view click here
-                }}
-              >
-                <div className={`text-sm font-medium mb-1 ${isToday ? 'text-orange-600' : 'text-slate-700'}`}>
-                  {day}
-                </div>
-                <div className="space-y-1">
-                  {dayEvents.slice(0, 2).map(event => (
-                    <div
-                      key={event.id}
-                      className="text-xs px-1 py-0.5 rounded truncate bg-blue-100 text-blue-700 cursor-pointer hover:opacity-80"
-                      title={event.title}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/events/${event.id}`);
-                      }}
-                    >
-                      {event.title}
-                    </div>
-                  ))}
-                  {dayEvents.length > 2 && (
-                    <div className="text-xs text-slate-500">
-                      +{dayEvents.length - 2} mais
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
 

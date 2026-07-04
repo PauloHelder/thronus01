@@ -57,14 +57,26 @@ const Sidebar: React.FC = () => {
 
   // Auto-detect module from URL
   useEffect(() => {
-    if (location.pathname.startsWith('/members')) setActiveModule('members');
-    else if (location.pathname.startsWith('/departments')) setActiveModule('departments');
-    else if (location.pathname.startsWith('/discipleship')) setActiveModule('discipleship');
-    else if (location.pathname.startsWith('/teaching')) setActiveModule('teaching');
-    else if (location.pathname.startsWith('/finance')) setActiveModule('finance');
-    else if (location.pathname.startsWith('/groups')) setActiveModule('groups');
-    else if (location.pathname.startsWith('/network')) setActiveModule('network_supervision');
-    else if (location.pathname.startsWith('/assets')) setActiveModule('assets');
+    if (
+      location.pathname.startsWith('/members') ||
+      location.pathname.startsWith('/families') ||
+      location.pathname.startsWith('/consagracoes') ||
+      location.pathname.startsWith('/services') ||
+      location.pathname.startsWith('/events') ||
+      location.pathname.startsWith('/calendar')
+    ) {
+      setActiveModule('secretaria');
+    } else if (location.pathname.startsWith('/finance') || location.pathname.startsWith('/assets')) {
+      setActiveModule('finance');
+    } else if (location.pathname.startsWith('/discipleship') || location.pathname.startsWith('/teaching')) {
+      setActiveModule('discipleship');
+    } else if (location.pathname.startsWith('/groups') || location.pathname.startsWith('/departments')) {
+      setActiveModule('departamentos');
+    } else if (location.pathname.startsWith('/users') || location.pathname.startsWith('/network') || location.pathname.startsWith('/settings')) {
+      setActiveModule('configuracao');
+    } else {
+      setActiveModule(null);
+    }
   }, [location.pathname]);
 
   // Helper function to check navigation permissions
@@ -74,61 +86,54 @@ const Sidebar: React.FC = () => {
 
   // Sub-menu definitions
   const subMenus: Record<string, { title: string, items: NavBaseItem[] }> = {
-    members: {
-      title: "Gestão de Membros",
+    secretaria: {
+      title: "Secretaria",
       items: [
-        { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
-        { to: "/members", icon: Users, label: "Lista de membros", permission: 'members_view', end: true },
-        { to: "/members?filter=adultos", icon: Users, label: "Adultos", permission: 'members_view' },
-        { to: "/members?filter=jovens", icon: Users, label: "Jovens", permission: 'members_view' },
-        { to: "/members?filter=adolescentes", icon: Users, label: "Adolescentes", permission: 'members_view' },
-        { to: "/members?filter=criancas", icon: Users, label: "Crianças", permission: 'members_view' },
-        { to: "/consagracoes", icon: Award, label: "Consagrações", permission: 'members_view' },
+        { to: "/members", icon: Users, label: "Membros", permission: 'members_view', end: true },
         { to: "/families", icon: Users, label: "Famílias", permission: 'members_view' },
-        { to: "/members?filter=aniversariantes", icon: Gift, label: "Aniversariantes", permission: 'members_view' },
-        { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
-      ]
-    },
-    departments: {
-      title: "Departamentos",
-      items: [
-        { to: "/departments", icon: Network, label: "Lista de Departamentos", permission: 'departments_view' },
-        { to: "/events", icon: Activity, label: "Atividades/Eventos", permission: 'events_view' },
+        { to: "/consagracoes", icon: Award, label: "Consagrações", permission: 'members_view' },
+        { to: "/members/reports", icon: BarChart3, label: "Relatórios", permission: 'members_view' },
+        { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view', end: true },
+        { to: "/events", icon: CalendarDays, label: "Agenda", permission: 'events_view' },
+        { to: "#", icon: ClipboardList, label: "Documentação" },
+        { to: "#", icon: MessageSquare, label: "Aconselhamento" },
+        { to: "#", icon: Clock, label: "Escala" }
       ]
     },
     finance: {
-      title: "Tesouraria",
+      title: "Finanças e Tesouraria",
       items: [
-        { to: "/finance/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
         { to: "/finance", icon: Wallet, label: "Tesouraria", permission: 'finances_view', end: true },
-        { to: "/finance/tithers", icon: Heart, label: "Dizimistas", permission: 'finances_view' },
+        { to: "/finance/tithers", icon: Heart, label: "Dízimos", permission: 'finances_view' },
         { to: "/finance?view=payables", icon: Clock, label: "Contas a Pagar", permission: 'finances_view' },
-        { to: "/finance?view=requests", icon: ClipboardList, label: "Requisições", permission: 'finances_view' },
         { to: "/finance?view=budget", icon: ListChecks, label: "Orçamento", permission: 'finances_view' },
-        { to: "/finance?view=categories", icon: Settings, label: "Configurações", permission: 'finances_view' },
+        { to: "/finance?view=requests", icon: ClipboardList, label: "Requisição", permission: 'finances_view' },
+        { to: "/assets", icon: Package, label: "Património", permission: 'assets_view', end: true },
+        { to: "/assets?tab=maintenance", icon: Wrench, label: "Manutenção", permission: 'assets_view' }
       ]
     },
     discipleship: {
-      title: "Discipulado",
+      title: "Discipulado e Ensino",
       items: [
-        { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
-        { to: "/discipleship", icon: BookOpenCheck, label: "Discipuladores", permission: 'discipleship_view', end: true },
+        { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado", permission: 'discipleship_view', end: true },
+        { to: "/teaching", icon: GraduationCap, label: "Turmas (Ensino)", permission: 'teaching_view', end: true },
+        { to: "#", icon: Award, label: "Certificados (Ensino)" }
       ]
     },
-    teaching: {
-      title: "Ensino e EBD",
+    departamentos: {
+      title: "Departamentos e Grupos",
       items: [
-        { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
-        { to: "/teaching", icon: GraduationCap, label: "Turmas e Classes", permission: 'teaching_view', end: true },
+        { to: "/groups", icon: Users2, label: "Grupos", permission: 'groups_view', end: true },
+        { to: "/departments", icon: Network, label: "Departamentos", permission: 'departments_view', end: true }
       ]
     },
-    assets: {
-      title: "Patrimônio",
+    configuracao: {
+      title: "Configurações do Sistema",
       items: [
-        { to: "/assets", icon: Package, label: "Inventário", permission: 'assets_view', end: true },
-        { to: "/assets?tab=categories", icon: Tag, label: "Categorias", permission: 'assets_view' },
-        { to: "/assets?tab=maintenance", icon: Wrench, label: "Manutenções", permission: 'assets_view' },
-        { to: "/assets?tab=reports", icon: BarChart3, label: "Relatórios", permission: 'assets_view' },
+        { to: "/settings", icon: Settings, label: "Configurações Gerais", permission: 'settings_view' },
+        { to: "/users", icon: Users, label: "Usuários", permission: 'users_view' },
+        { to: "/network", icon: Network, label: "Rede de Igrejas", permission: 'branches_view' },
+        { to: "/assets?tab=categories", icon: Tag, label: "Categoria de Património", permission: 'assets_view' }
       ]
     }
   };
@@ -143,36 +148,28 @@ const Sidebar: React.FC = () => {
         { to: "/admin?tab=dashboard", icon: LayoutDashboard, label: "Painel Super Admin" },
         { to: "/admin?tab=churches", icon: Building, label: "Igrejas Cadastradas" },
         { to: "/admin?tab=plans", icon: CreditCard, label: "Gerenciar Planos" },
-        {to: "/admin?tab=denominations", icon: BookOpenCheck, label: "Denominações" },
+        { to: "/admin?tab=denominations", icon: BookOpenCheck, label: "Denominações" },
         { to: "/users", icon: Users, label: "Usuários" }
       );
     }
 
-    // Common Church Items
+    // Modular groups as main menu items
     items.push(
-      { to: "/finance", icon: Wallet, label: "Finanças", module: 'finance', permission: 'finances_view' },
-      { to: "/members", icon: Users, label: "Membros", module: 'members', permission: 'members_view' },
-      { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view' },
-      { to: "/groups", icon: Users2, label: "Grupos", permission: 'groups_view' },
-      { to: "/network", icon: Activity, label: "Rede de Igrejas", permission: 'branches_view' },
-      { to: "/discipleship", icon: BookOpenCheck, label: "Discipulado", module: 'discipleship', permission: 'discipleship_view' },
-      { to: "/departments", icon: Network, label: "Departamentos", module: 'departments', permission: 'departments_view' },
-      { to: "/teaching", icon: GraduationCap, label: "Ensino", module: 'teaching', permission: 'teaching_view' },
-      { to: "/assets", icon: Package, label: "Patrimônio", module: 'assets', permission: 'assets_view' },
-      { to: "/events", icon: CalendarDays, label: "Eventos", permission: 'events_view' },
-      { to: "/reports", icon: BarChart3, label: "Relatórios", permission: 'reports_view' },
-      { to: "/users", icon: Users, label: "Usuários", permission: 'users_view' },
-      { to: "/settings", icon: Settings, label: "Configurações", permission: 'settings_view' }
+      { icon: Building, label: "Secretaria", module: 'secretaria' },
+      { icon: Wallet, label: "Finanças", module: 'finance' },
+      { icon: BookOpenCheck, label: "Discipulado", module: 'discipleship' },
+      { icon: Network, label: "Departamentos", module: 'departamentos' },
+      { icon: Settings, label: "Configuração", module: 'configuracao' }
     );
 
     // Subscription & Store - ONLY FOR SUPERUSER
     if (hasRole('superuser')) {
       items.push(
-        {to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' }
+        { to: "/subscription", icon: CreditCard, label: "Assinatura", permission: 'subscription_view' }
       );
     }
 
-    return items.filter(item => hasRole('superuser') || hasRole('admin') || !item.permission || checkNavPermission(item.permission));
+    return items;
   };
 
   return (
@@ -265,13 +262,15 @@ const Sidebar: React.FC = () => {
                 .map((item) => (
                   <NavLink
                     key={item.to + item.label}
-                    to={item.to}
+                    to={item.to || '#'}
                     end={item.end}
-                    onClick={() => window.innerWidth < 1024 && closeSidebar()}
+                    onClick={(e) => {
+                      if (item.to === '#') e.preventDefault();
+                      if (window.innerWidth < 1024) closeSidebar();
+                    }}
                     className={({ isActive }) => {
-                      // Custom active logic for query params
                       const hasQuery = item.to?.includes('?');
-                      const isExactlyActive = isActive && (
+                      const isExactlyActive = isActive && item.to !== '#' && (
                         hasQuery
                           ? location.search === item.to!.substring(item.to!.indexOf('?'))
                           : location.search === ''
@@ -287,7 +286,7 @@ const Sidebar: React.FC = () => {
                       <item.icon size={20} />
                       {item.label}
                     </div>
-                    <ChevronRight size={14} className="opacity-50" />
+                    {item.to !== '#' && <ChevronRight size={14} className="opacity-50" />}
                   </NavLink>
                 ))}
             </div>
@@ -299,13 +298,15 @@ const Sidebar: React.FC = () => {
                   to={item.to || '#'}
                   onClick={(e) => {
                     if (item.module) {
+                      e.preventDefault();
                       setActiveModule(item.module);
+                    } else if (window.innerWidth < 1024) {
+                      closeSidebar();
                     }
-                    if (window.innerWidth < 1024) closeSidebar();
                   }}
                   className={({ isActive }) => {
                     const hasQuery = item.to?.includes('?');
-                    const isExactlyActive = isActive && (
+                    const isExactlyActive = isActive && item.to !== '#' && (
                       hasQuery
                         ? location.search === item.to!.substring(item.to!.indexOf('?'))
                         : location.search === ''
