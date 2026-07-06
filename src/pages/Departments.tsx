@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Users, Calendar } from 'lucide-react';
 import { Department } from '../types';
 import { useDepartments } from '../hooks/useDepartments';
-import { useMembers } from '../hooks/useMembers';
 import { getIconEmoji } from '../data/departmentIcons';
 import DepartmentModal from '../components/modals/DepartmentModal';
 import GenericDeleteModal from '../components/modals/GenericDeleteModal';
@@ -15,7 +14,6 @@ const Departments: React.FC = () => {
     const navigate = useNavigate();
     const { user, hasPermission } = useAuth();
     const { departments, loading, addDepartment, updateDepartment, deleteDepartment } = useDepartments();
-    const { members } = useMembers();
 
     const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -275,7 +273,6 @@ const Departments: React.FC = () => {
                 onClose={() => setIsDepartmentModalOpen(false)}
                 onSave={handleSaveDepartment}
                 department={editingDepartment}
-                members={members}
             />
 
             <GenericDeleteModal

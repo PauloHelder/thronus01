@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
-import { Department, Member } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { Department } from '../../types';
 import { DEPARTMENT_ICONS } from '../../data/departmentIcons';
 import { Save } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,15 +11,13 @@ interface DepartmentModalProps {
     onClose: () => void;
     onSave: (department: Omit<Department, 'id'> | Department) => void;
     department?: Department | null;
-    members: Member[];
 }
 
 const DepartmentModal: React.FC<DepartmentModalProps> = ({
     isOpen,
     onClose,
     onSave,
-    department,
-    members
+    department
 }) => {
     const [name, setName] = useState('');
     const [icon, setIcon] = useState('Users');
@@ -26,6 +25,8 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
     const [leaderId, setLeaderId] = useState('');
     const [coLeaderId, setCoLeaderId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [membersList, setMembersList] = useState<{ id: string; name: string; avatar_url?: string; phone?: string }[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
 
     useEffect(() => {
         if (department) {
@@ -43,6 +44,28 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
         }
     }, [department, isOpen]);
 
+    useEffect(() => {
+        if (isOpen) {
+            const fetchMembers = async () => {
+                setLoadingMembers(true);
+                try {
+                    const { data, error } = await supabase
+                        .from('members' as any)
+                        .select('id, name, avatar_url, phone')
+                        .is('deleted_at', null)
+                        .order('name');
+                    if (error) throw error;
+                    setMembersList(data || []);
+                } catch (err) {
+                    console.error('Error fetching members in DepartmentModal:', err);
+                } finally {
+                    setLoadingMembers(false);
+                }
+            };
+            fetchMembers();
+        }
+    }, [isOpen]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -58,8 +81,8 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
         setIsSubmitting(true);
         try {
-            const leader = members.find(m => m.id === leaderId);
-            const coLeader = coLeaderId ? members.find(m => m.id === coLeaderId) : undefined;
+            const leader = membersList.find(m => m.id === leaderId);
+            const coLeader = coLeaderId ? membersList.find(m => m.id === coLeaderId) : undefined;
 
             const departmentData: any = {
                 name,
@@ -67,8 +90,8 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 description,
                 leaderId,
                 coLeaderId: coLeaderId || undefined,
-                leader,
-                coLeader,
+                leader: leader ? { ...leader, avatar: leader.avatar_url } : undefined,
+                coLeader: coLeader ? { ...coLeader, avatar: coLeader.avatar_url } : undefined,
                 members: department?.members || [],
                 schedules: department?.schedules || []
             };
@@ -109,42 +132,37 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Selecionar Ícone
+                        Ícone do Departamento
                     </label>
-                    <div className="grid grid-cols-5 md:grid-cols-8 gap-2 max-h-60 overflow-y-auto p-2 bg-gray-50 rounded-lg border border-gray-200">
-                        {DEPARTMENT_ICONS.map(iconOption => (
+                    <div className="grid grid-cols-6 gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg max-h-36 overflow-y-auto">
+                        {Object.entries(DEPARTMENT_ICONS).map(([key, emoji]) => (
                             <button
-                                key={iconOption.name}
+                                key={key}
                                 type="button"
-                                onClick={() => setIcon(iconOption.name)}
-                                className={`p-3 rounded-lg text-2xl transition-all ${icon === iconOption.name
-                                    ? 'bg-orange-500 ring-2 ring-orange-600 scale-110'
-                                    : 'bg-white hover:bg-gray-100 border border-gray-200'
+                                onClick={() => setIcon(key)}
+                                className={`p-2 text-2xl rounded-lg hover:bg-orange-50 transition-colors flex items-center justify-center ${icon === key ? 'bg-orange-100 ring-2 ring-orange-500' : ''
                                     }`}
-                                title={iconOption.label}
                             >
-                                {iconOption.emoji}
+                                {emoji}
                             </button>
                         ))}
                     </div>
-                    <p className="text-xs text-slate-500 mt-2">
-                        Ícone selecionado: {DEPARTMENT_ICONS.find(i => i.name === icon)?.label}
-                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Líder <span className="text-red-500">*</span>
+                            Líder do Departamento
                         </label>
                         <select
                             required
                             value={leaderId}
+                            disabled={loadingMembers}
                             onChange={(e) => setLeaderId(e.target.value)}
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all disabled:opacity-60"
                         >
-                            <option value="">Selecione um líder...</option>
-                            {members.map(member => (
+                            <option value="">{loadingMembers ? 'Carregando membros...' : 'Selecione um líder...'}</option>
+                            {membersList.map(member => (
                                 <option key={member.id} value={member.id}>
                                     {member.name}
                                 </option>
@@ -158,11 +176,12 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                         </label>
                         <select
                             value={coLeaderId}
+                            disabled={loadingMembers}
                             onChange={(e) => setCoLeaderId(e.target.value)}
-                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all disabled:opacity-60"
                         >
-                            <option value="">Selecione um co-líder...</option>
-                            {members
+                            <option value="">{loadingMembers ? 'Carregando membros...' : 'Selecione um co-líder...'}</option>
+                            {membersList
                                 .filter(m => m.id !== leaderId)
                                 .map(member => (
                                     <option key={member.id} value={member.id}>

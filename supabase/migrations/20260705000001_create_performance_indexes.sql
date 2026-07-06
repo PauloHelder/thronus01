@@ -53,3 +53,11 @@ ON public.member_relationships (member_id);
 
 CREATE INDEX IF NOT EXISTS idx_member_relationships_related_member_id_perf 
 ON public.member_relationships (related_member_id);
+
+-- 6. Otimização de Departamentos
+CREATE INDEX IF NOT EXISTS idx_departments_church_perf 
+ON public.departments (church_id) 
+WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_department_schedules_dept_perf 
+ON public.department_schedules (department_id);
