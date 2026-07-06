@@ -141,6 +141,7 @@ export const useFinance = () => {
     const [budgets, setBudgets] = useState<FinancialBudget[]>([]);
     const [payables, setPayables] = useState<FinancialRecurringBill[]>([]);
     const [installments, setInstallments] = useState<FinancialPayableInstallment[]>([]);
+    const [currentDepartmentId, setCurrentDepartmentId] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -343,10 +344,23 @@ export const useFinance = () => {
         return sortedAsc;
     }, [transactions, accounts]);
 
-    const fetchRequests = useCallback(async (departmentId?: string) => {
+    const fetchRequests = useCallback(async (departmentId?: string | null) => {
         if (!user?.churchId) return;
         try {
             setLoading(true);
+
+            let deptIdToUse: string | undefined = undefined;
+            if (departmentId !== undefined) {
+                if (departmentId !== null) {
+                    deptIdToUse = departmentId;
+                    setCurrentDepartmentId(departmentId);
+                } else {
+                    setCurrentDepartmentId(null);
+                }
+            } else if (currentDepartmentId) {
+                deptIdToUse = currentDepartmentId;
+            }
+
             const buildQuery = () => {
                 let q = supabase
                     .from('financial_requests' as any)
@@ -359,8 +373,8 @@ export const useFinance = () => {
                     .is('deleted_at', null)
                     .order('created_at', { ascending: false });
 
-                if (departmentId) {
-                    q = q.eq('department_id', departmentId);
+                if (deptIdToUse) {
+                    q = q.eq('department_id', deptIdToUse);
                 }
                 return q;
             };
@@ -393,7 +407,7 @@ export const useFinance = () => {
         } finally {
             setLoading(false);
         }
-    }, [user?.churchId]);
+    }, [user?.churchId, currentDepartmentId]);
 
     const fetchBudgets = useCallback(async () => {
         if (!user?.churchId) return;

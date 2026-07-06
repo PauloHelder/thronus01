@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMembers } from '../hooks/useMembers';
-import { useFinance } from '../hooks/useFinance';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatAOA } from '../utils/currency';
@@ -27,7 +27,55 @@ const Tithers: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { members, loading: membersLoading } = useMembers();
-    const { transactions, loading: financeLoading, categories } = useFinance();
+    const [categories, setCategories] = useState<any[]>([]);
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [financeLoading, setFinanceLoading] = useState(true);
+
+    useEffect(() => {
+        if (!user?.churchId) return;
+
+        const loadFinanceData = async () => {
+            setFinanceLoading(true);
+            try {
+                const { data: cats, error: catsError } = await supabase
+                    .from('financial_categories' as any)
+                    .select('*')
+                    .eq('church_id', user.churchId);
+
+                if (catsError) throw catsError;
+                setCategories(cats || []);
+
+                const titheCat = (cats || []).find((c: any) => 
+                    c.name.toLowerCase().includes('dízimo') || 
+                    c.name.toLowerCase().includes('dizimo')
+                );
+
+                let query = supabase
+                    .from('financial_transactions' as any)
+                    .select('*')
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null);
+
+                if (titheCat) {
+                    query = query.or(`category_id.eq.${titheCat.id},description.ilike.%dízimo%,description.ilike.%dizimo%`);
+                } else {
+                    query = query.or('description.ilike.%dízimo%,description.ilike.%dizimo%');
+                }
+
+                const { data: txs, error: txsError } = await query.order('date', { ascending: false });
+                if (txsError) throw txsError;
+
+                setTransactions(txs || []);
+            } catch (err) {
+                console.error('Error loading finance tither data:', err);
+                toast.error('Erro ao carregar dados financeiros.');
+            } finally {
+                setFinanceLoading(false);
+            }
+        };
+
+        loadFinanceData();
+    }, [user?.churchId]);
     
     const [searchTerm, setSearchTerm] = useState('');
     const [filterPeriod, setFilterPeriod] = useState<'all' | 'month' | 'year' | 'custom'>('all');

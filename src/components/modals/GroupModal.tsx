@@ -57,6 +57,7 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
         description: ''
     });
     const [groupProvince, setGroupProvince] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (group) {
@@ -105,30 +106,37 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
         setFormData({ ...formData, province: newProvince, municipality: '' });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
 
-        const groupData = {
-            ...(group?.id ? { id: group.id } : {}),
-            name: formData.name,
-            description: formData.description,
-            type: formData.type,
-            leader_id: formData.leaderId || null,
-            co_leader_id: formData.coLeaderId || null,
-            meeting_day: formData.meetingDay,
-            meeting_time: formData.meetingTime,
-            location: formData.location,
-            address: formData.address,
-            neighborhood: formData.neighborhood,
-            district: formData.district,
-            province: formData.province,
-            country: formData.country,
-            municipality: formData.municipality,
-            status: formData.status
-        };
+        try {
+            const groupData = {
+                ...(group?.id ? { id: group.id } : {}),
+                name: formData.name,
+                description: formData.description,
+                type: formData.type,
+                leader_id: formData.leaderId || null,
+                co_leader_id: formData.coLeaderId || null,
+                meeting_day: formData.meetingDay,
+                meeting_time: formData.meetingTime,
+                location: formData.location,
+                address: formData.address,
+                neighborhood: formData.neighborhood,
+                district: formData.district,
+                province: formData.province,
+                country: formData.country,
+                municipality: formData.municipality,
+                status: formData.status
+            };
 
-        onSave(groupData);
-        onClose();
+            await onSave(groupData);
+            onClose();
+        } catch (err) {
+            console.error("Error saving group:", err);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -352,9 +360,10 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
                     </button>
                     <button
                         type="submit"
-                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
+                        disabled={isSubmitting}
+                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {group ? 'Salvar Alterações' : 'Criar Grupo'}
+                        {isSubmitting ? 'Salvando...' : (group ? 'Salvar Alterações' : 'Criar Grupo')}
                     </button>
                 </div>
             </form>

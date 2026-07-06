@@ -30,6 +30,11 @@ CREATE INDEX IF NOT EXISTS idx_financial_transactions_church_category_date_perf
 ON public.financial_transactions (church_id, category_id, date DESC) 
 WHERE deleted_at IS NULL;
 
+-- Otimiza buscas de dízimos/contribuições individuais vinculadas a membros (source_id e source_type)
+CREATE INDEX IF NOT EXISTS idx_financial_transactions_source_member_perf 
+ON public.financial_transactions (church_id, source_id, source_type, date ASC) 
+WHERE deleted_at IS NULL;
+
 -- 5. Otimização de Joins e Chaves Estrangeiras (Foreign Keys sem índice que causam lentidão em joins)
 CREATE INDEX IF NOT EXISTS idx_department_members_member_id_perf 
 ON public.department_members (member_id);

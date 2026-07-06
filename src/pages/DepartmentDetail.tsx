@@ -181,7 +181,11 @@ const DepartmentDetail: React.FC = () => {
             }
             return success;
         } else {
-            return await addRequest(requestData);
+            const success = await addRequest(requestData);
+            if (success) {
+                setIsRequestModalOpen(false);
+            }
+            return success;
         }
     };
 

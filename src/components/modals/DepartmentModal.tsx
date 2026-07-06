@@ -25,6 +25,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
     const [description, setDescription] = useState('');
     const [leaderId, setLeaderId] = useState('');
     const [coLeaderId, setCoLeaderId] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (department) {
@@ -42,7 +43,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
         }
     }, [department, isOpen]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!name.trim()) {
@@ -55,27 +56,34 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             return;
         }
 
-        const leader = members.find(m => m.id === leaderId);
-        const coLeader = coLeaderId ? members.find(m => m.id === coLeaderId) : undefined;
+        setIsSubmitting(true);
+        try {
+            const leader = members.find(m => m.id === leaderId);
+            const coLeader = coLeaderId ? members.find(m => m.id === coLeaderId) : undefined;
 
-        const departmentData: any = {
-            name,
-            icon,
-            description,
-            leaderId,
-            coLeaderId: coLeaderId || undefined,
-            leader,
-            coLeader,
-            members: department?.members || [],
-            schedules: department?.schedules || []
-        };
+            const departmentData: any = {
+                name,
+                icon,
+                description,
+                leaderId,
+                coLeaderId: coLeaderId || undefined,
+                leader,
+                coLeader,
+                members: department?.members || [],
+                schedules: department?.schedules || []
+            };
 
-        if (department?.id) {
-            departmentData.id = department.id;
+            if (department?.id) {
+                departmentData.id = department.id;
+            }
+
+            await onSave(departmentData);
+            onClose();
+        } catch (err) {
+            console.error("Error saving department:", err);
+        } finally {
+            setIsSubmitting(false);
         }
-
-        onSave(departmentData);
-        onClose();
     };
 
     return (
@@ -188,10 +196,11 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                     </button>
                     <button
                         type="submit"
-                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                        disabled={isSubmitting}
+                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Save size={18} />
-                        {department ? 'Salvar Alterações' : 'Criar Departamento'}
+                        {isSubmitting ? 'Salvando...' : (department ? 'Salvar Alterações' : 'Criar Departamento')}
                     </button>
                 </div>
             </form>

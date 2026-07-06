@@ -310,9 +310,10 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, event,
                     </button>
                     <button
                         type="submit"
-                        className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium shadow-sm shadow-orange-500/20 transition-all hover:shadow-orange-500/40"
+                        disabled={isSubmitting}
+                        className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium shadow-sm shadow-orange-500/20 transition-all hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {event ? 'Salvar Alterações' : 'Criar Evento'}
+                        {isSubmitting ? 'Salvando...' : (event ? 'Salvar Alterações' : 'Criar Evento')}
                     </button>
                 </div>
             </form>

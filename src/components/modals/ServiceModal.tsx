@@ -16,6 +16,7 @@ interface ServiceModalProps {
 const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, service, churchId }) => {
     const { serviceTypes, loading: loadingTypes } = useServiceTypes();
     const { members, loading: loadingMembers } = useMembers();
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState<Omit<Service, 'id'>>({
         churchId: churchId,
         serviceTypeId: '',
@@ -37,40 +38,52 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
     });
 
     useEffect(() => {
-        if (service) {
-            setFormData({
-                churchId: service.churchId,
-                serviceTypeId: service.serviceTypeId,
-                typeName: service.typeName,
-                status: service.status,
-                date: service.date,
-                startTime: service.startTime,
-                theme: service.theme || '',
-                preacher: service.preacher,
-                preacherId: service.preacherId || '',
-                substitutePreacher: service.substitutePreacher || '',
-                substitutePreacherId: service.substitutePreacherId || '',
-                leader: service.leader,
-                leaderId: service.leaderId || '',
-                substituteLeader: service.substituteLeader || '',
-                substituteLeaderId: service.substituteLeaderId || '',
-                location: service.location,
-                description: service.description || '',
-                statistics: service.statistics,
-            });
-        } else {
-            // Set first service type as default when creating new service
-            if (serviceTypes.length > 0 && !formData.serviceTypeId) {
+        if (isOpen) {
+            if (service) {
+                setFormData({
+                    churchId: service.churchId,
+                    serviceTypeId: service.serviceTypeId,
+                    typeName: service.typeName,
+                    status: service.status,
+                    date: service.date,
+                    startTime: service.startTime,
+                    theme: service.theme || '',
+                    preacher: service.preacher,
+                    preacherId: service.preacherId || '',
+                    substitutePreacher: service.substitutePreacher || '',
+                    substitutePreacherId: service.substitutePreacherId || '',
+                    leader: service.leader,
+                    leaderId: service.leaderId || '',
+                    substituteLeader: service.substituteLeader || '',
+                    substituteLeaderId: service.substituteLeaderId || '',
+                    location: service.location,
+                    description: service.description || '',
+                    statistics: service.statistics,
+                });
+            } else {
                 const firstType = serviceTypes[0];
-                setFormData(prev => ({
-                    ...prev,
-                    serviceTypeId: firstType.id,
-                    typeName: firstType.name,
-                    startTime: firstType.defaultStartTime?.substring(0, 5) || prev.startTime
-                }));
+                setFormData({
+                    churchId: churchId,
+                    serviceTypeId: firstType?.id || '',
+                    typeName: firstType?.name || '',
+                    status: 'Agendado',
+                    date: '',
+                    startTime: firstType?.defaultStartTime?.substring(0, 5) || '',
+                    theme: '',
+                    preacher: '',
+                    preacherId: '',
+                    substitutePreacher: '',
+                    substitutePreacherId: '',
+                    leader: '',
+                    leaderId: '',
+                    substituteLeader: '',
+                    substituteLeaderId: '',
+                    location: 'Templo Local',
+                    description: '',
+                });
             }
         }
-    }, [service, isOpen, serviceTypes]);
+    }, [service, isOpen, serviceTypes, churchId]);
 
     const handleServiceTypeChange = (typeId: string) => {
         const selectedType = serviceTypes.find(t => t.id === typeId);
@@ -136,29 +149,36 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
         );
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
 
-        // If 'custom' is selected, set ID to null
-        const finalData = { ...formData };
-        if (finalData.preacherId === 'custom') (finalData as any).preacherId = null;
-        if (finalData.substitutePreacherId === 'custom') (finalData as any).substitutePreacherId = null;
-        if (finalData.leaderId === 'custom') (finalData as any).leaderId = null;
-        if (finalData.substituteLeaderId === 'custom') (finalData as any).substituteLeaderId = null;
+        try {
+            // If 'custom' is selected, set ID to null
+            const finalData = { ...formData };
+            if (finalData.preacherId === 'custom') (finalData as any).preacherId = null;
+            if (finalData.substitutePreacherId === 'custom') (finalData as any).substitutePreacherId = null;
+            if (finalData.leaderId === 'custom') (finalData as any).leaderId = null;
+            if (finalData.substituteLeaderId === 'custom') (finalData as any).substituteLeaderId = null;
 
-        // If editing existing service, include ID. Otherwise, let backend generate it.
-        if (service?.id) {
-            onSave({
-                ...finalData,
-                id: service.id,
-            });
-        } else {
-            // Don't include ID for new services - backend will generate it
-            const { id, ...dataWithoutId } = finalData as any;
-            onSave(dataWithoutId);
+            // If editing existing service, include ID. Otherwise, let backend generate it.
+            if (service?.id) {
+                await onSave({
+                    ...finalData,
+                    id: service.id,
+                });
+            } else {
+                // Don't include ID for new services - backend will generate it
+                const { id, ...dataWithoutId } = finalData as any;
+                await onSave(dataWithoutId);
+            }
+
+            onClose();
+        } catch (err) {
+            console.error("Error saving service:", err);
+        } finally {
+            setIsSubmitting(false);
         }
-
-        onClose();
     };
 
     return (
@@ -284,9 +304,10 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ isOpen, onClose, onSave, se
                     </button>
                     <button
                         type="submit"
-                        className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium shadow-sm shadow-orange-500/20 transition-all hover:shadow-orange-500/40"
+                        disabled={isSubmitting}
+                        className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium shadow-sm shadow-orange-500/20 transition-all hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {service ? 'Salvar Alterações' : 'Criar Culto'}
+                        {isSubmitting ? 'Salvando...' : (service ? 'Salvar Alterações' : 'Criar Culto')}
                     </button>
                 </div>
             </form>
