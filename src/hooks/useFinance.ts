@@ -847,14 +847,20 @@ export const useFinance = () => {
     const addRequest = async (request: Omit<FinancialRequest, 'id' | 'church_id' | 'created_at' | 'status' | 'requested_by'>) => {
         if (!user?.churchId) return false;
         try {
-            const { error } = await (supabase
-                .from('financial_requests' as any)
+            const cleanRequest = {
+                ...request,
+                payable_installment_id: request.payable_installment_id || null,
+                category_id: request.category_id || null
+            };
+
+            const { error } = await (supabase as any)
+                .from('financial_requests')
                 .insert({
-                    ...request,
+                    ...cleanRequest,
                     church_id: user.churchId,
                     requested_by: user.id,
                     status: 'pending'
-                }) as any);
+                });
 
             if (error) throw error;
             await fetchRequests(request.department_id);
@@ -872,10 +878,19 @@ export const useFinance = () => {
             if (req && req.status === 'paid') {
                 throw new Error('Não é permitido alterar uma requisição já paga.');
             }
-            const { error } = await (supabase
-                .from('financial_requests' as any)
-                .update(updates)
-                .eq('id', id) as any);
+
+            const cleanUpdates = { ...updates };
+            if ('payable_installment_id' in cleanUpdates && !cleanUpdates.payable_installment_id) {
+                cleanUpdates.payable_installment_id = null;
+            }
+            if ('category_id' in cleanUpdates && !cleanUpdates.category_id) {
+                cleanUpdates.category_id = null;
+            }
+
+            const { error } = await (supabase as any)
+                .from('financial_requests')
+                .update(cleanUpdates)
+                .eq('id', id);
 
             if (error) throw error;
             await fetchRequests();

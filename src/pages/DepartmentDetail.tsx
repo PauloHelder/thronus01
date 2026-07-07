@@ -28,6 +28,7 @@ import { formatAOA } from '../utils/currency';
 import { useDepartmentMeetings, DepartmentMeeting } from '../hooks/useDepartmentMeetings';
 import DepartmentMeetingModal from '../components/modals/DepartmentMeetingModal';
 import MeetingViewModal from '../components/modals/MeetingViewModal';
+import { toast } from 'sonner';
 
 const DepartmentDetail: React.FC = () => {
     const { id } = useParams();
@@ -176,14 +177,20 @@ const DepartmentDetail: React.FC = () => {
         if (editingRequest) {
             const success = await updateRequest(editingRequest.id, requestData);
             if (success) {
+                toast.success('Requisição atualizada com sucesso!');
                 setEditingRequest(null);
                 setIsRequestModalOpen(false);
+            } else {
+                toast.error('Erro ao atualizar requisição.');
             }
             return success;
         } else {
             const success = await addRequest(requestData);
             if (success) {
+                toast.success('Requisição enviada com sucesso!');
                 setIsRequestModalOpen(false);
+            } else {
+                toast.error('Erro ao enviar requisição.');
             }
             return success;
         }
