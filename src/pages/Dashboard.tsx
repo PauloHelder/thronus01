@@ -54,10 +54,13 @@ const Dashboard: React.FC = () => {
   const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (user?.churchId) {
+      loadDashboardData();
+    }
+  }, [user?.churchId]);
 
   const loadDashboardData = async () => {
+    if (!user?.churchId) return;
     try {
       setLoading(true);
 
@@ -69,11 +72,11 @@ const Dashboard: React.FC = () => {
         eventsResult,
         classesResult,
       ] = await Promise.all([
-        (supabase.from('members') as any).select('id, name, status, created_at, birth_date, avatar_url').is('deleted_at', null),
-        (supabase.from('groups') as any).select('id, status').is('deleted_at', null),
-        (supabase.from('departments') as any).select('id'),
-        (supabase.from('events') as any).select('id, title, date, start_time, type').gte('date', new Date().toISOString().split('T')[0]).order('date', { ascending: true }).limit(5),
-        (supabase.from('teaching_classes') as any).select('id, name, status, students:teaching_class_students(member_id)').is('deleted_at', null),
+        (supabase.from('members') as any).select('id, name, status, created_at, birth_date, avatar_url, gender, church_role').eq('church_id', user.churchId).is('deleted_at', null),
+        (supabase.from('groups') as any).select('id, status').eq('church_id', user.churchId).is('deleted_at', null),
+        (supabase.from('departments') as any).select('id').eq('church_id', user.churchId).is('deleted_at', null),
+        (supabase.from('events') as any).select('id, title, date, start_time, type').eq('church_id', user.churchId).is('deleted_at', null).gte('date', new Date().toISOString().split('T')[0]).order('date', { ascending: true }).limit(5),
+        (supabase.from('teaching_classes') as any).select('id, name, status, students:teaching_class_students(member_id)').eq('church_id', user.churchId).is('deleted_at', null),
       ]);
 
       // Calcular estatísticas
@@ -161,6 +164,7 @@ const Dashboard: React.FC = () => {
   };
 
   const loadRecentActivities = async (): Promise<RecentActivity[]> => {
+    if (!user?.churchId) return [];
     const activities: RecentActivity[] = [];
 
     try {
@@ -168,6 +172,8 @@ const Dashboard: React.FC = () => {
       const { data: recentMembers } = await (supabase
         .from('members') as any)
         .select('name, created_at')
+        .eq('church_id', user.churchId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -186,6 +192,8 @@ const Dashboard: React.FC = () => {
       const { data: recentEvents } = await (supabase
         .from('events') as any)
         .select('title, created_at')
+        .eq('church_id', user.churchId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(2);
 
