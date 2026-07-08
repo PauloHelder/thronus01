@@ -883,61 +883,61 @@ const Documents: React.FC = () => {
                                     {selectedDocType === 'member_card' && (
                                         <>
                                             {/* Front Side */}
-                                            <div className="card-front w-[85.6mm] h-[54mm] bg-gradient-to-br from-slate-850 to-slate-950 text-white rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden border border-slate-700 shadow-md shrink-0">
+                                            <div className="card-front w-[85.6mm] h-[54mm] bg-gradient-to-br from-white to-slate-50 text-slate-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden border border-slate-200 shadow-md shrink-0">
                                                 <div className="flex justify-between items-start z-10">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 bg-orange-500 rounded-lg flex items-center justify-center font-black text-xs">Tr</div>
+                                                        <div className="w-6 h-6 bg-orange-500 rounded-lg flex items-center justify-center font-black text-xs text-white">Tr</div>
                                                         <div>
-                                                            <h4 className="text-[9px] font-black uppercase tracking-wider">{user?.churchName || 'Igreja Local'}</h4>
-                                                            <p className="text-[6px] text-slate-400">Cartão de Membro</p>
+                                                            <h4 className="text-[9px] font-black uppercase tracking-wider text-slate-800">{user?.churchName || 'Igreja Local'}</h4>
+                                                            <p className="text-[6px] text-slate-500">Cartão de Membro</p>
                                                         </div>
                                                     </div>
-                                                    <span className="px-2 py-0.5 bg-orange-500 rounded-full text-[6px] font-black uppercase tracking-widest">Ativo</span>
+                                                    <span className="px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 rounded-full text-[6px] font-black uppercase tracking-widest">Ativo</span>
                                                 </div>
 
                                                 <div className="flex gap-3 items-center z-10">
                                                     <img 
                                                         src={selectedMember?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.recipient_name || 'M')}&background=f97316&color=fff`} 
                                                         alt="" 
-                                                        className="w-16 h-16 rounded-full border border-slate-700 object-cover shrink-0"
+                                                        className="w-16 h-16 rounded-full border border-slate-200 object-cover shrink-0"
                                                     />
                                                     <div className="overflow-hidden">
-                                                        <h5 className="font-black text-[12px] tracking-wide truncate">{formData.recipient_name || 'Nome do Membro'}</h5>
-                                                        <p className="text-[7px] text-orange-400 font-bold uppercase mt-0.5">{selectedMember?.churchRole || 'Membro do Corpo'}</p>
-                                                        <p className="text-[7px] text-slate-400 font-mono mt-1">Cód: {selectedMember?.memberCode || 'M000'}</p>
+                                                        <h5 className="font-black text-[12px] tracking-wide truncate text-slate-900">{formData.recipient_name || 'Nome do Membro'}</h5>
+                                                        <p className="text-[7px] text-orange-600 font-bold uppercase mt-0.5">{selectedMember?.churchRole || 'Membro do Corpo'}</p>
+                                                        <p className="text-[7px] text-slate-500 font-mono mt-1">Cód: {selectedMember?.memberCode || 'M000'}</p>
                                                     </div>
                                                 </div>
 
-                                                <div className="flex justify-between items-end text-[6px] text-slate-400 z-10 border-t border-slate-800/60 pt-1.5">
+                                                <div className="flex justify-between items-end text-[6px] text-slate-500 z-10 border-t border-slate-200 pt-1.5">
                                                     <div>
-                                                        <span className="block font-bold text-[5px]">MEMBRO DESDE</span>
-                                                        <span className="font-mono text-slate-300">
+                                                        <span className="block font-bold text-[5px] text-slate-400">MEMBRO DESDE</span>
+                                                        <span className="font-mono text-slate-700 font-bold">
                                                             {selectedMember?.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
                                                         </span>
                                                     </div>
                                                     <div className="text-right">
-                                                        <span className="block font-bold text-[5px]">EXPIRA EM</span>
-                                                        <span className="font-mono text-slate-300">{new Date(formData.expiry_date).toLocaleDateString('pt-BR')}</span>
+                                                        <span className="block font-bold text-[5px] text-slate-400">EXPIRA EM</span>
+                                                        <span className="font-mono text-slate-700 font-bold">{new Date(formData.expiry_date).toLocaleDateString('pt-BR')}</span>
                                                     </div>
                                                 </div>
 
                                                 {/* Decorative background shapes */}
-                                                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full -mr-12 -mt-12 blur-xl" />
-                                                <div className="absolute bottom-0 left-0 w-16 h-16 bg-slate-500/10 rounded-full -ml-8 -mb-8 blur-lg" />
+                                                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full -mr-12 -mt-12 blur-xl" />
+                                                <div className="absolute bottom-0 left-0 w-16 h-16 bg-slate-500/5 rounded-full -ml-8 -mb-8 blur-lg" />
                                             </div>
 
                                             {/* Back Side */}
-                                            <div className="card-back w-[85.6mm] h-[54mm] bg-slate-900 text-white rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden border border-slate-700 shadow-md shrink-0">
+                                            <div className="card-back w-[85.6mm] h-[54mm] bg-gradient-to-br from-white to-slate-50 text-slate-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden border border-slate-200 shadow-md shrink-0">
                                                 <div className="flex justify-between items-start gap-4">
-                                                    <div className="flex-1 text-[7px] text-slate-300 space-y-1">
-                                                        <p><span className="font-black text-[6px] text-slate-400">BI:</span> {selectedMember?.biNumber || 'N/A'}</p>
-                                                        <p><span className="font-black text-[6px] text-slate-400">NASCIMENTO:</span> {selectedMember?.birthDate ? new Date(selectedMember.birthDate).toLocaleDateString() : 'N/A'}</p>
-                                                        <p><span className="font-black text-[6px] text-slate-400">BATISMO:</span> {selectedMember?.baptismDate ? new Date(selectedMember.baptismDate).toLocaleDateString() : 'N/A'}</p>
-                                                        <p><span className="font-black text-[6px] text-slate-400">TELEFONE:</span> {selectedMember?.phone || 'N/A'}</p>
+                                                    <div className="flex-1 text-[7px] text-slate-600 space-y-1">
+                                                        <p><span className="font-bold text-[6px] text-slate-400">BI:</span> {selectedMember?.biNumber || 'N/A'}</p>
+                                                        <p><span className="font-bold text-[6px] text-slate-400">NASCIMENTO:</span> {selectedMember?.birthDate ? new Date(selectedMember.birthDate).toLocaleDateString() : 'N/A'}</p>
+                                                        <p><span className="font-bold text-[6px] text-slate-400">BATISMO:</span> {selectedMember?.baptismDate ? new Date(selectedMember.baptismDate).toLocaleDateString() : 'N/A'}</p>
+                                                        <p><span className="font-bold text-[6px] text-slate-400">TELEFONE:</span> {selectedMember?.phone || 'N/A'}</p>
                                                     </div>
                                                     
                                                     {/* QR Code validation */}
-                                                    <div className="shrink-0 bg-white p-1 rounded-lg">
+                                                    <div className="shrink-0 bg-white p-1 rounded-lg border border-slate-200">
                                                         <img 
                                                             src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TRONUS-VERIFY-${previewDocData?.hashCode || 'VALID'}`}
                                                             alt="QR Code" 
@@ -946,14 +946,14 @@ const Documents: React.FC = () => {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-col items-center border-t border-slate-800/80 pt-2">
+                                                <div className="flex flex-col items-center border-t border-slate-200 pt-2">
                                                     {configData.signature_url ? (
-                                                        <img src={configData.signature_url} alt="" className="h-6 max-w-[60px] object-contain opacity-80" />
+                                                        <img src={configData.signature_url} alt="" className="h-6 max-w-[60px] object-contain opacity-95" />
                                                     ) : (
-                                                        <div className="h-6 flex items-end"><p className="text-[5px] text-slate-500 font-mono">Assinatura Manual</p></div>
+                                                        <div className="h-6 flex items-end"><p className="text-[5px] text-slate-400 font-mono">Assinatura Manual</p></div>
                                                     )}
-                                                    <span className="block border-t border-slate-700 w-32 mt-0.5"></span>
-                                                    <p className="text-[5px] text-slate-400 tracking-wider mt-0.5">{configData.signer_name || 'PASTOR PRESIDENTE'}</p>
+                                                    <span className="block border-t border-slate-200 w-32 mt-0.5"></span>
+                                                    <p className="text-[5px] text-slate-500 tracking-wider mt-0.5">{configData.signer_name || 'PASTOR PRESIDENTE'}</p>
                                                 </div>
                                             </div>
                                         </>

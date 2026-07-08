@@ -104,9 +104,14 @@ const MemberDetail: React.FC = () => {
                     // Groups Information
                     const { data: groupData } = await supabase
                         .from('group_members')
-                        .select('group:groups(name)')
+                        .select('group_id, group:groups(name)')
                         .eq('member_id', id)
                         .is('left_at', null);
+
+                    const activeGroupIds = groupData?.map((g: any) => g.group_id).filter(Boolean) || [];
+                    if (foundMember.groupId && !activeGroupIds.includes(foundMember.groupId)) {
+                        activeGroupIds.push(foundMember.groupId);
+                    }
 
                     if (groupData) {
                         grpNames = groupData.map((g: any) => g.group?.name).filter(Boolean);
@@ -143,16 +148,16 @@ const MemberDetail: React.FC = () => {
                         }
                     }
 
-                    // 2. Calculate Percentage (Specific to current group if exists)
-                    if (foundMember.groupId) {
+                    // 2. Calculate Percentage (Across all active groups of the member)
+                    if (activeGroupIds.length > 0) {
                         const sixMonthsAgo = new Date();
                         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-                        // Get all meetings for this group in last 6 months
+                        // Get all meetings for these groups in last 6 months
                         const { data: groupMeetings } = await supabase
                             .from('group_meetings')
                             .select('id')
-                            .eq('group_id', foundMember.groupId)
+                            .in('group_id', activeGroupIds)
                             .gte('date', sixMonthsAgo.toISOString());
 
                         const totalMeetings = groupMeetings?.length || 0;

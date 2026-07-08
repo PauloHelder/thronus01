@@ -98,8 +98,7 @@ const Sidebar: React.FC = () => {
         { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view', end: true },
         { to: "/events", icon: CalendarDays, label: "Agenda", permission: 'events_view' },
         { to: "/documents", icon: ClipboardList, label: "Documentação", permission: 'members_view' },
-        { to: "/counseling", icon: MessageSquare, label: "Aconselhamento", permission: 'members_view' },
-        { to: "#", icon: Clock, label: "Escala" }
+        { to: "/counseling", icon: MessageSquare, label: "Aconselhamento", permission: 'members_view' }
       ]
     },
     finance: {

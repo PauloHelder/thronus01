@@ -173,6 +173,26 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         }
     };
 
+    const allRoles = Array.from(new Set([
+        'Membro',
+        'Diácono',
+        'Presbítero',
+        'Pastor',
+        'Bispo',
+        'Apóstolo',
+        'Evangelista',
+        'Missionário',
+        'Cooperador',
+        'Mestre',
+        'Profeta',
+        'Líder de Célula',
+        'Professor',
+        'Ancião',
+        'Supervisor',
+        ...(formData.churchRole ? [formData.churchRole] : []),
+        ...churchRoles
+    ]));
+
     return (
         <Modal
             isOpen={isOpen}
@@ -381,13 +401,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                                     >
                                         <option value="">Selecione...</option>
-                                        <option value="Membro">Membro</option>
-                                        <option value="Diácono">Diácono</option>
-                                        <option value="Presbítero">Presbítero</option>
-                                        <option value="Pastor">Pastor</option>
-                                        <option value="Líder de Célula">Líder de Célula</option>
-                                        <option value="Professor">Professor</option>
-                                        {churchRoles.map(role => (
+                                        {allRoles.map(role => (
                                             <option key={role} value={role}>{role}</option>
                                         ))}
                                     </select>
