@@ -63,7 +63,9 @@ const Sidebar: React.FC = () => {
       location.pathname.startsWith('/consagracoes') ||
       location.pathname.startsWith('/services') ||
       location.pathname.startsWith('/events') ||
-      location.pathname.startsWith('/calendar')
+      location.pathname.startsWith('/calendar') ||
+      location.pathname.startsWith('/documents') ||
+      location.pathname.startsWith('/counseling')
     ) {
       setActiveModule('secretaria');
     } else if (location.pathname.startsWith('/finance') || location.pathname.startsWith('/assets')) {
@@ -95,8 +97,8 @@ const Sidebar: React.FC = () => {
         { to: "/members/reports", icon: BarChart3, label: "Relatórios", permission: 'members_view' },
         { to: "/services", icon: Calendar, label: "Cultos", permission: 'services_view', end: true },
         { to: "/events", icon: CalendarDays, label: "Agenda", permission: 'events_view' },
-        { to: "#", icon: ClipboardList, label: "Documentação" },
-        { to: "#", icon: MessageSquare, label: "Aconselhamento" },
+        { to: "/documents", icon: ClipboardList, label: "Documentação", permission: 'members_view' },
+        { to: "/counseling", icon: MessageSquare, label: "Aconselhamento", permission: 'members_view' },
         { to: "#", icon: Clock, label: "Escala" }
       ]
     },

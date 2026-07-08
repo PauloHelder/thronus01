@@ -54,6 +54,8 @@ import MemberRegistration from './pages/MemberRegistration';
 import Assets from './pages/Assets';
 import HelpCenter from './pages/HelpCenter';
 import UserGuide from './pages/UserGuide';
+import Documents from './pages/Documents';
+import Counseling from './pages/Counseling';
 
 
 const AppContent: React.FC = () => {
@@ -80,6 +82,8 @@ const AppContent: React.FC = () => {
             <Route path="/events" element={<Events />} />
             <Route path="/events/:id" element={<EventDetail />} />
             <Route path="/calendar" element={<CalendarView />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/counseling" element={<Counseling />} />
 
             {/* Finance Module */}
             <Route path="/finance" element={<Finance />} />
