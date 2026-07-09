@@ -132,6 +132,7 @@ const AppContent: React.FC = () => {
 
 import { Toaster } from 'sonner';
 import { OfflineIndicator, ReloadPrompt, IOSInstallPrompt, PWAInstallSheet } from './components/PWAComponents';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 const App: React.FC = () => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -162,6 +163,7 @@ const App: React.FC = () => {
       <ReloadPrompt />
       <IOSInstallPrompt />
       <PWAInstallSheet />
+      <SpeedInsights />
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
