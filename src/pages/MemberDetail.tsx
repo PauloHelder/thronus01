@@ -142,13 +142,11 @@ const MemberDetail: React.FC = () => {
                             supabase
                                 .from('member_relationships')
                                 .select('id, relationship_type, related:members!related_member_id(id, name, avatar_url, member_code)')
-                                .eq('member_id', id)
-                                .catch(() => ({ data: [] })), // Graceful catch if table doesn't exist
+                                .eq('member_id', id),
                             supabase
                                 .from('member_relationships')
                                 .select('id, relationship_type, related:members!member_id(id, name, avatar_url, member_code)')
-                                .eq('related_member_id', id)
-                                .catch(() => ({ data: [] })), // Graceful catch if table doesn't exist
+                                .eq('related_member_id', id),
                             supabase
                                 .from('ordination_members')
                                 .select(`
@@ -163,7 +161,6 @@ const MemberDetail: React.FC = () => {
                                 `)
                                 .eq('member_id', id)
                                 .order('ordination(date)', { ascending: false })
-                                .catch(() => ({ data: [] })) // Graceful catch if table doesn't exist
                         ]);
 
                         // Process Departments
