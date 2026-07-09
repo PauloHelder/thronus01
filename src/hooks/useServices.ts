@@ -4,13 +4,35 @@ import { useAuth } from '../contexts/AuthContext';
 import { Service } from '../types';
 
 // Global cache outside the hook function for pub-sub pattern
-let cachedServices: Service[] = [];
-let cacheChurchId: string | null = null;
+let cachedServices: Service[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_services');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cacheChurchId: string | null = (() => {
+    try {
+        return localStorage.getItem('thronus_cache_church_id_services');
+    } catch {
+        return null;
+    }
+})();
+let lastFetchTime = 0;
 let activeFetchPromise: Promise<Service[]> | null = null;
 const listeners = new Set<(services: Service[]) => void>();
 
 const updateCache = (newServices: Service[]) => {
     cachedServices = newServices;
+    try {
+        localStorage.setItem('thronus_cache_services', JSON.stringify(newServices));
+        if (cacheChurchId) {
+            localStorage.setItem('thronus_cache_church_id_services', cacheChurchId);
+        }
+    } catch (e) {
+        console.warn('Failed to save services cache:', e);
+    }
     listeners.forEach(listener => listener(newServices));
 };
 
@@ -32,7 +54,7 @@ export function useServices() {
     }, []);
 
     // Fetch services from Supabase
-    const fetchServices = async () => {
+    const fetchServices = async (forceSilent = false) => {
         if (!user?.churchId) {
             setLoading(false);
             return;
@@ -46,7 +68,9 @@ export function useServices() {
         }
 
         try {
-            setLoading(true);
+            if (cachedServices.length === 0 && !forceSilent) {
+                setLoading(true);
+            }
             setError(null);
 
             activeFetchPromise = (async () => {
@@ -113,6 +137,7 @@ export function useServices() {
             })();
 
             const result = await activeFetchPromise;
+            lastFetchTime = Date.now();
             updateCache(result);
         } catch (err: any) {
             console.error('Error fetching services:', JSON.stringify(err, null, 2));
@@ -488,13 +513,20 @@ export function useServices() {
 
     useEffect(() => {
         if (user?.churchId) {
+            const now = Date.now();
             if (cacheChurchId !== user.churchId) {
-                // Church changed, invalidate cache
-                updateCache([]);
                 cacheChurchId = user.churchId;
+                try {
+                    localStorage.removeItem('thronus_cache_services');
+                    localStorage.removeItem('thronus_cache_church_id_services');
+                } catch {}
+                updateCache([]);
+                lastFetchTime = 0;
                 fetchServices();
-            } else if (cachedServices.length === 0 && !activeFetchPromise) {
+            } else if (cachedServices.length === 0) {
                 fetchServices();
+            } else if (now - lastFetchTime > 180000 && !activeFetchPromise) { // 3 minutes TTL
+                fetchServices(true); // background fetch
             } else {
                 setLoading(false);
             }

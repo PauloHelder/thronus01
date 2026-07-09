@@ -5,16 +5,57 @@ import { TeachingClass, ChristianStage, TeachingCategory, Member, TeachingLesson
 import { DEFAULT_CHRISTIAN_STAGES, DEFAULT_TEACHING_CATEGORIES } from '../data/teachingDefaults';
 
 // Global cache outside the hook function for pub-sub pattern
-let cachedClasses: TeachingClass[] = [];
-let cachedStages: ChristianStage[] = [];
-let cachedCategories: TeachingCategory[] = [];
+let cachedClasses: TeachingClass[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_teaching_classes');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cachedStages: ChristianStage[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_teaching_stages');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cachedCategories: TeachingCategory[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_teaching_categories');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
 
-let cacheChurchId: string | null = null;
+let cacheChurchId: string | null = (() => {
+    try {
+        return localStorage.getItem('thronus_cache_church_id_teaching');
+    } catch {
+        return null;
+    }
+})();
+let lastFetchTime = 0;
 let activeFetchPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
 const notifyListeners = () => {
     listeners.forEach(listener => listener());
+};
+
+const persistCache = () => {
+    try {
+        localStorage.setItem('thronus_cache_teaching_classes', JSON.stringify(cachedClasses));
+        localStorage.setItem('thronus_cache_teaching_stages', JSON.stringify(cachedStages));
+        localStorage.setItem('thronus_cache_teaching_categories', JSON.stringify(cachedCategories));
+        if (cacheChurchId) {
+            localStorage.setItem('thronus_cache_church_id_teaching', cacheChurchId);
+        }
+    } catch (e) {
+        console.warn('Failed to save teaching cache:', e);
+    }
 };
 
 export const useTeaching = () => {
@@ -41,18 +82,21 @@ export const useTeaching = () => {
     // Setters that update global cache and notify listeners
     const setClasses = (data: TeachingClass[]) => {
         cachedClasses = data;
+        persistCache();
         notifyListeners();
     };
     const setStages = (data: ChristianStage[]) => {
         cachedStages = data;
+        persistCache();
         notifyListeners();
     };
     const setCategories = (data: TeachingCategory[]) => {
         cachedCategories = data;
+        persistCache();
         notifyListeners();
     };
 
-    const refetch = useCallback(async () => {
+    const refetch = useCallback(async (forceSilent = false) => {
         if (!user?.churchId) return;
 
         if (activeFetchPromise) {
@@ -63,11 +107,15 @@ export const useTeaching = () => {
         }
 
         try {
-            setLoading(true);
+            if (cachedClasses.length === 0 && !forceSilent) {
+                setLoading(true);
+            }
             activeFetchPromise = (async () => {
                 await Promise.all([fetchStagesAndCategories(), fetchClasses()]);
             })();
             await activeFetchPromise;
+            lastFetchTime = Date.now();
+            persistCache();
         } catch (err: any) {
             console.error(err);
         } finally {
@@ -542,15 +590,25 @@ export const useTeaching = () => {
 
     useEffect(() => {
         if (user?.churchId) {
+            const now = Date.now();
             if (cacheChurchId !== user.churchId) {
                 // Reset cache
+                cacheChurchId = user.churchId;
+                try {
+                    localStorage.removeItem('thronus_cache_teaching_classes');
+                    localStorage.removeItem('thronus_cache_teaching_stages');
+                    localStorage.removeItem('thronus_cache_teaching_categories');
+                    localStorage.removeItem('thronus_cache_church_id_teaching');
+                } catch {}
                 cachedClasses = [];
                 cachedStages = [];
                 cachedCategories = [];
-                cacheChurchId = user.churchId;
+                lastFetchTime = 0;
                 refetch();
-            } else if (cachedClasses.length === 0 && !activeFetchPromise) {
+            } else if (cachedClasses.length === 0) {
                 refetch();
+            } else if (now - lastFetchTime > 180000 && !activeFetchPromise) { // 3 minutes TTL
+                refetch(true); // background fetch
             } else {
                 setLoading(false);
             }

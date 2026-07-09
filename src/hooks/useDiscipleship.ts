@@ -27,13 +27,35 @@ const transformMember = (data: any): Member => ({
 });
 
 // Global cache outside the hook function for pub-sub pattern
-let cachedLeaders: any[] = [];
-let cacheChurchId: string | null = null;
+let cachedLeaders: any[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_discipleship_leaders');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cacheChurchId: string | null = (() => {
+    try {
+        return localStorage.getItem('thronus_cache_church_id_discipleship');
+    } catch {
+        return null;
+    }
+})();
+let lastFetchTime = 0;
 let activeFetchPromise: Promise<any[]> | null = null;
 const listeners = new Set<(leaders: any[]) => void>();
 
 const updateCache = (newLeaders: any[]) => {
     cachedLeaders = newLeaders;
+    try {
+        localStorage.setItem('thronus_cache_discipleship_leaders', JSON.stringify(newLeaders));
+        if (cacheChurchId) {
+            localStorage.setItem('thronus_cache_church_id_discipleship', cacheChurchId);
+        }
+    } catch (e) {
+        console.warn('Failed to save discipleship cache:', e);
+    }
     listeners.forEach(listener => listener(newLeaders));
 };
 
@@ -55,7 +77,7 @@ export const useDiscipleship = () => {
         };
     }, []);
 
-    const fetchLeaders = useCallback(async () => {
+    const fetchLeaders = useCallback(async (forceSilent = false) => {
         if (!user?.churchId) {
             setLoading(false);
             return;
@@ -69,7 +91,9 @@ export const useDiscipleship = () => {
         }
 
         try {
-            setLoading(true);
+            if (cachedLeaders.length === 0 && !forceSilent) {
+                setLoading(true);
+            }
             activeFetchPromise = (async () => {
                 // 1. Fetch Leaders (using outer join, handles soft/hard deleted members safely)
                 const { data: leadersData, error: leadersError } = await supabase
@@ -145,6 +169,7 @@ export const useDiscipleship = () => {
             })();
 
             const result = await activeFetchPromise;
+            lastFetchTime = Date.now();
             updateCache(result);
             setError(null);
         } catch (err: any) {
@@ -420,12 +445,20 @@ export const useDiscipleship = () => {
 
     useEffect(() => {
         if (user?.churchId) {
+            const now = Date.now();
             if (cacheChurchId !== user.churchId) {
-                updateCache([]);
                 cacheChurchId = user.churchId;
+                try {
+                    localStorage.removeItem('thronus_cache_discipleship_leaders');
+                    localStorage.removeItem('thronus_cache_church_id_discipleship');
+                } catch {}
+                updateCache([]);
+                lastFetchTime = 0;
                 fetchLeaders();
-            } else if (cachedLeaders.length === 0 && !activeFetchPromise) {
+            } else if (cachedLeaders.length === 0) {
                 fetchLeaders();
+            } else if (now - lastFetchTime > 180000 && !activeFetchPromise) { // 3 minutes TTL
+                fetchLeaders(true); // background fetch
             } else {
                 setLoading(false);
             }

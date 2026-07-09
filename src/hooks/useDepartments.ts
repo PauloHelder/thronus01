@@ -4,13 +4,35 @@ import { useAuth } from '../contexts/AuthContext';
 import { Department, DepartmentSchedule } from '../types';
 
 // Global cache outside the hook function for pub-sub pattern
-let cachedDepartments: Department[] = [];
-let cacheChurchId: string | null = null;
+let cachedDepartments: Department[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_departments');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cacheChurchId: string | null = (() => {
+    try {
+        return localStorage.getItem('thronus_cache_church_id_departments');
+    } catch {
+        return null;
+    }
+})();
+let lastFetchTime = 0;
 let activeFetchPromise: Promise<Department[]> | null = null;
 const listeners = new Set<(departments: Department[]) => void>();
 
 const updateCache = (newDepartments: Department[]) => {
     cachedDepartments = newDepartments;
+    try {
+        localStorage.setItem('thronus_cache_departments', JSON.stringify(newDepartments));
+        if (cacheChurchId) {
+            localStorage.setItem('thronus_cache_church_id_departments', cacheChurchId);
+        }
+    } catch (e) {
+        console.warn('Failed to save departments cache:', e);
+    }
     listeners.forEach(listener => listener(newDepartments));
 };
 
@@ -32,7 +54,7 @@ export const useDepartments = () => {
         };
     }, []);
 
-    const fetchDepartments = useCallback(async () => {
+    const fetchDepartments = useCallback(async (forceSilent = false) => {
         if (!user?.churchId) {
             setLoading(false);
             return;
@@ -46,7 +68,10 @@ export const useDepartments = () => {
         }
 
         try {
-            setLoading(true);
+            if (cachedDepartments.length === 0 && !forceSilent) {
+                setLoading(true);
+            }
+            setError(null);
             activeFetchPromise = (async () => {
                 const { data, error: fetchError } = await supabase
                     .from('departments' as any)
@@ -79,6 +104,7 @@ export const useDepartments = () => {
             })();
 
             const result = await activeFetchPromise;
+            lastFetchTime = Date.now();
             updateCache(result);
             setError(null);
         } catch (err: any) {
@@ -388,12 +414,20 @@ export const useDepartments = () => {
 
     useEffect(() => {
         if (user?.churchId) {
+            const now = Date.now();
             if (cacheChurchId !== user.churchId) {
-                updateCache([]);
                 cacheChurchId = user.churchId;
+                try {
+                    localStorage.removeItem('thronus_cache_departments');
+                    localStorage.removeItem('thronus_cache_church_id_departments');
+                } catch {}
+                updateCache([]);
+                lastFetchTime = 0;
                 fetchDepartments();
-            } else if (cachedDepartments.length === 0 && !activeFetchPromise) {
+            } else if (cachedDepartments.length === 0) {
                 fetchDepartments();
+            } else if (now - lastFetchTime > 180000 && !activeFetchPromise) { // 3 minutes TTL
+                fetchDepartments(true); // background fetch
             } else {
                 setLoading(false);
             }

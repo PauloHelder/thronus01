@@ -4,13 +4,35 @@ import { useAuth } from '../contexts/AuthContext';
 import { Event } from '../types';
 
 // Global cache outside the hook function for pub-sub pattern
-let cachedEvents: Event[] = [];
-let cacheChurchId: string | null = null;
+let cachedEvents: Event[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_events');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cacheChurchId: string | null = (() => {
+    try {
+        return localStorage.getItem('thronus_cache_church_id_events');
+    } catch {
+        return null;
+    }
+})();
+let lastFetchTime = 0;
 let activeFetchPromise: Promise<Event[]> | null = null;
 const listeners = new Set<(events: Event[]) => void>();
 
 const updateCache = (newEvents: Event[]) => {
     cachedEvents = newEvents;
+    try {
+        localStorage.setItem('thronus_cache_events', JSON.stringify(newEvents));
+        if (cacheChurchId) {
+            localStorage.setItem('thronus_cache_church_id_events', cacheChurchId);
+        }
+    } catch (e) {
+        console.warn('Failed to save events cache:', e);
+    }
     listeners.forEach(listener => listener(newEvents));
 };
 
@@ -31,7 +53,7 @@ export const useEvents = () => {
         };
     }, []);
 
-    const fetchEvents = async () => {
+    const fetchEvents = async (forceSilent = false) => {
         if (!user?.churchId) {
             setLoading(false);
             return;
@@ -45,7 +67,9 @@ export const useEvents = () => {
         }
 
         try {
-            setLoading(true);
+            if (cachedEvents.length === 0 && !forceSilent) {
+                setLoading(true);
+            }
             activeFetchPromise = (async () => {
                 const { data, error: fetchError } = await supabase
                     .from('events')
@@ -75,6 +99,7 @@ export const useEvents = () => {
             })();
 
             const result = await activeFetchPromise;
+            lastFetchTime = Date.now();
             updateCache(result);
             setError(null);
         } catch (err) {
@@ -255,12 +280,20 @@ export const useEvents = () => {
 
     useEffect(() => {
         if (user?.churchId) {
+            const now = Date.now();
             if (cacheChurchId !== user.churchId) {
-                updateCache([]);
                 cacheChurchId = user.churchId;
+                try {
+                    localStorage.removeItem('thronus_cache_events');
+                    localStorage.removeItem('thronus_cache_church_id_events');
+                } catch {}
+                updateCache([]);
+                lastFetchTime = 0;
                 fetchEvents();
-            } else if (cachedEvents.length === 0 && !activeFetchPromise) {
+            } else if (cachedEvents.length === 0) {
                 fetchEvents();
+            } else if (now - lastFetchTime > 180000 && !activeFetchPromise) { // 3 minutes TTL
+                fetchEvents(true); // background fetch
             } else {
                 setLoading(false);
             }

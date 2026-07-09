@@ -192,12 +192,17 @@ const ServiceDetail: React.FC = () => {
         status: 'paid' as 'paid' | 'pending'
     });
 
+    const [isSubmittingTx, setIsSubmittingTx] = useState(false);
+    const [isSavingStats, setIsSavingStats] = useState(false);
+
     const handleAddTransaction = async () => {
+        if (isSubmittingTx) return;
         if (!id || !newTx.description || !newTx.amount || !newTx.account_id) {
             toast.warning('Preencha os campos obrigatórios (Descrição, Valor e Conta)');
             return;
         }
 
+        setIsSubmittingTx(true);
         try {
             const success = await addTransaction({
                 description: newTx.description,
@@ -223,10 +228,13 @@ const ServiceDetail: React.FC = () => {
                     account_id: '',
                     status: 'paid'
                 });
+                toast.success('Lançamento realizado com sucesso!');
             }
         } catch (error) {
             console.error('Error adding transaction:', error);
             toast.error('Erro ao adicionar transação');
+        } finally {
+            setIsSubmittingTx(false);
         }
     };
 
@@ -235,8 +243,9 @@ const ServiceDetail: React.FC = () => {
         (statistics.newConverts?.children || 0);
 
     const handleSaveStatistics = async () => {
-        if (!id) return;
+        if (!id || isSavingStats) return;
 
+        setIsSavingStats(true);
         try {
             await updateStatistics(id, statistics);
             setService(prev => prev ? { ...prev, statistics } : null);
@@ -244,6 +253,8 @@ const ServiceDetail: React.FC = () => {
         } catch (error) {
             console.error('Error saving statistics:', error);
             toast.error('Erro ao salvar estatísticas');
+        } finally {
+            setIsSavingStats(false);
         }
     };
 
@@ -430,9 +441,11 @@ const ServiceDetail: React.FC = () => {
                         </div>
                         <button
                             onClick={handleSaveStatistics}
-                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                            disabled={isSavingStats}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
                         >
-                            <Save size={16} /> Salvar
+                            {isSavingStats ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
+                            {isSavingStats ? 'Salvando...' : 'Salvar'}
                         </button>
                     </div>
 
@@ -1086,9 +1099,10 @@ const ServiceDetail: React.FC = () => {
                             </button>
                             <button
                                 onClick={handleAddTransaction}
-                                className="flex-1 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30"
+                                disabled={isSubmittingTx}
+                                className="flex-1 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30 disabled:opacity-50"
                             >
-                                Confirmar Lançamento
+                                {isSubmittingTx ? 'Confirmando...' : 'Confirmar Lançamento'}
                             </button>
                         </div>
                     </div>

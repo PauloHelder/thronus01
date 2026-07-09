@@ -4,13 +4,35 @@ import { useAuth } from '../contexts/AuthContext';
 import { Member } from '../types';
 
 // Global cache outside the hook function for pub-sub pattern
-let cachedMembers: Member[] = [];
-let cacheChurchId: string | null = null;
+let cachedMembers: Member[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_members');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cacheChurchId: string | null = (() => {
+    try {
+        return localStorage.getItem('thronus_cache_church_id_members');
+    } catch {
+        return null;
+    }
+})();
+let lastFetchTime = 0;
 let activeFetchPromise: Promise<Member[]> | null = null;
 const listeners = new Set<(members: Member[]) => void>();
 
 const updateCache = (newMembers: Member[]) => {
     cachedMembers = newMembers;
+    try {
+        localStorage.setItem('thronus_cache_members', JSON.stringify(newMembers));
+        if (cacheChurchId) {
+            localStorage.setItem('thronus_cache_church_id_members', cacheChurchId);
+        }
+    } catch (e) {
+        console.warn('Failed to save members cache:', e);
+    }
     listeners.forEach(listener => listener(newMembers));
 };
 
@@ -98,7 +120,7 @@ export const useMembers = () => {
         return dbData;
     };
 
-    const fetchMembers = async () => {
+    const fetchMembers = async (forceSilent = false) => {
         if (!user?.churchId) {
             setLoading(false);
             return;
@@ -112,7 +134,9 @@ export const useMembers = () => {
         }
 
         try {
-            setLoading(true);
+            if (cachedMembers.length === 0 && !forceSilent) {
+                setLoading(true);
+            }
             activeFetchPromise = (async () => {
                 const { data, error: fetchError } = await supabase
                     .from('members')
@@ -126,6 +150,7 @@ export const useMembers = () => {
             })();
 
             const result = await activeFetchPromise;
+            lastFetchTime = Date.now();
             updateCache(result);
             setError(null);
         } catch (err) {
@@ -415,13 +440,21 @@ export const useMembers = () => {
 
     useEffect(() => {
         if (user?.churchId) {
+            const now = Date.now();
             if (cacheChurchId !== user.churchId) {
                 // Church changed, invalidate cache
-                updateCache([]);
                 cacheChurchId = user.churchId;
+                try {
+                    localStorage.removeItem('thronus_cache_members');
+                    localStorage.removeItem('thronus_cache_church_id_members');
+                } catch {}
+                updateCache([]);
+                lastFetchTime = 0;
                 fetchMembers();
-            } else if (cachedMembers.length === 0 && !activeFetchPromise) {
+            } else if (cachedMembers.length === 0) {
                 fetchMembers();
+            } else if (now - lastFetchTime > 180000 && !activeFetchPromise) { // 3 minutes TTL
+                fetchMembers(true); // background fetch
             } else {
                 setLoading(false);
             }

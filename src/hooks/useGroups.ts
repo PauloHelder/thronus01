@@ -44,13 +44,35 @@ export interface GroupMember {
 }
 
 // Global cache outside the hook function for pub-sub pattern
-let cachedGroups: Group[] = [];
-let cacheChurchId: string | null = null;
+let cachedGroups: Group[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_groups');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cacheChurchId: string | null = (() => {
+    try {
+        return localStorage.getItem('thronus_cache_church_id_groups');
+    } catch {
+        return null;
+    }
+})();
+let lastFetchTime = 0;
 let activeFetchPromise: Promise<Group[]> | null = null;
 const listeners = new Set<(groups: Group[]) => void>();
 
 const updateCache = (newGroups: Group[]) => {
     cachedGroups = newGroups;
+    try {
+        localStorage.setItem('thronus_cache_groups', JSON.stringify(newGroups));
+        if (cacheChurchId) {
+            localStorage.setItem('thronus_cache_church_id_groups', cacheChurchId);
+        }
+    } catch (e) {
+        console.warn('Failed to save groups cache:', e);
+    }
     listeners.forEach(listener => listener(newGroups));
 };
 
@@ -74,7 +96,7 @@ export const useGroups = () => {
     // =====================================================
     // FETCH ALL GROUPS
     // =====================================================
-    const fetchGroups = async () => {
+    const fetchGroups = async (forceSilent = false) => {
         if (!user?.churchId) {
             setLoading(false);
             return;
@@ -88,7 +110,9 @@ export const useGroups = () => {
         }
 
         try {
-            setLoading(true);
+            if (cachedGroups.length === 0 && !forceSilent) {
+                setLoading(true);
+            }
             activeFetchPromise = (async () => {
                 const { data, error: fetchError } = await supabase
                     .from('groups')
@@ -114,6 +138,7 @@ export const useGroups = () => {
             })();
 
             const result = await activeFetchPromise;
+            lastFetchTime = Date.now();
             updateCache(result);
             setError(null);
         } catch (err) {
@@ -362,12 +387,20 @@ export const useGroups = () => {
 
     useEffect(() => {
         if (user?.churchId) {
+            const now = Date.now();
             if (cacheChurchId !== user.churchId) {
-                updateCache([]);
                 cacheChurchId = user.churchId;
+                try {
+                    localStorage.removeItem('thronus_cache_groups');
+                    localStorage.removeItem('thronus_cache_church_id_groups');
+                } catch {}
+                updateCache([]);
+                lastFetchTime = 0;
                 fetchGroups();
-            } else if (cachedGroups.length === 0 && !activeFetchPromise) {
+            } else if (cachedGroups.length === 0) {
                 fetchGroups();
+            } else if (now - lastFetchTime > 180000 && !activeFetchPromise) { // 3 minutes TTL
+                fetchGroups(true); // background fetch
             } else {
                 setLoading(false);
             }

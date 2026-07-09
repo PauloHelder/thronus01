@@ -62,6 +62,7 @@ const GroupDetail: React.FC = () => {
     const [meetingAttendees, setMeetingAttendees] = useState<string[]>([]);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isAddTxModalOpen, setIsAddTxModalOpen] = useState(false);
+    const [isSubmittingTx, setIsSubmittingTx] = useState(false);
     const [isViewMeetingModalOpen, setIsViewMeetingModalOpen] = useState(false);
     const [meetingAttendeesList, setMeetingAttendeesList] = useState<any[]>([]);
     const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'member' | 'meeting' } | null>(null);
@@ -245,11 +246,13 @@ const GroupDetail: React.FC = () => {
     };
 
     const handleAddTransaction = async () => {
+        if (isSubmittingTx) return;
         if (!id || !newTx.description || !newTx.amount || !newTx.account_id) {
             toast.warning('Preencha os campos obrigatórios (Descrição, Valor e Conta)');
             return;
         }
 
+        setIsSubmittingTx(true);
         try {
             const success = await addTransaction({
                 description: newTx.description,
@@ -272,6 +275,8 @@ const GroupDetail: React.FC = () => {
         } catch (error) {
             console.error('Error adding transaction:', error);
             toast.error('Erro ao adicionar lançamento');
+        } finally {
+            setIsSubmittingTx(false);
         }
     };
 
@@ -923,9 +928,10 @@ const GroupDetail: React.FC = () => {
                             </button>
                             <button
                                 onClick={handleAddTransaction}
-                                className="flex-1 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30"
+                                disabled={isSubmittingTx}
+                                className="flex-1 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30 disabled:opacity-50"
                             >
-                                Confirmar Lançamento
+                                {isSubmittingTx ? 'Confirmando...' : 'Confirmar Lançamento'}
                             </button>
                         </div>
                     </div>
