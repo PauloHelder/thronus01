@@ -38,6 +38,17 @@ import { supabase } from '../lib/supabase';
 
 const COLORS = ['#F97316', '#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899'];
 
+// Global cache for church details outside the component to implement Pub-Sub
+let cachedChurchDetails: any = null;
+let cachedChurchId: string | null = null;
+let activeChurchFetchPromise: Promise<any> | null = null;
+const churchListeners = new Set<(details: any) => void>();
+
+const updateChurchCache = (newDetails: any) => {
+    cachedChurchDetails = newDetails;
+    churchListeners.forEach(listener => listener(newDetails));
+};
+
 const Reports: React.FC = () => {
     const { user } = useAuth();
     const { members, loading: membersLoading } = useMembers();
@@ -51,61 +62,49 @@ const Reports: React.FC = () => {
 
     const reportRef = useRef<HTMLDivElement>(null);
     const [generatingPdf, setGeneratingPdf] = useState(false);
-    const [churchDetails, setChurchDetails] = useState<any>(null);
-    const [realStats, setRealStats] = useState({
-        groups: 0,
-        departments: 0,
-        discipleship: 0
-    });
+    const [churchDetails, setChurchDetails] = useState<any>(cachedChurchDetails);
 
-    // Fetch exact counts directly from DB to ensure "General Data" is correct
+    // Register listener for cache updates
     useEffect(() => {
-        if (!user?.churchId) return;
-
-        const fetchCounts = async () => {
-            try {
-                // Groups Count
-                const { count: groupsCount } = await supabase
-                    .from('groups')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('church_id', user.churchId)
-                    .is('deleted_at', null);
-
-                // Departments Count
-                const { count: deptsCount } = await supabase
-                    .from('departments')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('church_id', user.churchId)
-                    .is('deleted_at', null);
-
-                // Discipleship Count (distinct pairs? or just leaders rows?)
-                // Assuming "Em Discipulado" means members who have a leader?
-                // Or members involved in discipleship?
-                // Existing logic: filteredMembers.filter(m => hasLeader || isLeader).
-                // Let's stick to existing logic for Discipleship if it works ("44" worked), 
-                // but for Groups/Depts use the direct count.
-
-                setRealStats(prev => ({
-                    ...prev,
-                    groups: groupsCount || 0,
-                    departments: deptsCount || 0
-                }));
-            } catch (error) {
-                console.error("Error fetching stats counts:", error);
-            }
+        const handler = (updatedDetails: any) => {
+            setChurchDetails(updatedDetails);
         };
+        churchListeners.add(handler);
+        return () => {
+            churchListeners.delete(handler);
+        };
+    }, []);
 
-        fetchCounts();
-    }, [user?.churchId]);
     useEffect(() => {
         if (!user?.churchId) return;
+
+        if (cachedChurchId !== user.churchId) {
+            updateChurchCache(null);
+            cachedChurchId = user.churchId;
+        } else if (cachedChurchDetails) {
+            setChurchDetails(cachedChurchDetails);
+            return;
+        }
+
+        if (activeChurchFetchPromise) return;
+
         const fetchChurchDetails = async () => {
-            const { data } = await supabase
-                .from('churches')
-                .select('name, logo_url, settings')
-                .eq('id', user.churchId)
-                .single();
-            if (data) setChurchDetails(data);
+            try {
+                activeChurchFetchPromise = supabase
+                    .from('churches')
+                    .select('name, logo_url, settings')
+                    .eq('id', user.churchId!)
+                    .single();
+
+                const { data } = await activeChurchFetchPromise;
+                if (data) {
+                    updateChurchCache(data);
+                }
+            } catch (error) {
+                console.error('Error fetching church details:', error);
+            } finally {
+                activeChurchFetchPromise = null;
+            }
         };
         fetchChurchDetails();
     }, [user?.churchId]);
@@ -491,7 +490,7 @@ const Reports: React.FC = () => {
                     <div>
                         <p className="text-sm font-medium text-slate-500">Células / Grupos</p>
                         <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                            {isLoading ? '...' : (realStats.groups || stats.totalGroups || 0)}
+                            {isLoading ? '...' : (stats.totalGroups || 0)}
                         </h3>
                         <p className="text-xs text-slate-400 mt-1">Total Geral da Igreja</p>
                     </div>
@@ -527,7 +526,7 @@ const Reports: React.FC = () => {
                     <div>
                         <p className="text-sm font-medium text-slate-500">Departamentos</p>
                         <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                            {isLoading ? '...' : (realStats.departments || stats.totalDepartments || 0)}
+                            {isLoading ? '...' : (stats.totalDepartments || 0)}
                         </h3>
                         <p className="text-xs text-slate-400 mt-1">Total Geral da Igreja</p>
                     </div>

@@ -1,91 +1,124 @@
 import { useState, useEffect } from 'react';
-import { supabase, getCurrentUserChurchId } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { Service } from '../types';
 
+// Global cache outside the hook function for pub-sub pattern
+let cachedServices: Service[] = [];
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<Service[]> | null = null;
+const listeners = new Set<(services: Service[]) => void>();
+
+const updateCache = (newServices: Service[]) => {
+    cachedServices = newServices;
+    listeners.forEach(listener => listener(newServices));
+};
+
 export function useServices() {
-    const [services, setServices] = useState<Service[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
+    const [services, setLocalServices] = useState<Service[]>(cachedServices);
+    const [loading, setLoading] = useState(cachedServices.length === 0);
     const [error, setError] = useState<string | null>(null);
+
+    // Register listener for cache updates
+    useEffect(() => {
+        const handler = (updatedServices: Service[]) => {
+            setLocalServices(updatedServices);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
 
     // Fetch services from Supabase
     const fetchServices = async () => {
+        if (!user?.churchId) {
+            setLoading(false);
+            return;
+        }
+
+        if (activeFetchPromise) {
+            try {
+                await activeFetchPromise;
+            } catch {}
+            return;
+        }
+
         try {
             setLoading(true);
             setError(null);
 
-            const churchId = await getCurrentUserChurchId();
-            if (!churchId) {
-                setServices([]);
-                setLoading(false);
-                return;
-            }
+            activeFetchPromise = (async () => {
+                const { data, error: fetchError } = await supabase
+                    .from('services')
+                    .select(`
+                        *,
+                        service_type:service_type_id(id, name),
+                        preacher_member:preacher_id(id, name, phone),
+                        sub_preacher_member:substitute_preacher_id(id, name, phone),
+                        leader_member:leader_id(id, name, phone),
+                        sub_leader_member:substitute_leader_id(id, name, phone)
+                    `)
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null)
+                    .order('date', { ascending: false });
 
-            const { data, error: fetchError } = await supabase
-                .from('services')
-                .select(`
-                    *,
-                    service_type:service_type_id(id, name),
-                    preacher_member:preacher_id(id, name, phone),
-                    sub_preacher_member:substitute_preacher_id(id, name, phone),
-                    leader_member:leader_id(id, name, phone),
-                    sub_leader_member:substitute_leader_id(id, name, phone)
-                `)
-                .eq('church_id', churchId)
-                .is('deleted_at', null)
-                .order('date', { ascending: false });
+                if (fetchError) throw fetchError;
 
-            if (fetchError) throw fetchError;
-
-            // Map database format to app format
-            const mappedServices: Service[] = ((data as any[]) || []).map((dbService: any) => ({
-                id: dbService.id,
-                churchId: dbService.church_id,
-                serviceTypeId: dbService.service_type_id || '',
-                typeName: dbService.service_type?.name || 'Culto',
-                status: dbService.status,
-                date: dbService.date,
-                startTime: dbService.start_time,
-                theme: dbService.theme || '',
-                preacher: dbService.preacher_member?.name || dbService.preacher_name || '',
-                preacherId: dbService.preacher_id,
-                preacherMember: dbService.preacher_member,
-                substitutePreacher: dbService.sub_preacher_member?.name || dbService.substitute_preacher_name || '',
-                substitutePreacherId: dbService.substitute_preacher_id,
-                substitutePreacherMember: dbService.sub_preacher_member,
-                leader: dbService.leader_member?.name || dbService.leader_name || '',
-                leaderId: dbService.leader_id,
-                leaderMember: dbService.leader_member,
-                substituteLeader: dbService.sub_leader_member?.name || dbService.substitute_leader_name || '',
-                substituteLeaderId: dbService.substitute_leader_id,
-                substituteLeaderMember: dbService.sub_leader_member,
-                location: dbService.location || '',
-                description: dbService.description || '',
-                statistics: {
-                    adults: {
-                        men: dbService.stats_adults_men || 0,
-                        women: dbService.stats_adults_women || 0
-                    },
-                    children: {
-                        boys: dbService.stats_children_boys || 0,
-                        girls: dbService.stats_children_girls || 0
-                    },
-                    visitors: {
-                        men: dbService.stats_visitors_men || 0,
-                        women: dbService.stats_visitors_women || 0
-                    },
-                    newConverts: {
-                        men: dbService.stats_new_converts_men || 0,
-                        women: dbService.stats_new_converts_women || 0,
-                        children: dbService.stats_new_converts_children || 0
+                // Map database format to app format
+                return ((data as any[]) || []).map((dbService: any) => ({
+                    id: dbService.id,
+                    churchId: dbService.church_id,
+                    serviceTypeId: dbService.service_type_id || '',
+                    typeName: dbService.service_type?.name || 'Culto',
+                    status: dbService.status,
+                    date: dbService.date,
+                    startTime: dbService.start_time,
+                    theme: dbService.theme || '',
+                    preacher: dbService.preacher_member?.name || dbService.preacher_name || '',
+                    preacherId: dbService.preacher_id,
+                    preacherMember: dbService.preacher_member,
+                    substitutePreacher: dbService.sub_preacher_member?.name || dbService.substitute_preacher_name || '',
+                    substitutePreacherId: dbService.substitute_preacher_id,
+                    substitutePreacherMember: dbService.sub_preacher_member,
+                    leader: dbService.leader_member?.name || dbService.leader_name || '',
+                    leaderId: dbService.leader_id,
+                    leaderMember: dbService.leader_member,
+                    substituteLeader: dbService.sub_leader_member?.name || dbService.substitute_leader_name || '',
+                    substituteLeaderId: dbService.substitute_leader_id,
+                    substituteLeaderMember: dbService.sub_leader_member,
+                    location: dbService.location || '',
+                    description: dbService.description || '',
+                    statistics: {
+                        adults: {
+                            men: dbService.stats_adults_men || 0,
+                            women: dbService.stats_adults_women || 0
+                        },
+                        children: {
+                            boys: dbService.stats_children_boys || 0,
+                            girls: dbService.stats_children_girls || 0
+                        },
+                        visitors: {
+                            men: dbService.stats_visitors_men || 0,
+                            women: dbService.stats_visitors_women || 0
+                        },
+                        newConverts: {
+                            men: dbService.stats_new_converts_men || 0,
+                            women: dbService.stats_new_converts_women || 0,
+                            children: dbService.stats_new_converts_children || 0
+                        }
                     }
-                }
-            }));
+                }));
+            })();
 
-            setServices(mappedServices);
+            const result = await activeFetchPromise;
+            updateCache(result);
         } catch (err: any) {
             console.error('Error fetching services:', JSON.stringify(err, null, 2));
             setError(err instanceof Error ? err.message : 'Failed to fetch services');
         } finally {
+            activeFetchPromise = null;
             setLoading(false);
         }
     };
@@ -93,13 +126,12 @@ export function useServices() {
     // Create a new service
     const createService = async (service: Omit<Service, 'id'>) => {
         try {
-            const churchId = await getCurrentUserChurchId();
-            if (!churchId) {
+            if (!user?.churchId) {
                 throw new Error('No church ID found');
             }
 
             const dbService: any = {
-                church_id: churchId,
+                church_id: user.churchId,
                 service_type_id: service.serviceTypeId,
                 status: service.status,
                 date: service.date,
@@ -141,13 +173,13 @@ export function useServices() {
                 .from('services')
                 .select(`
                     *,
-                    service_types!inner(name),
+                    service_types:service_type_id(name),
                     preacher_member:preacher_id(id, name, phone),
                     sub_preacher_member:substitute_preacher_id(id, name, phone),
                     leader_member:leader_id(id, name, phone),
                     sub_leader_member:substitute_leader_id(id, name, phone)
                 `)
-                .eq('church_id', churchId)
+                .eq('church_id', user.churchId)
                 .order('created_at', { ascending: false })
                 .limit(1);
 
@@ -207,7 +239,7 @@ export function useServices() {
                 }
             };
 
-            setServices((prev: Service[]) => [newService, ...prev]);
+            updateCache([newService, ...cachedServices]);
             return newService;
         } catch (err) {
             console.error('Error creating service:', err);
@@ -264,7 +296,7 @@ export function useServices() {
                 .from('services')
                 .select(`
                     *,
-                    service_types!inner(name),
+                    service_types:service_type_id(name),
                     preacher_member:preacher_id(id, name, phone),
                     sub_preacher_member:substitute_preacher_id(id, name, phone),
                     leader_member:leader_id(id, name, phone),
@@ -329,7 +361,7 @@ export function useServices() {
                 }
             };
 
-            setServices((prev: Service[]) => prev.map(s => s.id === id ? updatedService : s));
+            updateCache(cachedServices.map(s => s.id === id ? updatedService : s));
             return updatedService;
         } catch (err) {
             console.error('Error updating service:', err);
@@ -347,7 +379,7 @@ export function useServices() {
 
             if (deleteError) throw deleteError;
 
-            setServices((prev: Service[]) => prev.filter(s => s.id !== id));
+            updateCache(cachedServices.filter(s => s.id !== id));
         } catch (err) {
             console.error('Error deleting service:', err);
             throw err;
@@ -444,8 +476,8 @@ export function useServices() {
 
             if (updateError) throw updateError;
 
-            // Update local state
-            setServices((prev: Service[]) => prev.map(s =>
+            // Update local state and global cache
+            updateCache(cachedServices.map(s =>
                 s.id === id ? { ...s, statistics } : s
             ));
         } catch (err) {
@@ -455,8 +487,21 @@ export function useServices() {
     };
 
     useEffect(() => {
-        fetchServices();
-    }, []);
+        if (user?.churchId) {
+            if (cacheChurchId !== user.churchId) {
+                // Church changed, invalidate cache
+                updateCache([]);
+                cacheChurchId = user.churchId;
+                fetchServices();
+            } else if (cachedServices.length === 0 && !activeFetchPromise) {
+                fetchServices();
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
+    }, [user?.churchId]);
 
     return {
         services,

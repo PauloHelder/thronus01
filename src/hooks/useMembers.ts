@@ -3,11 +3,33 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Member } from '../types';
 
+// Global cache outside the hook function for pub-sub pattern
+let cachedMembers: Member[] = [];
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<Member[]> | null = null;
+const listeners = new Set<(members: Member[]) => void>();
+
+const updateCache = (newMembers: Member[]) => {
+    cachedMembers = newMembers;
+    listeners.forEach(listener => listener(newMembers));
+};
+
 export const useMembers = () => {
     const { user } = useAuth();
-    const [members, setMembers] = useState<Member[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [members, setLocalMembers] = useState<Member[]>(cachedMembers);
+    const [loading, setLoading] = useState(cachedMembers.length === 0);
     const [error, setError] = useState<string | null>(null);
+
+    // Register listener for cache updates
+    useEffect(() => {
+        const handler = (updatedMembers: Member[]) => {
+            setLocalMembers(updatedMembers);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
 
     // Helper to transform DB data (snake_case) to App data (camelCase)
     const transformFromDB = (data: any): Member => ({
@@ -36,7 +58,8 @@ export const useMembers = () => {
         notes: data.notes,
         joinDate: data.join_date,
         ordinationDate: data.ordination_date,
-        ordinationCelebrant: data.ordination_celebrant
+        ordinationCelebrant: data.ordination_celebrant,
+        createdAt: data.created_at
     });
 
     // Helper to transform App data (camelCase) to DB data (snake_case)
@@ -81,22 +104,35 @@ export const useMembers = () => {
             return;
         }
 
+        if (activeFetchPromise) {
+            try {
+                await activeFetchPromise;
+            } catch {}
+            return;
+        }
+
         try {
             setLoading(true);
-            const { data, error: fetchError } = await supabase
-                .from('members')
-                .select('*')
-                .eq('church_id', user.churchId)
-                .order('name', { ascending: true });
+            activeFetchPromise = (async () => {
+                const { data, error: fetchError } = await supabase
+                    .from('members')
+                    .select('*')
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null)
+                    .order('name', { ascending: true });
 
-            if (fetchError) throw fetchError;
+                if (fetchError) throw fetchError;
+                return (data || []).map(transformFromDB);
+            })();
 
-            setMembers((data || []).map(transformFromDB));
+            const result = await activeFetchPromise;
+            updateCache(result);
             setError(null);
         } catch (err) {
             console.error('Error fetching members:', err);
             setError('Erro ao carregar membros');
         } finally {
+            activeFetchPromise = null;
             setLoading(false);
         }
     };
@@ -176,7 +212,7 @@ export const useMembers = () => {
                         if (!retryError && retryResult && retryResult.length > 0) {
                             console.log('✅ SUCESSO na recuperação automática:', retryResult[0]);
                             const newMember = transformFromDB(retryResult[0]);
-                            setMembers(prev => [...prev, newMember]);
+                            updateCache([...cachedMembers, newMember]);
                             return true;
                         }
 
@@ -199,7 +235,7 @@ export const useMembers = () => {
                 console.log('✅ SUCESSO: Membro retornado pelo Supabase:', data[0]);
                 const newMember = transformFromDB(data[0]);
                 console.log('✅ Membro transformado para camelCase:', newMember);
-                setMembers(prev => [...prev, newMember]);
+                updateCache([...cachedMembers, newMember]);
             } else {
                 console.warn('⚠️ AVISO: Inserção bem-sucedida, mas sem dados retornados.');
                 console.warn('   Isso pode indicar um problema com .select() ou RLS no retorno.');
@@ -236,12 +272,12 @@ export const useMembers = () => {
 
             if (data && data.length > 0) {
                 const updatedMember = transformFromDB(data[0]);
-                setMembers(prev => prev.map(m => m.id === id ? updatedMember : m));
+                updateCache(cachedMembers.map(m => m.id === id ? updatedMember : m));
             } else {
                 // Sucesso na atualização, mas sem retorno de dados.
                 console.log('Membro atualizado. Sincronizando dados...');
                 // Atualiza otimisticamente enquanto recarrega
-                setMembers(prev => prev.map(m => m.id === id ? { ...m, ...memberData } : m));
+                updateCache(cachedMembers.map(m => m.id === id ? { ...m, ...memberData } : m));
                 await fetchMembers();
             }
 
@@ -264,7 +300,7 @@ export const useMembers = () => {
 
             if (deleteError) throw deleteError;
 
-            setMembers(prev => prev.filter(m => m.id !== id));
+            updateCache(cachedMembers.filter(m => m.id !== id));
             return true;
         } catch (err) {
             console.error('Error deleting member:', err);
@@ -378,7 +414,20 @@ export const useMembers = () => {
     };
 
     useEffect(() => {
-        fetchMembers();
+        if (user?.churchId) {
+            if (cacheChurchId !== user.churchId) {
+                // Church changed, invalidate cache
+                updateCache([]);
+                cacheChurchId = user.churchId;
+                fetchMembers();
+            } else if (cachedMembers.length === 0 && !activeFetchPromise) {
+                fetchMembers();
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
     }, [user?.churchId]);
 
     return {

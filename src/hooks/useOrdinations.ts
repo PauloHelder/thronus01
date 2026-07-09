@@ -1,53 +1,89 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Ordination, Member } from '../types';
+import { Ordination } from '../types';
+
+// Global cache outside the hook function for pub-sub pattern
+let cachedOrdinations: Ordination[] = [];
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<Ordination[]> | null = null;
+const listeners = new Set<(ordinations: Ordination[]) => void>();
+
+const updateCache = (newOrdinations: Ordination[]) => {
+    cachedOrdinations = newOrdinations;
+    listeners.forEach(listener => listener(newOrdinations));
+};
 
 export const useOrdinations = () => {
     const { user } = useAuth();
-    const [ordinations, setOrdinations] = useState<Ordination[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [ordinations, setLocalOrdinations] = useState<Ordination[]>(cachedOrdinations);
+    const [loading, setLoading] = useState(cachedOrdinations.length === 0);
     const [error, setError] = useState<string | null>(null);
 
+    // Register listener for cache updates
+    useEffect(() => {
+        const handler = (updated: Ordination[]) => {
+            setLocalOrdinations(updated);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
+
     const fetchOrdinations = async () => {
-        if (!user?.churchId) return;
+        if (!user?.churchId) {
+            setLoading(false);
+            return;
+        }
+
+        if (activeFetchPromise) {
+            try {
+                await activeFetchPromise;
+            } catch {}
+            return;
+        }
 
         try {
             setLoading(true);
-            const { data, error: fetchError } = await supabase
-                .from('ordinations')
-                .select(`
-                    *,
-                    ordination_members(
-                        member:members(*)
-                    )
-                `)
-                .eq('church_id', user.churchId)
-                .order('date', { ascending: false });
+            activeFetchPromise = (async () => {
+                const { data, error: fetchError } = await supabase
+                    .from('ordinations')
+                    .select(`
+                        *,
+                        ordination_members(
+                            member:members(*)
+                        )
+                    `)
+                    .eq('church_id', user.churchId)
+                    .order('date', { ascending: false });
 
-            if (fetchError) throw fetchError;
+                if (fetchError) throw fetchError;
 
-            const transformed = data.map((ord: any) => ({
-                id: ord.id,
-                churchId: ord.church_id,
-                date: ord.date,
-                category: ord.category,
-                celebrant: ord.celebrant,
-                notes: ord.notes,
-                members: ord.ordination_members.map((om: any) => ({
-                    id: om.member.id,
-                    name: om.member.name,
-                    avatar: om.member.avatar_url,
-                    churchRole: om.member.church_role
-                })),
-                memberCount: ord.ordination_members.length
-            }));
+                return data.map((ord: any) => ({
+                    id: ord.id,
+                    churchId: ord.church_id,
+                    date: ord.date,
+                    category: ord.category,
+                    celebrant: ord.celebrant,
+                    notes: ord.notes,
+                    members: ord.ordination_members.map((om: any) => ({
+                        id: om.member.id,
+                        name: om.member.name,
+                        avatar: om.member.avatar_url,
+                        churchRole: om.member.church_role
+                    })),
+                    memberCount: ord.ordination_members.length
+                }));
+            })();
 
-            setOrdinations(transformed);
+            const result = await activeFetchPromise;
+            updateCache(result);
         } catch (err) {
             console.error('Error fetching ordinations:', err);
             setError('Erro ao carregar consagrações');
         } finally {
+            activeFetchPromise = null;
             setLoading(false);
         }
     };
@@ -96,7 +132,7 @@ export const useOrdinations = () => {
 
             if (membersUpdateError) throw membersUpdateError;
 
-            await fetchOrdinations();
+            await fetchOrdinations(); // Refresh cache
             return true;
         } catch (err) {
             console.error('Error adding ordination:', err);
@@ -113,7 +149,7 @@ export const useOrdinations = () => {
 
             if (delError) throw delError;
 
-            setOrdinations(prev => prev.filter(o => o.id !== id));
+            updateCache(cachedOrdinations.filter(o => o.id !== id));
             return true;
         } catch (err) {
             console.error('Error deleting ordination:', err);
@@ -122,7 +158,19 @@ export const useOrdinations = () => {
     };
 
     useEffect(() => {
-        fetchOrdinations();
+        if (user?.churchId) {
+            if (cacheChurchId !== user.churchId) {
+                updateCache([]);
+                cacheChurchId = user.churchId;
+                fetchOrdinations();
+            } else if (cachedOrdinations.length === 0 && !activeFetchPromise) {
+                fetchOrdinations();
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
     }, [user?.churchId]);
 
     return { ordinations, loading, error, addOrdination, deleteOrdination, refresh: fetchOrdinations };

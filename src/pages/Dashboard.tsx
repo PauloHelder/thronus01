@@ -6,6 +6,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import MemberModal from '../components/modals/MemberModal';
 import { Member } from '../types';
+import { useMembers } from '../hooks/useMembers';
+import { useGroups } from '../hooks/useGroups';
+import { useDepartments } from '../hooks/useDepartments';
+import { useEvents } from '../hooks/useEvents';
+import { useTeaching } from '../hooks/useTeaching';
 
 interface DashboardStats {
   totalMembers: number;
@@ -32,7 +37,12 @@ interface RecentActivity {
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { members, loading: loadingMembers, addMember } = useMembers();
+  const { groups, loading: loadingGroups } = useGroups();
+  const { departments, loading: loadingDepartments } = useDepartments();
+  const { events, loading: loadingEvents } = useEvents();
+  const { classes, loading: loadingTeaching } = useTeaching();
+  const [loadingStats, setLoadingStats] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
     activeMembers: 0,
@@ -53,113 +63,102 @@ const Dashboard: React.FC = () => {
 
   const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+  const loading = loadingMembers || loadingGroups || loadingDepartments || loadingEvents || loadingTeaching || loadingStats;
+
   useEffect(() => {
     if (user?.churchId) {
       loadDashboardData();
     }
   }, [user?.churchId]);
 
+  useEffect(() => {
+    if (!members || !groups || !departments || !events || !classes) return;
+
+    const totalMembers = members.length;
+    const activeMembers = members.filter(m => m.status === 'Active').length;
+    const totalGroups = groups.length;
+    const activeGroups = groups.filter(g => g.status === 'Active').length;
+    const totalDepartments = departments.length;
+
+    // Upcoming events count and list
+    const upcomingEventsList = events
+      .filter(e => e.date && new Date(e.date) >= new Date(new Date().toISOString().split('T')[0]))
+      .slice(0, 5)
+      .map(e => ({
+        ...e,
+        start_time: e.time || e.start_time
+      }));
+    const upcomingEventsCount = upcomingEventsList.length;
+
+    // Calcular estatísticas de Ensino
+    const activeClasses = classes.filter(c => c.status === 'Em Andamento' || c.status === 'Agendado' || c.status === 'Agendada').length;
+
+    // Total Unique Students across all classes
+    const uniqueStudents = new Set();
+    classes.forEach((c: any) => {
+      c.students?.forEach((s: any) => uniqueStudents.add(s.id || s.member_id));
+    });
+    const totalStudents = uniqueStudents.size;
+
+    // Prepare chart data (Top 5 classes by students)
+    const classesChartData = classes
+      .map((c: any) => ({
+        name: c.name,
+        students: c.students?.length || 0
+      }))
+      .sort((a, b) => b.students - a.students)
+      .slice(0, 5);
+
+    setClassesData(classesChartData);
+    setUpcomingEvents(upcomingEventsList);
+
+    // Crescimento de membros (últimos 6 meses)
+    const growthData = calculateMemberGrowth(members);
+    setMemberGrowth(growthData);
+
+    // Calcular distribuições adicionais
+    const genderCounts = { Male: 0, Female: 0 };
+    const roleCounts: Record<string, number> = {};
+
+    members.forEach((m: any) => {
+      if (m.gender === 'Male') genderCounts.Male++;
+      else if (m.gender === 'Female') genderCounts.Female++;
+
+      const role = m.churchRole || m.church_role || 'Membro';
+      roleCounts[role] = (roleCounts[role] || 0) + 1;
+    });
+
+    setStats({
+      totalMembers,
+      activeMembers,
+      totalGroups,
+      activeGroups,
+      totalDepartments,
+      upcomingEvents: upcomingEventsCount,
+      activeClasses,
+      totalStudents,
+      genderData: [
+        { name: 'Masculino', value: genderCounts.Male, color: '#3b82f6' },
+        { name: 'Feminino', value: genderCounts.Female, color: '#ec4899' }
+      ],
+      roleData: Object.entries(roleCounts).map(([name, count]) => ({ name, count }))
+    });
+
+    // Store members for birthday filtering
+    setMembersList(members);
+  }, [members, groups, departments, events, classes]);
+
   const loadDashboardData = async () => {
     if (!user?.churchId) return;
     try {
-      setLoading(true);
-
-      // Buscar estatísticas
-      const [
-        membersResult,
-        groupsResult,
-        departmentsResult,
-        eventsResult,
-        classesResult,
-      ] = await Promise.all([
-        (supabase.from('members') as any).select('id, name, status, created_at, birth_date, avatar_url, gender, church_role').eq('church_id', user.churchId).is('deleted_at', null),
-        (supabase.from('groups') as any).select('id, status').eq('church_id', user.churchId).is('deleted_at', null),
-        (supabase.from('departments') as any).select('id').eq('church_id', user.churchId).is('deleted_at', null),
-        (supabase.from('events') as any).select('id, title, date, start_time, type').eq('church_id', user.churchId).is('deleted_at', null).gte('date', new Date().toISOString().split('T')[0]).order('date', { ascending: true }).limit(5),
-        (supabase.from('teaching_classes') as any).select('id, name, status, students:teaching_class_students(member_id)').eq('church_id', user.churchId).is('deleted_at', null),
-      ]);
-
-      // Calcular estatísticas
-      const totalMembers = membersResult.data?.length || 0;
-      const activeMembers = membersResult.data?.filter(m => m.status === 'Active').length || 0;
-      const totalGroups = groupsResult.data?.length || 0;
-      const activeGroups = groupsResult.data?.filter(g => g.status === 'Active').length || 0;
-      const totalDepartments = departmentsResult.data?.length || 0;
-      const upcomingEventsCount = eventsResult.data?.length || 0;
-
-      // Calcular estatísticas de Ensino
-      const classes = classesResult.data || [];
-      const activeClasses = classes.filter(c => c.status === 'Em Andamento' || c.status === 'Agendado' || c.status === 'Agendada').length;
-
-      // Total Unique Students across all classes
-      const uniqueStudents = new Set();
-      classes.forEach((c: any) => {
-        c.students?.forEach((s: any) => uniqueStudents.add(s.member_id));
-      });
-      const totalStudents = uniqueStudents.size;
-
-      // Prepare chart data (Top 5 classes by students)
-      const classesChartData = classes
-        .map((c: any) => ({
-          name: c.name,
-          students: c.students?.length || 0
-        }))
-        .sort((a, b) => b.students - a.students)
-        .slice(0, 5);
-
-      setClassesData(classesChartData);
-
-      setStats({
-        totalMembers,
-        activeMembers,
-        totalGroups,
-        activeGroups,
-        totalDepartments,
-        upcomingEvents: upcomingEventsCount,
-        activeClasses,
-        totalStudents,
-      });
-
-      // Eventos próximos
-      setUpcomingEvents(eventsResult.data || []);
-
-      // Crescimento de membros (últimos 6 meses)
-      const growthData = calculateMemberGrowth(membersResult.data || []);
-      setMemberGrowth(growthData);
-
-      // Calcular distribuições adicionais
-      const members = membersResult.data || [];
-      const genderCounts = { Male: 0, Female: 0 };
-      const roleCounts: Record<string, number> = {};
-
-      members.forEach((m: any) => {
-        if (m.gender === 'Male') genderCounts.Male++;
-        else if (m.gender === 'Female') genderCounts.Female++;
-
-        const role = m.church_role || 'Membro';
-        roleCounts[role] = (roleCounts[role] || 0) + 1;
-      });
-
-      setStats(prev => ({
-        ...prev,
-        genderData: [
-          { name: 'Masculino', value: genderCounts.Male, color: '#3b82f6' },
-          { name: 'Feminino', value: genderCounts.Female, color: '#ec4899' }
-        ],
-        roleData: Object.entries(roleCounts).map(([name, count]) => ({ name, count }))
-      }));
-
+      setLoadingStats(true);
       // Atividades recentes
       const activities = await loadRecentActivities();
       setRecentActivities(activities);
-
-      // Store members for birthday filtering
-      setMembersList(membersResult.data || []);
-
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
-      setLoading(false);
+      setLoadingStats(false);
     }
   };
 
@@ -229,7 +228,7 @@ const Dashboard: React.FC = () => {
       monthDate.setMonth(monthDate.getMonth() - (5 - index));
 
       const count = members.filter(m => {
-        const createdDate = new Date(m.created_at);
+        const createdDate = new Date(m.createdAt || m.joinDate || new Date());
         return createdDate.getMonth() === monthDate.getMonth() &&
           createdDate.getFullYear() === monthDate.getFullYear();
       }).length;
@@ -263,23 +262,9 @@ const Dashboard: React.FC = () => {
 
   const handleSaveMember = async (member: Omit<Member, 'id'> | Member) => {
     try {
-      const { error } = await (supabase.from('members') as any).insert({
-        name: member.name,
-        email: member.email,
-        phone: member.phone,
-        status: member.status,
-        church_role: member.churchRole,
-        is_baptized: member.isBaptized,
-        baptism_date: member.baptismDate,
-        birth_date: member.birthDate,
-        gender: member.gender,
-        marital_status: member.maritalStatus,
-        address: member.address,
-      });
-
-      if (!error) {
+      const success = await addMember(member);
+      if (success) {
         setIsMemberModalOpen(false);
-        loadDashboardData();
       }
     } catch (error) {
       console.error('Error saving member:', error);

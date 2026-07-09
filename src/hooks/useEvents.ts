@@ -3,11 +3,33 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Event } from '../types';
 
+// Global cache outside the hook function for pub-sub pattern
+let cachedEvents: Event[] = [];
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<Event[]> | null = null;
+const listeners = new Set<(events: Event[]) => void>();
+
+const updateCache = (newEvents: Event[]) => {
+    cachedEvents = newEvents;
+    listeners.forEach(listener => listener(newEvents));
+};
+
 export const useEvents = () => {
     const { user } = useAuth();
-    const [events, setEvents] = useState<Event[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [events, setLocalEvents] = useState<Event[]>(cachedEvents);
+    const [loading, setLoading] = useState(cachedEvents.length === 0);
     const [error, setError] = useState<string | null>(null);
+
+    // Register listener for cache updates
+    useEffect(() => {
+        const handler = (updatedEvents: Event[]) => {
+            setLocalEvents(updatedEvents);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
 
     const fetchEvents = async () => {
         if (!user?.churchId) {
@@ -15,40 +37,51 @@ export const useEvents = () => {
             return;
         }
 
+        if (activeFetchPromise) {
+            try {
+                await activeFetchPromise;
+            } catch {}
+            return;
+        }
+
         try {
             setLoading(true);
-            const { data, error: fetchError } = await supabase
-                .from('events')
-                .select(`
-                    *,
-                    event_attendees (
-                        member_id
-                    )
-                `)
-                .eq('church_id', user.churchId)
-                .is('deleted_at', null)
-                .order('date', { ascending: true });
+            activeFetchPromise = (async () => {
+                const { data, error: fetchError } = await supabase
+                    .from('events')
+                    .select(`
+                        *,
+                        event_attendees (
+                            member_id
+                        )
+                    `)
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null)
+                    .order('date', { ascending: true });
 
-            if (fetchError) throw fetchError;
+                if (fetchError) throw fetchError;
 
-            // Map DB event to UI Event
-            const mappedEvents: Event[] = (data || []).map(item => ({
-                id: item.id,
-                title: item.title,
-                date: item.date,
-                time: item.start_time || '',
-                type: item.type as Event['type'],
-                description: item.description || undefined,
-                coverUrl: item.cover_url || undefined,
-                attendees: item.event_attendees?.map((a: any) => a.member_id) || []
-            }));
+                // Map DB event to UI Event
+                return (data || []).map(item => ({
+                    id: item.id,
+                    title: item.title,
+                    date: item.date,
+                    time: item.start_time || '',
+                    type: item.type as Event['type'],
+                    description: item.description || undefined,
+                    coverUrl: item.cover_url || undefined,
+                    attendees: item.event_attendees?.map((a: any) => a.member_id) || []
+                }));
+            })();
 
-            setEvents(mappedEvents);
+            const result = await activeFetchPromise;
+            updateCache(result);
             setError(null);
         } catch (err) {
             console.error('Error fetching events:', err);
             setError('Erro ao carregar eventos');
         } finally {
+            activeFetchPromise = null;
             setLoading(false);
         }
     };
@@ -211,7 +244,7 @@ export const useEvents = () => {
 
             if (deleteError) throw deleteError;
 
-            setEvents(prev => prev.filter(e => e.id !== id));
+            updateCache(cachedEvents.filter(e => e.id !== id));
             return true;
         } catch (err) {
             console.error('Error deleting event:', err);
@@ -221,7 +254,19 @@ export const useEvents = () => {
     };
 
     useEffect(() => {
-        fetchEvents();
+        if (user?.churchId) {
+            if (cacheChurchId !== user.churchId) {
+                updateCache([]);
+                cacheChurchId = user.churchId;
+                fetchEvents();
+            } else if (cachedEvents.length === 0 && !activeFetchPromise) {
+                fetchEvents();
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
     }, [user?.churchId]);
 
     return {

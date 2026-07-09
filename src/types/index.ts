@@ -25,6 +25,7 @@ export interface Member {
   joinDate?: string;
   ordinationDate?: string;
   ordinationCelebrant?: string;
+  createdAt?: string;
 }
 
 export interface Plan {

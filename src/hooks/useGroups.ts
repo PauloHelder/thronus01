@@ -43,11 +43,33 @@ export interface GroupMember {
     member_phone?: string;
 }
 
+// Global cache outside the hook function for pub-sub pattern
+let cachedGroups: Group[] = [];
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<Group[]> | null = null;
+const listeners = new Set<(groups: Group[]) => void>();
+
+const updateCache = (newGroups: Group[]) => {
+    cachedGroups = newGroups;
+    listeners.forEach(listener => listener(newGroups));
+};
+
 export const useGroups = () => {
     const { user } = useAuth();
-    const [groups, setGroups] = useState<Group[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [groups, setLocalGroups] = useState<Group[]>(cachedGroups);
+    const [loading, setLoading] = useState(cachedGroups.length === 0);
     const [error, setError] = useState<string | null>(null);
+
+    // Register listener for cache updates
+    useEffect(() => {
+        const handler = (updatedGroups: Group[]) => {
+            setLocalGroups(updatedGroups);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
 
     // =====================================================
     // FETCH ALL GROUPS
@@ -58,45 +80,47 @@ export const useGroups = () => {
             return;
         }
 
+        if (activeFetchPromise) {
+            try {
+                await activeFetchPromise;
+            } catch {}
+            return;
+        }
+
         try {
             setLoading(true);
-            const { data, error: fetchError } = await supabase
-                .from('groups')
-                .select(`
-                    *,
-                    leader:members!leader_id(name, phone),
-                    co_leader:members!co_leader_id(name, phone)
-                `)
-                .eq('church_id', user.churchId)
-                .is('deleted_at', null)
-                .order('name', { ascending: true });
+            activeFetchPromise = (async () => {
+                const { data, error: fetchError } = await supabase
+                    .from('groups')
+                    .select(`
+                        *,
+                        leader:members!leader_id(name, phone),
+                        co_leader:members!co_leader_id(name, phone),
+                        group_members(id)
+                    `)
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null)
+                    .is('group_members.left_at', null)
+                    .order('name', { ascending: true });
 
-            if (fetchError) throw fetchError;
+                if (fetchError) throw fetchError;
 
-            // Get member count for each group
-            const groupsWithCount = await Promise.all(
-                (data || []).map(async (group) => {
-                    const { count } = await supabase
-                        .from('group_members')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('group_id', group.id)
-                        .is('left_at', null);
+                return (data || []).map(group => ({
+                    ...group,
+                    member_count: (group.group_members as any[])?.length || 0,
+                    leader_name: group.leader?.name,
+                    co_leader_name: group.co_leader?.name
+                }));
+            })();
 
-                    return {
-                        ...group,
-                        member_count: count || 0,
-                        leader_name: group.leader?.name,
-                        co_leader_name: group.co_leader?.name
-                    };
-                })
-            );
-
-            setGroups(groupsWithCount);
+            const result = await activeFetchPromise;
+            updateCache(result);
             setError(null);
         } catch (err) {
             console.error('Error fetching groups:', err);
             setError('Erro ao carregar grupos');
         } finally {
+            activeFetchPromise = null;
             setLoading(false);
         }
     };
@@ -111,29 +135,24 @@ export const useGroups = () => {
                 .select(`
                     *,
                     leader:members!leader_id(name, email, phone),
-                    co_leader:members!co_leader_id(name, email, phone)
+                    co_leader:members!co_leader_id(name, email, phone),
+                    group_members(id)
                 `)
                 .eq('id', id)
                 .is('deleted_at', null)
+                .is('group_members.left_at', null)
                 .single();
 
             if (fetchError) throw fetchError;
 
-            // Get member count
-            const { count } = await supabase
-                .from('group_members')
-                .select('*', { count: 'exact', head: true })
-                .eq('group_id', id)
-                .is('left_at', null);
-
             return {
                 ...data,
-                member_count: count || 0,
+                member_count: (data.group_members as any[])?.length || 0,
                 leader_name: data.leader?.name,
                 co_leader_name: data.co_leader?.name
             };
         } catch (err) {
-            console.error('Error fetching group:', err);
+            console.error('Error fetching group by ID:', err);
             return null;
         }
     };
@@ -148,7 +167,6 @@ export const useGroups = () => {
         }
 
         try {
-            // Sanitize data: convert empty strings to null for UUID fields
             const sanitizedData = {
                 ...groupData,
                 leader_id: groupData.leader_id || null,
@@ -156,36 +174,17 @@ export const useGroups = () => {
                 church_id: user.churchId
             };
 
-            console.log('Enviando dados para criação de grupo:', sanitizedData);
-
             const { data, error: insertError } = await supabase
                 .from('groups')
                 .insert(sanitizedData)
                 .select()
                 .single();
 
-            if (insertError) {
-                console.error('Detalhes do erro Supabase:', {
-                    message: insertError.message,
-                    code: insertError.code,
-                    details: insertError.details,
-                    hint: insertError.hint
-                });
-                throw insertError;
-            }
+            if (insertError) throw insertError;
 
-            console.log('Grupo criado com sucesso:', data);
-
-            // Automatically add Leader and Co-leader as members
             if (data) {
                 const membersToAdd: { group_id: string; member_id: string; role: string }[] = [];
 
-                console.log('Verificando líderes para adicionar como membros:', {
-                    leader: sanitizedData.leader_id,
-                    co_leader: sanitizedData.co_leader_id
-                });
-
-                // Add Leader
                 if (sanitizedData.leader_id) {
                     membersToAdd.push({
                         group_id: data.id,
@@ -194,7 +193,6 @@ export const useGroups = () => {
                     });
                 }
 
-                // Add Co-leader
                 if (sanitizedData.co_leader_id) {
                     membersToAdd.push({
                         group_id: data.id,
@@ -204,25 +202,20 @@ export const useGroups = () => {
                 }
 
                 if (membersToAdd.length > 0) {
-                    console.log('Tentando adicionar membros:', membersToAdd);
                     const { error: membersError } = await supabase
                         .from('group_members')
                         .insert(membersToAdd);
 
                     if (membersError) {
-                        console.error('ERRO CRÍTICO ao adicionar líder/co-líder:', membersError);
-                    } else {
-                        console.log('SUCESSO: Líder e Co-líder adicionados como membros.');
+                        console.error('Erro ao adicionar líder/co-líder como membros:', membersError);
                     }
-                } else {
-                    console.log('Nenhum líder/co-líder para adicionar.');
                 }
             }
 
-            await fetchGroups(); // Refresh list
+            await fetchGroups(); // Refresh cache
             return true;
         } catch (err) {
-            console.error('Erro completo ao adicionar grupo:', err);
+            console.error('Erro ao adicionar grupo:', err);
             setError('Erro ao adicionar grupo: ' + (err as any).message);
             return false;
         }
@@ -244,7 +237,7 @@ export const useGroups = () => {
 
             if (updateError) throw updateError;
 
-            await fetchGroups(); // Refresh list
+            await fetchGroups(); // Refresh cache
             return true;
         } catch (err) {
             console.error('Error updating group:', err);
@@ -266,7 +259,7 @@ export const useGroups = () => {
 
             if (deleteError) throw deleteError;
 
-            setGroups(prev => prev.filter(g => g.id !== id));
+            updateCache(cachedGroups.filter(g => g.id !== id));
             return true;
         } catch (err) {
             console.error('Error deleting group:', err);
@@ -318,6 +311,7 @@ export const useGroups = () => {
                 });
 
             if (insertError) throw insertError;
+            await fetchGroups(); // Refresh cache counts
             return true;
         } catch (err) {
             console.error('Error adding member to group:', err);
@@ -337,6 +331,7 @@ export const useGroups = () => {
                 .eq('id', groupMemberId);
 
             if (updateError) throw updateError;
+            await fetchGroups(); // Refresh cache counts
             return true;
         } catch (err) {
             console.error('Error removing member from group:', err);
@@ -356,6 +351,7 @@ export const useGroups = () => {
                 .eq('id', groupMemberId);
 
             if (updateError) throw updateError;
+            await fetchGroups(); // Refresh cache to ensure consistency
             return true;
         } catch (err) {
             console.error('Error updating member role:', err);
@@ -365,7 +361,19 @@ export const useGroups = () => {
     };
 
     useEffect(() => {
-        fetchGroups();
+        if (user?.churchId) {
+            if (cacheChurchId !== user.churchId) {
+                updateCache([]);
+                cacheChurchId = user.churchId;
+                fetchGroups();
+            } else if (cachedGroups.length === 0 && !activeFetchPromise) {
+                fetchGroups();
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
     }, [user?.churchId]);
 
     return {

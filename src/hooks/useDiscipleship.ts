@@ -26,93 +26,132 @@ const transformMember = (data: any): Member => ({
     groupId: data.group_id
 });
 
+// Global cache outside the hook function for pub-sub pattern
+let cachedLeaders: any[] = [];
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<any[]> | null = null;
+const listeners = new Set<(leaders: any[]) => void>();
+
+const updateCache = (newLeaders: any[]) => {
+    cachedLeaders = newLeaders;
+    listeners.forEach(listener => listener(newLeaders));
+};
+
 export const useDiscipleship = () => {
     const { user } = useAuth();
-    const [leaders, setLeaders] = useState<any[]>([]); // Using any for list view structure
+    const [leaders, setLocalLeaders] = useState<any[]>(cachedLeaders); // Using any for list view structure
     const [selectedLeader, setSelectedLeader] = useState<DiscipleshipLeader | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(cachedLeaders.length === 0);
     const [error, setError] = useState<string | null>(null);
 
+    // Register listener for cache updates
+    useEffect(() => {
+        const handler = (updatedLeaders: any[]) => {
+            setLocalLeaders(updatedLeaders);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
+
     const fetchLeaders = useCallback(async () => {
-        if (!user?.churchId) return;
+        if (!user?.churchId) {
+            setLoading(false);
+            return;
+        }
+
+        if (activeFetchPromise) {
+            try {
+                await activeFetchPromise;
+            } catch {}
+            return;
+        }
+
         try {
             setLoading(true);
+            activeFetchPromise = (async () => {
+                // 1. Fetch Leaders (using outer join, handles soft/hard deleted members safely)
+                const { data: leadersData, error: leadersError } = await supabase
+                    .from('discipleship_leaders' as any)
+                    .select(`
+                        id,
+                        member_id,
+                        start_date,
+                        member:members(id, name, email, avatar_url, phone)
+                    `)
+                    .eq('church_id', user.churchId);
 
-            // 1. Fetch Leaders
-            const { data: leadersData, error: leadersError } = await supabase
-                .from('discipleship_leaders' as any)
-                .select(`
-                    id,
-                    member_id,
-                    start_date,
-                    member:members!inner(id, name, email, avatar_url, phone)
-                `)
-                .eq('church_id', user.churchId);
+                if (leadersError) throw leadersError;
 
-            if (leadersError) throw leadersError;
+                // 2. Fetch Relationships (Disciples) for these leaders
+                const leaderIds = (leadersData || []).map((l: any) => l.id);
 
-            // 2. Fetch Relationships (Disciples) for these leaders
-            const leaderIds = leadersData.map((l: any) => l.id);
+                // If no leaders, return empty
+                if (leaderIds.length === 0) {
+                    return [];
+                }
 
-            // If no leaders, return empty
-            if (leaderIds.length === 0) {
-                setLeaders([]);
-                return;
-            }
+                const { data: relationshipsData, error: relError } = await supabase
+                    .from('discipleship_relationships' as any)
+                    .select(`
+                        id,
+                        leader_id,
+                        start_date,
+                        disciple:members(id, name, email, avatar_url, phone)
+                    `)
+                    .in('leader_id', leaderIds)
+                    .is('end_date', null); // Only active relationships
 
-            const { data: relationshipsData, error: relError } = await supabase
-                .from('discipleship_relationships' as any)
-                .select(`
-                    id,
-                    leader_id,
-                    start_date,
-                    disciple:members!inner(id, name, email, avatar_url, phone)
-                `)
-                .in('leader_id', leaderIds)
-                .is('end_date', null); // Only active relationships
+                if (relError) throw relError;
 
-            if (relError) throw relError;
+                // 3. Fetch Meetings Count
+                const { data: meetingsData, error: meetingsError } = await supabase
+                    .from('discipleship_meetings' as any)
+                    .select('id, leader_id')
+                    .in('leader_id', leaderIds);
 
-            // 3. Fetch Meetings Count
-            const { data: meetingsData, error: meetingsError } = await supabase
-                .from('discipleship_meetings' as any)
-                .select('id, leader_id')
-                .in('leader_id', leaderIds);
+                if (meetingsError) throw meetingsError;
 
-            if (meetingsError) throw meetingsError;
+                // 4. Assemble Data for List View
+                const formattedLeaders = (leadersData || [])
+                    .filter((l: any) => l.member) // Safety filter: skip orphaned leaders
+                    .map((leader: any) => {
+                        const leaderDisciples = (relationshipsData || [])
+                            .filter((r: any) => r.leader_id === leader.id && r.disciple) // Safety filter: skip orphaned disciples
+                            .map((r: any) => ({
+                                id: r.disciple.id,
+                                name: r.disciple.name,
+                                email: r.disciple.email,
+                                phone: r.disciple.phone,
+                                avatar_url: r.disciple.avatar_url,
+                                relationship_id: r.id,
+                                start_date: r.start_date
+                            }));
 
-            // 4. Assemble Data for List View
-            const formattedLeaders = leadersData.map((leader: any) => {
-                const leaderDisciples = relationshipsData
-                    .filter((r: any) => r.leader_id === leader.id)
-                    .map((r: any) => ({
-                        id: r.disciple.id,
-                        name: r.disciple.name,
-                        email: r.disciple.email,
-                        phone: r.disciple.phone,
-                        avatar_url: r.disciple.avatar_url,
-                        relationship_id: r.id,
-                        start_date: r.start_date
-                    }));
+                        const meetingsCount = (meetingsData || []).filter((m: any) => m.leader_id === leader.id).length;
 
-                const meetingsCount = meetingsData.filter((m: any) => m.leader_id === leader.id).length;
+                        return {
+                            id: leader.id,
+                            member_id: leader.member_id,
+                            start_date: leader.start_date,
+                            member: leader.member,
+                            disciples: leaderDisciples,
+                            meetings_count: meetingsCount
+                        };
+                    });
 
-                return {
-                    id: leader.id,
-                    member_id: leader.member_id,
-                    start_date: leader.start_date,
-                    member: leader.member,
-                    disciples: leaderDisciples,
-                    meetings_count: meetingsCount
-                };
-            });
+                return formattedLeaders;
+            })();
 
-            setLeaders(formattedLeaders);
-
+            const result = await activeFetchPromise;
+            updateCache(result);
+            setError(null);
         } catch (err: any) {
             console.error('Error fetching discipleship data:', err);
-            setError(err.message);
+            setError('Erro ao carregar dados de discipulado');
         } finally {
+            activeFetchPromise = null;
             setLoading(false);
         }
     }, [user?.churchId]);
@@ -127,7 +166,7 @@ export const useDiscipleship = () => {
                     id,
                     member_id,
                     start_date,
-                    member:members!inner(*)
+                    member:members(*)
                 `)
                 .eq('id', leaderId)
                 .single();
@@ -139,7 +178,7 @@ export const useDiscipleship = () => {
                 .from('discipleship_relationships' as any)
                 .select(`
                     id,
-                    disciple:members!inner(*)
+                    disciple:members(*)
                 `)
                 .eq('leader_id', leaderId)
                 .is('end_date', null);
@@ -156,7 +195,7 @@ export const useDiscipleship = () => {
             if (meetingsError) throw meetingsError;
 
             // 4. Fetch Attendance for meetings
-            const meetingIds = meetingsData.map((m: any) => m.id);
+            const meetingIds = (meetingsData || []).map((m: any) => m.id);
             let attendanceMap: Record<string, string[]> = {};
 
             if (meetingIds.length > 0) {
@@ -168,19 +207,43 @@ export const useDiscipleship = () => {
 
                 if (attError) throw attError;
 
-                attendanceData.forEach((a: any) => {
+                (attendanceData || []).forEach((a: any) => {
                     if (!attendanceMap[a.meeting_id]) attendanceMap[a.meeting_id] = [];
                     attendanceMap[a.meeting_id].push(a.disciple_id);
                 });
             }
 
-            // Assemble
+            // Assemble with safety fallback
+            const fallbackMember: Member = {
+                id: '',
+                name: 'Membro Excluído',
+                email: '',
+                phone: '',
+                status: 'Inactive',
+                avatar: '',
+                gender: 'Male',
+                maritalStatus: 'Other',
+                birthDate: '',
+                churchRole: 'Membro',
+                isBaptized: false,
+                baptismDate: '',
+                address: '',
+                neighborhood: '',
+                district: '',
+                province: '',
+                country: '',
+                municipality: '',
+                groupId: ''
+            };
+
             const leader: DiscipleshipLeader = {
                 id: leaderData.id,
                 startDate: leaderData.start_date,
-                member: transformMember(leaderData.member),
-                disciples: relationshipsData.map((r: any) => transformMember(r.disciple)),
-                meetings: meetingsData.map((m: any) => ({
+                member: leaderData.member ? transformMember(leaderData.member) : fallbackMember,
+                disciples: (relationshipsData || [])
+                    .filter((r: any) => r.disciple)
+                    .map((r: any) => transformMember(r.disciple)),
+                meetings: (meetingsData || []).map((m: any) => ({
                     id: m.id,
                     leaderId: m.leader_id,
                     date: m.date,
@@ -280,7 +343,6 @@ export const useDiscipleship = () => {
 
     const addMeeting = async (meeting: Omit<DiscipleshipMeeting, 'id'>) => {
         try {
-            console.log('Adding meeting via RPC v2...');
             const { data: meetingId, error: rpcError } = await supabase
                 .rpc('manage_discipleship_meeting_v2', {
                     p_meeting_id: null, // Insert mode
@@ -292,12 +354,10 @@ export const useDiscipleship = () => {
                 });
 
             if (rpcError) throw rpcError;
-            console.log('Meeting created successfully:', meetingId);
 
             if (selectedLeader) await fetchLeaderDetails(selectedLeader.id);
             return true;
         } catch (err: any) {
-            console.error('Add meeting failed:', err);
             setError(err.message);
             return false;
         }
@@ -305,11 +365,10 @@ export const useDiscipleship = () => {
 
     const updateMeeting = async (meeting: DiscipleshipMeeting) => {
         try {
-            console.log('Updating meeting via RPC v2...');
             const { error: rpcError } = await supabase
                 .rpc('manage_discipleship_meeting_v2', {
                     p_meeting_id: meeting.id, // Update mode
-                    p_leader_id: meeting.leaderId, // Used for verification inside RPC if needed, or ignored for update logic depending on impl
+                    p_leader_id: meeting.leaderId,
                     p_date: meeting.date,
                     p_status: meeting.status,
                     p_notes: meeting.notes || '',
@@ -321,7 +380,6 @@ export const useDiscipleship = () => {
             if (selectedLeader) await fetchLeaderDetails(selectedLeader.id);
             return true;
         } catch (err: any) {
-            console.error('Update meeting failed:', err);
             setError(err.message);
             return false;
         }
@@ -361,8 +419,20 @@ export const useDiscipleship = () => {
     };
 
     useEffect(() => {
-        fetchLeaders();
-    }, [fetchLeaders]);
+        if (user?.churchId) {
+            if (cacheChurchId !== user.churchId) {
+                updateCache([]);
+                cacheChurchId = user.churchId;
+                fetchLeaders();
+            } else if (cachedLeaders.length === 0 && !activeFetchPromise) {
+                fetchLeaders();
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
+    }, [user?.churchId, fetchLeaders]);
 
     return {
         leaders,

@@ -3,12 +3,34 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Department, DepartmentSchedule } from '../types';
 
+// Global cache outside the hook function for pub-sub pattern
+let cachedDepartments: Department[] = [];
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<Department[]> | null = null;
+const listeners = new Set<(departments: Department[]) => void>();
+
+const updateCache = (newDepartments: Department[]) => {
+    cachedDepartments = newDepartments;
+    listeners.forEach(listener => listener(newDepartments));
+};
+
 export const useDepartments = () => {
     const { user } = useAuth();
-    const [departments, setDepartments] = useState<Department[]>([]);
+    const [departments, setLocalDepartments] = useState<Department[]>(cachedDepartments);
     const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(cachedDepartments.length === 0);
     const [error, setError] = useState<string | null>(null);
+
+    // Register listener for cache updates
+    useEffect(() => {
+        const handler = (updatedDepartments: Department[]) => {
+            setLocalDepartments(updatedDepartments);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
 
     const fetchDepartments = useCallback(async () => {
         if (!user?.churchId) {
@@ -16,43 +38,54 @@ export const useDepartments = () => {
             return;
         }
 
+        if (activeFetchPromise) {
+            try {
+                await activeFetchPromise;
+            } catch {}
+            return;
+        }
+
         try {
             setLoading(true);
-            const { data, error: fetchError } = await supabase
-                .from('departments' as any)
-                .select(`
-                    *,
-                    leader:members!leader_id(id, name, avatar_url, phone),
-                    co_leader:members!co_leader_id(id, name, avatar_url, phone),
-                    members:department_members(count),
-                    schedules:department_schedules(count)
-                `)
-                .eq('church_id', user.churchId)
-                .is('deleted_at', null)
-                .order('name', { ascending: true });
+            activeFetchPromise = (async () => {
+                const { data, error: fetchError } = await supabase
+                    .from('departments' as any)
+                    .select(`
+                        *,
+                        leader:members!leader_id(id, name, avatar_url, phone),
+                        co_leader:members!co_leader_id(id, name, avatar_url, phone),
+                        members:department_members(count),
+                        schedules:department_schedules(count)
+                    `)
+                    .eq('church_id', user.churchId)
+                    .is('deleted_at', null)
+                    .order('name', { ascending: true });
 
-            if (fetchError) throw fetchError;
+                if (fetchError) throw fetchError;
 
-            const formattedDepartments: Department[] = data.map((d: any) => ({
-                id: d.id,
-                name: d.name,
-                description: d.description,
-                icon: d.icon,
-                leaderId: d.leader_id,
-                coLeaderId: d.co_leader_id,
-                leader: d.leader ? { ...d.leader, avatar: d.leader.avatar_url } : undefined,
-                coLeader: d.co_leader ? { ...d.co_leader, avatar: d.co_leader.avatar_url } : undefined,
-                members: Array(d.members[0]?.count || 0).fill({} as any),
-                schedules: Array(d.schedules[0]?.count || 0).fill({} as any),
-                isDefault: d.is_default
-            }));
+                return data.map((d: any) => ({
+                    id: d.id,
+                    name: d.name,
+                    description: d.description,
+                    icon: d.icon,
+                    leaderId: d.leader_id,
+                    coLeaderId: d.co_leader_id,
+                    leader: d.leader ? { ...d.leader, avatar: d.leader.avatar_url } : undefined,
+                    coLeader: d.co_leader ? { ...d.co_leader, avatar: d.co_leader.avatar_url } : undefined,
+                    members: Array(d.members[0]?.count || 0).fill({} as any),
+                    schedules: Array(d.schedules[0]?.count || 0).fill({} as any),
+                    isDefault: d.is_default
+                }));
+            })();
 
-            setDepartments(formattedDepartments);
+            const result = await activeFetchPromise;
+            updateCache(result);
             setError(null);
         } catch (err: any) {
             console.error('Error fetching departments:', JSON.stringify(err, null, 2));
             setError('Erro ao carregar departamentos');
         } finally {
+            activeFetchPromise = null;
             setLoading(false);
         }
     }, [user?.churchId]);
@@ -128,7 +161,7 @@ export const useDepartments = () => {
                 leader: dept.leader ? { ...dept.leader, avatar: dept.leader.avatar_url, phone: dept.leader.phone } : undefined,
                 coLeader: dept.co_leader ? { ...dept.co_leader, avatar: dept.co_leader.avatar_url, phone: dept.co_leader.phone } : undefined,
                 members,
-                schedules: schedules as any[], // Casting to match generic Department type expectation
+                schedules: schedules as any[],
                 isDefault: dept.is_default
             });
             setError(null);
@@ -158,7 +191,7 @@ export const useDepartments = () => {
 
             if (insertError) throw insertError;
 
-            await fetchDepartments();
+            await fetchDepartments(); // Refresh cache
             return true;
         } catch (err: any) {
             console.error('Error adding department:', err);
@@ -182,7 +215,7 @@ export const useDepartments = () => {
 
             if (updateError) throw updateError;
 
-            await fetchDepartments();
+            await fetchDepartments(); // Refresh cache
             return true;
         } catch (err: any) {
             console.error('Error updating department:', err);
@@ -200,7 +233,7 @@ export const useDepartments = () => {
 
             if (deleteError) throw deleteError;
 
-            await fetchDepartments();
+            updateCache(cachedDepartments.filter(d => d.id !== id));
             return true;
         } catch (err: any) {
             console.error('Error deleting department:', err);
@@ -217,7 +250,12 @@ export const useDepartments = () => {
             }));
             const { error } = await supabase.from('department_members' as any).insert(rows);
             if (error) throw error;
-            await fetchDepartmentDetails(departmentId);
+            
+            // Sync details page and parent departments list counts
+            await Promise.all([
+                fetchDepartmentDetails(departmentId),
+                fetchDepartments()
+            ]);
             return true;
         } catch (err: any) {
             console.error('Error adding members:', err);
@@ -233,7 +271,12 @@ export const useDepartments = () => {
                 .eq('department_id', departmentId)
                 .eq('member_id', memberId);
             if (error) throw error;
-            await fetchDepartmentDetails(departmentId);
+            
+            // Sync details page and parent departments list counts
+            await Promise.all([
+                fetchDepartmentDetails(departmentId),
+                fetchDepartments()
+            ]);
             return true;
         } catch (err: any) {
             console.error('Error removing member:', err);
@@ -268,7 +311,11 @@ export const useDepartments = () => {
                 if (aErr) throw aErr;
             }
 
-            await fetchDepartmentDetails(schedule.departmentId);
+            // Sync details page and parent departments list counts
+            await Promise.all([
+                fetchDepartmentDetails(schedule.departmentId),
+                fetchDepartments()
+            ]);
             return true;
         } catch (err: any) {
             console.error('Error adding schedule:', err);
@@ -308,7 +355,11 @@ export const useDepartments = () => {
                 if (aErr) throw aErr;
             }
 
-            await fetchDepartmentDetails(schedule.departmentId);
+            // Sync details page and parent departments list counts
+            await Promise.all([
+                fetchDepartmentDetails(schedule.departmentId),
+                fetchDepartments()
+            ]);
             return true;
         } catch (err: any) {
             console.error('Error updating schedule:', err);
@@ -321,7 +372,12 @@ export const useDepartments = () => {
         try {
             const { error } = await supabase.from('department_schedules' as any).delete().eq('id', scheduleId);
             if (error) throw error;
-            await fetchDepartmentDetails(departmentId);
+            
+            // Sync details page and parent departments list counts
+            await Promise.all([
+                fetchDepartmentDetails(departmentId),
+                fetchDepartments()
+            ]);
             return true;
         } catch (err: any) {
             console.error('Error deleting schedule:', err);
@@ -331,8 +387,20 @@ export const useDepartments = () => {
     };
 
     useEffect(() => {
-        fetchDepartments();
-    }, [fetchDepartments]);
+        if (user?.churchId) {
+            if (cacheChurchId !== user.churchId) {
+                updateCache([]);
+                cacheChurchId = user.churchId;
+                fetchDepartments();
+            } else if (cachedDepartments.length === 0 && !activeFetchPromise) {
+                fetchDepartments();
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
+    }, [user?.churchId, fetchDepartments]);
 
     return {
         departments,

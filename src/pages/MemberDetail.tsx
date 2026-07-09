@@ -78,127 +78,10 @@ const MemberDetail: React.FC = () => {
                     let grpNames: string[] = [];
                     let clsNames: string[] = [];
                     let calculatedAttendance = 0;
+                    let relationships: any[] = [];
+                    let ordHistory: any[] = [];
 
-                    // Departments
-                    // Departments (Members + Leaders)
-                    const { data: deptMembershipData } = await supabase
-                        .from('department_members')
-                        .select('department:departments(name)')
-                        .eq('member_id', id);
-
-                    const { data: deptLeadershipData } = await supabase
-                        .from('departments')
-                        .select('name')
-                        .or(`leader_id.eq.${id},co_leader_id.eq.${id}`);
-
-                    if (deptMembershipData) {
-                        deptNames = deptMembershipData.map((d: any) => d.department?.name).filter(Boolean);
-                    }
-
-                    if (deptLeadershipData) {
-                        const leaderDeptNames = deptLeadershipData.map((d: any) => d.name).filter(Boolean);
-                        // Combine and remove duplicates
-                        deptNames = Array.from(new Set([...deptNames, ...leaderDeptNames]));
-                    }
-
-                    // Groups Information
-                    const { data: groupData } = await supabase
-                        .from('group_members')
-                        .select('group_id, group:groups(name)')
-                        .eq('member_id', id)
-                        .is('left_at', null);
-
-                    const activeGroupIds = groupData?.map((g: any) => g.group_id).filter(Boolean) || [];
-                    if (foundMember.groupId && !activeGroupIds.includes(foundMember.groupId)) {
-                        activeGroupIds.push(foundMember.groupId);
-                    }
-
-                    if (groupData) {
-                        grpNames = groupData.map((g: any) => g.group?.name).filter(Boolean);
-                    }
-
-                    // Classes
-                    const { data: classData } = await supabase
-                        .from('teaching_class_students')
-                        .select('class:teaching_classes(name)')
-                        .eq('member_id', id);
-
-                    if (classData) {
-                        clsNames = classData.map((c: any) => c.class?.name).filter(Boolean);
-                    }
-
-                    // --- Last Attendance & Attendance Percentage Logic (Group Based) ---
-
-                    // 1. Get Last Attendance Date (Any group)
-                    const { data: attendanceData } = await supabase
-                        .from('group_meeting_attendance')
-                        .select('meeting:group_meetings(date)')
-                        .eq('member_id', id)
-                        .eq('present', true);
-
-                    if (attendanceData && attendanceData.length > 0) {
-                        const dates = attendanceData
-                            .map((a: any) => a.meeting?.date)
-                            .filter(Boolean)
-                            .map(d => new Date(d).getTime());
-
-                        if (dates.length > 0) {
-                            const maxDate = new Date(Math.max(...dates));
-                            lastDate = maxDate.toISOString();
-                        }
-                    }
-
-                    // 2. Calculate Percentage (Across all active groups of the member)
-                    if (activeGroupIds.length > 0) {
-                        const sixMonthsAgo = new Date();
-                        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-                        // Get all meetings for these groups in last 6 months
-                        const { data: groupMeetings } = await supabase
-                            .from('group_meetings')
-                            .select('id')
-                            .in('group_id', activeGroupIds)
-                            .gte('date', sixMonthsAgo.toISOString());
-
-                        const totalMeetings = groupMeetings?.length || 0;
-
-                        if (totalMeetings > 0) {
-                            const meetingIds = groupMeetings!.map(m => m.id);
-
-                            // Count how many of these the member attended
-                            const { count } = await supabase
-                                .from('group_meeting_attendance')
-                                .select('*', { count: 'exact', head: true })
-                                .eq('member_id', id)
-                                .eq('present', true)
-                                .in('meeting_id', meetingIds);
-
-                            const attendedCount = count || 0;
-                            calculatedAttendance = Math.round((attendedCount / totalMeetings) * 100);
-                        }
-                    }
-
-                    // Family Relationships (As source or target)
-                    let familyAsSource = null;
-                    let familyAsTarget = null;
-                    
-                    try {
-                        const { data: sourceData } = await supabase
-                            .from('member_relationships')
-                            .select('id, relationship_type, related:members!related_member_id(id, name, avatar_url, member_code)')
-                            .eq('member_id', id);
-                        familyAsSource = sourceData;
-
-                        const { data: targetData } = await supabase
-                            .from('member_relationships')
-                            .select('id, relationship_type, related:members!member_id(id, name, avatar_url, member_code)')
-                            .eq('related_member_id', id);
-                        familyAsTarget = targetData;
-                    } catch (e) {
-                        console.warn("Tabela member_relationships possivelmente ainda não existe. Por favor, rode a migration.");
-                    }
-
-                    // Map opposite relationships
+                    // Map opposite relationships helper
                     const getOppositeRelationship = (type: string, currentMemberGender?: string) => {
                         switch (type) {
                             case 'Pai':
@@ -222,45 +105,156 @@ const MemberDetail: React.FC = () => {
                         }
                     };
 
-                    // Map relationships symmetrically to display
-                    const relationships = [
-                        ...(familyAsSource || []).map((r: any) => ({
-                            id: r.id,
-                            type: r.relationship_type,
-                            relative: r.related,
-                            direction: 'source'
-                        })),
-                        ...(familyAsTarget || []).map((r: any) => ({
-                            id: r.id,
-                            type: getOppositeRelationship(r.relationship_type, foundMember.gender),
-                            relative: r.related,
-                            direction: 'target'
-                        }))
-                    ];
-
-                    // Ordination History
-                    let ordHistory = [];
                     try {
-                        const { data: ordData } = await supabase
-                            .from('ordination_members')
-                            .select(`
-                                id,
-                                ordination:ordinations(
+                        // 1. First Phase: Fetch all independent data sets in parallel
+                        const [
+                            deptMembershipResult,
+                            deptLeadershipResult,
+                            groupMembershipResult,
+                            classesResult,
+                            lastAttendanceResult,
+                            relationshipsSourceResult,
+                            relationshipsTargetResult,
+                            ordinationsResult
+                        ] = await Promise.all([
+                            supabase
+                                .from('department_members')
+                                .select('department:departments(name)')
+                                .eq('member_id', id),
+                            supabase
+                                .from('departments')
+                                .select('name')
+                                .or(`leader_id.eq.${id},co_leader_id.eq.${id}`),
+                            supabase
+                                .from('group_members')
+                                .select('group_id, group:groups(name)')
+                                .eq('member_id', id)
+                                .is('left_at', null),
+                            supabase
+                                .from('teaching_class_students')
+                                .select('class:teaching_classes(name)')
+                                .eq('member_id', id),
+                            supabase
+                                .from('group_meeting_attendance')
+                                .select('meeting:group_meetings(date)')
+                                .eq('member_id', id)
+                                .eq('present', true),
+                            supabase
+                                .from('member_relationships')
+                                .select('id, relationship_type, related:members!related_member_id(id, name, avatar_url, member_code)')
+                                .eq('member_id', id)
+                                .catch(() => ({ data: [] })), // Graceful catch if table doesn't exist
+                            supabase
+                                .from('member_relationships')
+                                .select('id, relationship_type, related:members!member_id(id, name, avatar_url, member_code)')
+                                .eq('related_member_id', id)
+                                .catch(() => ({ data: [] })), // Graceful catch if table doesn't exist
+                            supabase
+                                .from('ordination_members')
+                                .select(`
                                     id,
-                                    date,
-                                    category,
-                                    celebrant,
-                                    notes
-                                )
-                            `)
-                            .eq('member_id', id)
-                            .order('ordination(date)', { ascending: false });
-                        
-                        if (ordData) {
-                            ordHistory = ordData.map((o: any) => o.ordination).filter(Boolean);
+                                    ordination:ordinations(
+                                        id,
+                                        date,
+                                        category,
+                                        celebrant,
+                                        notes
+                                    )
+                                `)
+                                .eq('member_id', id)
+                                .order('ordination(date)', { ascending: false })
+                                .catch(() => ({ data: [] })) // Graceful catch if table doesn't exist
+                        ]);
+
+                        // Process Departments
+                        if (deptMembershipResult.data) {
+                            deptNames = deptMembershipResult.data.map((d: any) => d.department?.name).filter(Boolean);
                         }
-                    } catch (e) {
-                        console.warn("Tabela ordinations possivelmente ainda não existe.");
+                        if (deptLeadershipResult.data) {
+                            const leaderDeptNames = deptLeadershipResult.data.map((d: any) => d.name).filter(Boolean);
+                            deptNames = Array.from(new Set([...deptNames, ...leaderDeptNames]));
+                        }
+
+                        // Process Groups Information
+                        if (groupMembershipResult.data) {
+                            grpNames = groupMembershipResult.data.map((g: any) => g.group?.name).filter(Boolean);
+                        }
+
+                        // Process Classes
+                        if (classesResult.data) {
+                            clsNames = classesResult.data.map((c: any) => c.class?.name).filter(Boolean);
+                        }
+
+                        // Process Last Attendance
+                        if (lastAttendanceResult.data && lastAttendanceResult.data.length > 0) {
+                            const dates = lastAttendanceResult.data
+                                .map((a: any) => a.meeting?.date)
+                                .filter(Boolean)
+                                .map(d => new Date(d).getTime());
+
+                            if (dates.length > 0) {
+                                const maxDate = new Date(Math.max(...dates));
+                                lastDate = maxDate.toISOString();
+                            }
+                        }
+
+                        // Process Family Relationships
+                        const familyAsSource = relationshipsSourceResult.data || [];
+                        const familyAsTarget = relationshipsTargetResult.data || [];
+                        relationships = [
+                            ...familyAsSource.map((r: any) => ({
+                                id: r.id,
+                                type: r.relationship_type,
+                                relative: r.related,
+                                direction: 'source'
+                            })),
+                            ...familyAsTarget.map((r: any) => ({
+                                id: r.id,
+                                type: getOppositeRelationship(r.relationship_type, foundMember.gender),
+                                relative: r.related,
+                                direction: 'target'
+                            }))
+                        ];
+
+                        // Process Ordination History
+                        if (ordinationsResult.data) {
+                            ordHistory = ordinationsResult.data.map((o: any) => o.ordination).filter(Boolean);
+                        }
+
+                        // 2. Second Phase: Attendance Percentage (Depends on group list)
+                        const activeGroupIds = groupMembershipResult.data?.map((g: any) => g.group_id).filter(Boolean) || [];
+                        if (foundMember.groupId && !activeGroupIds.includes(foundMember.groupId)) {
+                            activeGroupIds.push(foundMember.groupId);
+                        }
+
+                        if (activeGroupIds.length > 0) {
+                            const sixMonthsAgo = new Date();
+                            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+                            const { data: groupMeetings } = await supabase
+                                .from('group_meetings')
+                                .select('id')
+                                .in('group_id', activeGroupIds)
+                                .gte('date', sixMonthsAgo.toISOString());
+
+                            const totalMeetings = groupMeetings?.length || 0;
+
+                            if (totalMeetings > 0) {
+                                const meetingIds = groupMeetings!.map(m => m.id);
+
+                                const { count } = await supabase
+                                    .from('group_meeting_attendance')
+                                    .select('*', { count: 'exact', head: true })
+                                    .eq('member_id', id)
+                                    .eq('present', true)
+                                    .in('meeting_id', meetingIds);
+
+                                const attendedCount = count || 0;
+                                calculatedAttendance = Math.round((attendedCount / totalMeetings) * 100);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching member relationships data:', error);
                     }
 
                     return { lastDate, deptNames, grpNames, clsNames, calculatedAttendance, relationships, ordHistory };

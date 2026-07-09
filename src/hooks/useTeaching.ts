@@ -4,22 +4,74 @@ import { useAuth } from '../contexts/AuthContext';
 import { TeachingClass, ChristianStage, TeachingCategory, Member, TeachingLesson } from '../types';
 import { DEFAULT_CHRISTIAN_STAGES, DEFAULT_TEACHING_CATEGORIES } from '../data/teachingDefaults';
 
+// Global cache outside the hook function for pub-sub pattern
+let cachedClasses: TeachingClass[] = [];
+let cachedStages: ChristianStage[] = [];
+let cachedCategories: TeachingCategory[] = [];
+
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+const notifyListeners = () => {
+    listeners.forEach(listener => listener());
+};
+
 export const useTeaching = () => {
     const { user } = useAuth();
-    const [classes, setClasses] = useState<TeachingClass[]>([]);
-    const [stages, setStages] = useState<ChristianStage[]>([]);
-    const [categories, setCategories] = useState<TeachingCategory[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [classes, setClassesState] = useState<TeachingClass[]>(cachedClasses);
+    const [stages, setStagesState] = useState<ChristianStage[]>(cachedStages);
+    const [categories, setCategoriesState] = useState<TeachingCategory[]>(cachedCategories);
+    const [loading, setLoading] = useState(cachedClasses.length === 0);
     const [error, setError] = useState<string | null>(null);
+
+    // Sync local states to cache updates
+    useEffect(() => {
+        const handler = () => {
+            setClassesState(cachedClasses);
+            setStagesState(cachedStages);
+            setCategoriesState(cachedCategories);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
+
+    // Setters that update global cache and notify listeners
+    const setClasses = (data: TeachingClass[]) => {
+        cachedClasses = data;
+        notifyListeners();
+    };
+    const setStages = (data: ChristianStage[]) => {
+        cachedStages = data;
+        notifyListeners();
+    };
+    const setCategories = (data: TeachingCategory[]) => {
+        cachedCategories = data;
+        notifyListeners();
+    };
 
     const refetch = useCallback(async () => {
         if (!user?.churchId) return;
-        setLoading(true);
+
+        if (activeFetchPromise) {
+            try {
+                await activeFetchPromise;
+            } catch {}
+            return;
+        }
+
         try {
-            await Promise.all([fetchStagesAndCategories(), fetchClasses()]);
+            setLoading(true);
+            activeFetchPromise = (async () => {
+                await Promise.all([fetchStagesAndCategories(), fetchClasses()]);
+            })();
+            await activeFetchPromise;
         } catch (err: any) {
             console.error(err);
         } finally {
+            activeFetchPromise = null;
             setLoading(false);
         }
     }, [user?.churchId]);
@@ -489,8 +541,23 @@ export const useTeaching = () => {
     };
 
     useEffect(() => {
-        refetch();
-    }, [refetch]);
+        if (user?.churchId) {
+            if (cacheChurchId !== user.churchId) {
+                // Reset cache
+                cachedClasses = [];
+                cachedStages = [];
+                cachedCategories = [];
+                cacheChurchId = user.churchId;
+                refetch();
+            } else if (cachedClasses.length === 0 && !activeFetchPromise) {
+                refetch();
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
+    }, [user?.churchId, refetch]);
 
     return {
         classes,

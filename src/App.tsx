@@ -99,6 +99,7 @@ const AppContent: React.FC = () => {
             <Route path="/discipleship/:id" element={<DiscipleshipDetail />} />
             <Route path="/teaching" element={<Teaching />} />
             <Route path="/teaching/:id" element={<TeachingDetail />} />
+            <Route path="/members/reports" element={<Reports />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/church-profile" element={<ChurchProfile />} />
             {hasRole('superuser') && (

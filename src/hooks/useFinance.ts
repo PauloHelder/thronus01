@@ -130,21 +130,85 @@ export interface TransactionFilter {
 // HOOK
 // ==========================================
 
+// Global cache outside the hook function for pub-sub pattern
+let cachedAccounts: FinancialAccount[] = [];
+let cachedCategories: FinancialCategory[] = [];
+let cachedTransactions: FinancialTransaction[] = [];
+let cachedRequests: FinancialRequest[] = [];
+let cachedBudgets: FinancialBudget[] = [];
+let cachedPayables: FinancialRecurringBill[] = [];
+let cachedInstallments: FinancialPayableInstallment[] = [];
+
+let cacheChurchId: string | null = null;
+let activeFetchPromise: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+const notifyListeners = () => {
+    listeners.forEach(listener => listener());
+};
+
 export const useFinance = () => {
     const { user } = useAuth();
 
-    // State
-    const [accounts, setAccounts] = useState<FinancialAccount[]>([]);
-    const [categories, setCategories] = useState<FinancialCategory[]>([]);
-    const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
-    const [requests, setRequests] = useState<FinancialRequest[]>([]);
-    const [budgets, setBudgets] = useState<FinancialBudget[]>([]);
-    const [payables, setPayables] = useState<FinancialRecurringBill[]>([]);
-    const [installments, setInstallments] = useState<FinancialPayableInstallment[]>([]);
+    // Local state variables backed by the global cache
+    const [accounts, setAccountsState] = useState<FinancialAccount[]>(cachedAccounts);
+    const [categories, setCategoriesState] = useState<FinancialCategory[]>(cachedCategories);
+    const [transactions, setTransactionsState] = useState<FinancialTransaction[]>(cachedTransactions);
+    const [requests, setRequestsState] = useState<FinancialRequest[]>(cachedRequests);
+    const [budgets, setBudgetsState] = useState<FinancialBudget[]>(cachedBudgets);
+    const [payables, setPayablesState] = useState<FinancialRecurringBill[]>(cachedPayables);
+    const [installments, setInstallmentsState] = useState<FinancialPayableInstallment[]>(cachedInstallments);
     const [currentDepartmentId, setCurrentDepartmentId] = useState<string | null>(null);
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(cachedAccounts.length === 0);
     const [error, setError] = useState<string | null>(null);
+
+    // Sync local states to cache updates
+    useEffect(() => {
+        const handler = () => {
+            setAccountsState(cachedAccounts);
+            setCategoriesState(cachedCategories);
+            setTransactionsState(cachedTransactions);
+            setRequestsState(cachedRequests);
+            setBudgetsState(cachedBudgets);
+            setPayablesState(cachedPayables);
+            setInstallmentsState(cachedInstallments);
+        };
+        listeners.add(handler);
+        return () => {
+            listeners.delete(handler);
+        };
+    }, []);
+
+    // Setters that update global cache and notify listeners
+    const setAccounts = (data: FinancialAccount[]) => {
+        cachedAccounts = data;
+        notifyListeners();
+    };
+    const setCategories = (data: FinancialCategory[]) => {
+        cachedCategories = data;
+        notifyListeners();
+    };
+    const setTransactions = (data: FinancialTransaction[]) => {
+        cachedTransactions = data;
+        notifyListeners();
+    };
+    const setRequests = (data: FinancialRequest[]) => {
+        cachedRequests = data;
+        notifyListeners();
+    };
+    const setBudgets = (data: FinancialBudget[]) => {
+        cachedBudgets = data;
+        notifyListeners();
+    };
+    const setPayables = (data: FinancialRecurringBill[]) => {
+        cachedPayables = data;
+        notifyListeners();
+    };
+    const setInstallments = (data: FinancialPayableInstallment[]) => {
+        cachedInstallments = data;
+        notifyListeners();
+    };
 
     // ==========================================
     // FETCH DATA
@@ -1103,19 +1167,49 @@ export const useFinance = () => {
         
         const load = async () => {
             if (user?.churchId) {
+                if (cacheChurchId !== user.churchId) {
+                    // Church changed: reset cache
+                    cachedAccounts = [];
+                    cachedCategories = [];
+                    cachedTransactions = [];
+                    cachedRequests = [];
+                    cachedBudgets = [];
+                    cachedPayables = [];
+                    cachedInstallments = [];
+                    cacheChurchId = user.churchId;
+                    activeFetchPromise = null;
+                }
+
+                if (cachedAccounts.length > 0) {
+                    if (mounted) setLoading(false);
+                    return;
+                }
+
+                if (activeFetchPromise) {
+                    try {
+                        await activeFetchPromise;
+                    } catch {}
+                    if (mounted) setLoading(false);
+                    return;
+                }
+
                 try {
-                    await Promise.all([
-                        fetchAccounts(),
-                        fetchCategories(),
-                        fetchTransactions(),
-                        fetchRequests(),
-                        fetchBudgets(),
-                        fetchPayables(),
-                        fetchInstallments()
-                    ]);
+                    activeFetchPromise = (async () => {
+                        await Promise.all([
+                            fetchAccounts(),
+                            fetchCategories(),
+                            fetchTransactions(),
+                            fetchRequests(),
+                            fetchBudgets(),
+                            fetchPayables(),
+                            fetchInstallments()
+                        ]);
+                    })();
+                    await activeFetchPromise;
                 } catch (err) {
                     console.error('Error in initial load:', err);
                 } finally {
+                    activeFetchPromise = null;
                     if (mounted) setLoading(false);
                 }
             } else if (user === null || (user && !user.churchId)) {
@@ -1135,7 +1229,7 @@ export const useFinance = () => {
             mounted = false;
             clearTimeout(timeout);
         };
-    }, [user, user?.churchId, fetchAccounts, fetchCategories, fetchTransactions, fetchRequests, fetchPayables, fetchInstallments]);
+    }, [user?.churchId, fetchAccounts, fetchCategories, fetchTransactions, fetchRequests, fetchBudgets, fetchPayables, fetchInstallments]);
 
     return {
         // Data
