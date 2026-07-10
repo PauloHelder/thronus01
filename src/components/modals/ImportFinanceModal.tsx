@@ -6,6 +6,36 @@ import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { formatAOA } from '../../utils/currency';
 import { parseFlexibleDate } from '../../utils/dateUtils';
+import { useAuth } from '../../contexts/AuthContext';
+
+const parseFormattedNumber = (val: any): number => {
+    if (val === undefined || val === null || val === '') return 0;
+    if (typeof val === 'number') return val;
+    
+    let str = val.toString().trim().replace(/\s/g, ''); // Remove spaces
+    
+    if (str.includes(',') && str.includes('.')) {
+        if (str.indexOf('.') < str.indexOf(',')) {
+            // Portuguese format: "1.500,00" -> remove dot, replace comma with dot
+            str = str.replace(/\./g, '').replace(/,/g, '.');
+        } else {
+            // US format: "1,500.00" -> remove comma
+            str = str.replace(/,/g, '');
+        }
+    } else if (str.includes(',')) {
+        // Only comma, e.g. "1500,00" or "1,50" -> replace comma with dot
+        str = str.replace(/,/g, '.');
+    } else if (str.includes('.')) {
+        // Only dot, e.g. "1.500" or "1.50"
+        const parts = str.split('.');
+        if (parts[parts.length - 1].length === 3) {
+            str = str.replace(/\./g, '');
+        }
+    }
+    
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? 0 : parsed;
+};
 
 interface ImportFinanceModalProps {
     isOpen: boolean;
@@ -22,6 +52,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
     categories,
     onImportBulk
 }) => {
+    const { user } = useAuth();
     const [file, setFile] = useState<File | null>(null);
     const [previewData, setPreviewData] = useState<any[]>([]);
     const [selectedAccountId, setSelectedAccountId] = useState('');
@@ -87,13 +118,13 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
 
                     // logic to determine amount and type
                     if (rawEntrada !== undefined && rawEntrada !== 0 && rawEntrada !== '') {
-                        amount = Math.abs(parseFloat(rawEntrada));
+                        amount = Math.abs(parseFormattedNumber(rawEntrada));
                         type = 'income';
                     } else if (rawSaida !== undefined && rawSaida !== 0 && rawSaida !== '') {
-                        amount = Math.abs(parseFloat(rawSaida));
+                        amount = Math.abs(parseFormattedNumber(rawSaida));
                         type = 'expense';
                     } else if (rawValor !== undefined) {
-                        amount = Math.abs(parseFloat(rawValor));
+                        amount = Math.abs(parseFormattedNumber(rawValor));
                         // Check type column if exists
                         const typeStr = (rawTipo || '').toString().toLowerCase();
                         if (typeStr.includes('s') || typeStr.includes('d') || typeStr.includes('exp') || typeStr.includes('gasto')) {
@@ -225,7 +256,7 @@ const ImportFinanceModal: React.FC<ImportFinanceModalProps> = ({
                                 name: tx.category_name,
                                 type: tx.type,
                                 color: tx.type === 'income' ? '#10B981' : '#EF4444',
-                                church_id: (await supabase.auth.getUser()).data.user?.user_metadata?.churchId || ''
+                                church_id: user?.churchId || ''
                             })
                             .select()
                             .single();
