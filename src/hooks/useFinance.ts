@@ -131,20 +131,93 @@ export interface TransactionFilter {
 // ==========================================
 
 // Global cache outside the hook function for pub-sub pattern
-let cachedAccounts: FinancialAccount[] = [];
-let cachedCategories: FinancialCategory[] = [];
-let cachedTransactions: FinancialTransaction[] = [];
-let cachedRequests: FinancialRequest[] = [];
-let cachedBudgets: FinancialBudget[] = [];
-let cachedPayables: FinancialRecurringBill[] = [];
-let cachedInstallments: FinancialPayableInstallment[] = [];
+let cachedAccounts: FinancialAccount[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_fin_accounts');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cachedCategories: FinancialCategory[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_fin_categories');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cachedTransactions: FinancialTransaction[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_fin_transactions');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cachedRequests: FinancialRequest[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_fin_requests');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cachedBudgets: FinancialBudget[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_fin_budgets');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cachedPayables: FinancialRecurringBill[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_fin_payables');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
+let cachedInstallments: FinancialPayableInstallment[] = (() => {
+    try {
+        const val = localStorage.getItem('thronus_cache_fin_installments');
+        return val ? JSON.parse(val) : [];
+    } catch {
+        return [];
+    }
+})();
 
-let cacheChurchId: string | null = null;
+let cacheChurchId: string | null = (() => {
+    try {
+        return localStorage.getItem('thronus_cache_church_id_finance');
+    } catch {
+        return null;
+    }
+})();
+let lastFetchTime = 0;
 let activeFetchPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
 const notifyListeners = () => {
     listeners.forEach(listener => listener());
+};
+
+const persistCache = () => {
+    try {
+        localStorage.setItem('thronus_cache_fin_accounts', JSON.stringify(cachedAccounts));
+        localStorage.setItem('thronus_cache_fin_categories', JSON.stringify(cachedCategories));
+        localStorage.setItem('thronus_cache_fin_transactions', JSON.stringify(cachedTransactions));
+        localStorage.setItem('thronus_cache_fin_requests', JSON.stringify(cachedRequests));
+        localStorage.setItem('thronus_cache_fin_budgets', JSON.stringify(cachedBudgets));
+        localStorage.setItem('thronus_cache_fin_payables', JSON.stringify(cachedPayables));
+        localStorage.setItem('thronus_cache_fin_installments', JSON.stringify(cachedInstallments));
+        if (cacheChurchId) {
+            localStorage.setItem('thronus_cache_church_id_finance', cacheChurchId);
+        }
+    } catch (e) {
+        console.warn('Failed to save finance cache:', e);
+    }
 };
 
 export const useFinance = () => {
@@ -183,30 +256,37 @@ export const useFinance = () => {
     // Setters that update global cache and notify listeners
     const setAccounts = (data: FinancialAccount[]) => {
         cachedAccounts = data;
+        persistCache();
         notifyListeners();
     };
     const setCategories = (data: FinancialCategory[]) => {
         cachedCategories = data;
+        persistCache();
         notifyListeners();
     };
     const setTransactions = (data: FinancialTransaction[]) => {
         cachedTransactions = data;
+        persistCache();
         notifyListeners();
     };
     const setRequests = (data: FinancialRequest[]) => {
         cachedRequests = data;
+        persistCache();
         notifyListeners();
     };
     const setBudgets = (data: FinancialBudget[]) => {
         cachedBudgets = data;
+        persistCache();
         notifyListeners();
     };
     const setPayables = (data: FinancialRecurringBill[]) => {
         cachedPayables = data;
+        persistCache();
         notifyListeners();
     };
     const setInstallments = (data: FinancialPayableInstallment[]) => {
         cachedInstallments = data;
+        persistCache();
         notifyListeners();
     };
 
@@ -1165,10 +1245,22 @@ export const useFinance = () => {
     useEffect(() => {
         let mounted = true;
         
-        const load = async () => {
+        const load = async (forceSilent = false) => {
             if (user?.churchId) {
+                const now = Date.now();
                 if (cacheChurchId !== user.churchId) {
                     // Church changed: reset cache
+                    cacheChurchId = user.churchId;
+                    try {
+                        localStorage.removeItem('thronus_cache_fin_accounts');
+                        localStorage.removeItem('thronus_cache_fin_categories');
+                        localStorage.removeItem('thronus_cache_fin_transactions');
+                        localStorage.removeItem('thronus_cache_fin_requests');
+                        localStorage.removeItem('thronus_cache_fin_budgets');
+                        localStorage.removeItem('thronus_cache_fin_payables');
+                        localStorage.removeItem('thronus_cache_fin_installments');
+                        localStorage.removeItem('thronus_cache_church_id_finance');
+                    } catch {}
                     cachedAccounts = [];
                     cachedCategories = [];
                     cachedTransactions = [];
@@ -1176,13 +1268,12 @@ export const useFinance = () => {
                     cachedBudgets = [];
                     cachedPayables = [];
                     cachedInstallments = [];
-                    cacheChurchId = user.churchId;
+                    lastFetchTime = 0;
                     activeFetchPromise = null;
                 }
 
-                if (cachedAccounts.length > 0) {
-                    if (mounted) setLoading(false);
-                    return;
+                if (cachedAccounts.length === 0 && !forceSilent) {
+                    if (mounted) setLoading(true);
                 }
 
                 if (activeFetchPromise) {
@@ -1206,6 +1297,8 @@ export const useFinance = () => {
                         ]);
                     })();
                     await activeFetchPromise;
+                    lastFetchTime = Date.now();
+                    persistCache();
                 } catch (err) {
                     console.error('Error in initial load:', err);
                 } finally {
@@ -1218,7 +1311,18 @@ export const useFinance = () => {
             }
         };
 
-        load();
+        if (user?.churchId) {
+            const now = Date.now();
+            if (cachedAccounts.length === 0) {
+                load();
+            } else if (now - lastFetchTime > 180000) {
+                load(true); // silent background fetch
+            } else {
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
+        }
         
         // Fail-safe: stop loading after 5 seconds no matter what
         const timeout = setTimeout(() => {
