@@ -81,7 +81,33 @@ export const useMembers = () => {
         joinDate: data.join_date,
         ordinationDate: data.ordination_date,
         ordinationCelebrant: data.ordination_celebrant,
-        createdAt: data.created_at
+        createdAt: data.created_at,
+
+        // Extended fields
+        nickname: data.nickname,
+        bloodType: data.blood_type,
+        emergencyContact: data.emergency_contact,
+        spouseMemberId: data.spouse_member_id,
+        spouseName: data.spouse_name,
+        marriageDate: data.marriage_date,
+        fatherMemberId: data.father_member_id,
+        fatherName: data.father_name,
+        motherMemberId: data.mother_member_id,
+        motherName: data.mother_name,
+        childrenData: data.children_data || [],
+        customRelationships: data.custom_relationships || [],
+        conversionDate: data.conversion_date,
+        conversionChurch: data.conversion_church,
+        baptismChurch: data.baptism_church,
+        entryDate: data.entry_date,
+        entryReason: data.entry_reason,
+        entryOriginChurch: data.entry_origin_church,
+        exitDate: data.exit_date,
+        exitReason: data.exit_reason,
+        exitDestinationChurch: data.exit_destination_church,
+        transitionHistory: data.transition_history || [],
+        ecclesiasticalTitles: data.ecclesiastical_titles || [],
+        ecclesiasticalFunctions: data.ecclesiastical_functions || []
     });
 
     // Helper to transform App data (camelCase) to DB data (snake_case)
@@ -116,6 +142,32 @@ export const useMembers = () => {
             dbData.ordination_celebrant = data.ordinationCelebrant;
             delete dbData.ordinationCelebrant;
         }
+
+        // Extended fields mapping
+        if (data.nickname !== undefined) dbData.nickname = data.nickname;
+        if (data.bloodType !== undefined) { dbData.blood_type = data.bloodType; delete dbData.bloodType; }
+        if (data.emergencyContact !== undefined) { dbData.emergency_contact = data.emergencyContact; delete dbData.emergencyContact; }
+        if (data.spouseMemberId !== undefined) { dbData.spouse_member_id = data.spouseMemberId === '' ? null : data.spouseMemberId; delete dbData.spouseMemberId; }
+        if (data.spouseName !== undefined) { dbData.spouse_name = data.spouseName; delete dbData.spouseName; }
+        if (data.marriageDate !== undefined) { dbData.marriage_date = data.marriageDate === '' ? null : data.marriageDate; delete dbData.marriageDate; }
+        if (data.fatherMemberId !== undefined) { dbData.father_member_id = data.fatherMemberId === '' ? null : data.fatherMemberId; delete dbData.fatherMemberId; }
+        if (data.fatherName !== undefined) { dbData.father_name = data.fatherName; delete dbData.fatherName; }
+        if (data.motherMemberId !== undefined) { dbData.mother_member_id = data.motherMemberId === '' ? null : data.motherMemberId; delete dbData.motherMemberId; }
+        if (data.motherName !== undefined) { dbData.mother_name = data.motherName; delete dbData.motherName; }
+        if (data.childrenData !== undefined) { dbData.children_data = data.childrenData; delete dbData.childrenData; }
+        if (data.customRelationships !== undefined) { dbData.custom_relationships = data.customRelationships; delete dbData.customRelationships; }
+        if (data.conversionDate !== undefined) { dbData.conversion_date = data.conversionDate === '' ? null : data.conversionDate; delete dbData.conversionDate; }
+        if (data.conversionChurch !== undefined) { dbData.conversion_church = data.conversionChurch; delete dbData.conversionChurch; }
+        if (data.baptismChurch !== undefined) { dbData.baptism_church = data.baptismChurch; delete dbData.baptismChurch; }
+        if (data.entryDate !== undefined) { dbData.entry_date = data.entryDate === '' ? null : data.entryDate; delete dbData.entryDate; }
+        if (data.entryReason !== undefined) { dbData.entry_reason = data.entryReason; delete dbData.entryReason; }
+        if (data.entryOriginChurch !== undefined) { dbData.entry_origin_church = data.entryOriginChurch; delete dbData.entryOriginChurch; }
+        if (data.exitDate !== undefined) { dbData.exit_date = data.exitDate === '' ? null : data.exitDate; delete dbData.exitDate; }
+        if (data.exitReason !== undefined) { dbData.exit_reason = data.exitReason; delete dbData.exitReason; }
+        if (data.exitDestinationChurch !== undefined) { dbData.exit_destination_church = data.exitDestinationChurch; delete dbData.exitDestinationChurch; }
+        if (data.transitionHistory !== undefined) { dbData.transition_history = data.transitionHistory; delete dbData.transitionHistory; }
+        if (data.ecclesiasticalTitles !== undefined) { dbData.ecclesiastical_titles = data.ecclesiasticalTitles; delete dbData.ecclesiasticalTitles; }
+        if (data.ecclesiasticalFunctions !== undefined) { dbData.ecclesiastical_functions = data.ecclesiasticalFunctions; delete dbData.ecclesiasticalFunctions; }
 
         return dbData;
     };
@@ -213,18 +265,32 @@ export const useMembers = () => {
                         .order('created_at', { ascending: false })
                         .limit(1);
 
+                    // Get church slug
+                    const { data: church } = await supabase
+                        .from('churches')
+                        .select('slug')
+                        .eq('id', user.churchId)
+                        .single();
+                    const cleanSlug = (church?.slug || '').replace(/[^a-zA-Z0-9]/g, '').padEnd(3, 'X').toUpperCase();
+                    const prefix = cleanSlug.substring(0, 3);
+                    const d = new Date();
+                    const year = d.getUTCFullYear();
+                    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(d.getUTCDate()).padStart(2, '0');
+                    const datePart = `${year}${month}${day}`;
+
                     let nextNum = 1;
                     if (maxCodeData && maxCodeData.length > 0 && maxCodeData[0].member_code) {
                         const lastCode = maxCodeData[0].member_code;
-                        const match = lastCode.match(/^M(\d+)$/);
+                        const match = lastCode.match(/\d+$/);
                         if (match) {
-                            nextNum = parseInt(match[1], 10) + 1;
+                            nextNum = parseInt(match[0], 10) + 1;
                         }
                     }
 
                     // 2. Retry loop (try next 10 numbers)
                     for (let i = 0; i < 10; i++) {
-                        const tryCode = `M${String(nextNum + i).padStart(3, '0')}`;
+                        const tryCode = `${prefix}${datePart}${String(nextNum + i).padStart(3, '0')}`;
                         console.log(`   Tentativa ${i + 1}: Usando código manual ${tryCode}`);
 
                         const retryData = { ...dbData, member_code: tryCode, church_id: user.churchId };

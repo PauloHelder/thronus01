@@ -110,7 +110,7 @@ const Events: React.FC = () => {
           <h1 className="text-3xl font-bold text-slate-800 font-outfit">Agenda</h1>
           <p className="text-slate-600 mt-1">Agenda de eventos e atividades da igreja</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => navigate('/calendar')}
             className="px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-lg font-medium flex items-center gap-2 transition-all shadow-sm"

@@ -135,15 +135,16 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                         Ícone do Departamento
                     </label>
                     <div className="grid grid-cols-6 gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg max-h-36 overflow-y-auto">
-                        {Object.entries(DEPARTMENT_ICONS).map(([key, emoji]) => (
+                        {DEPARTMENT_ICONS.map((item) => (
                             <button
-                                key={key}
+                                key={item.name}
                                 type="button"
-                                onClick={() => setIcon(key)}
-                                className={`p-2 text-2xl rounded-lg hover:bg-orange-50 transition-colors flex items-center justify-center ${icon === key ? 'bg-orange-100 ring-2 ring-orange-500' : ''
+                                onClick={() => setIcon(item.name)}
+                                className={`p-2 text-2xl rounded-lg hover:bg-orange-50 transition-colors flex items-center justify-center ${icon === item.name ? 'bg-orange-100 ring-2 ring-orange-500' : ''
                                     }`}
+                                title={item.label}
                             >
-                                {emoji}
+                                {item.emoji}
                             </button>
                         ))}
                     </div>

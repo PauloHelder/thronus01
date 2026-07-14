@@ -398,7 +398,7 @@ const Documents: React.FC = () => {
                     <p className="text-sm text-slate-500">Emissão de cartões de membros, cartas de recomendação e certificados</p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <button
                         onClick={() => setActiveTab('historico')}
                         className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${

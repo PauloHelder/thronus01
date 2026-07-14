@@ -271,7 +271,7 @@ const Tithers: React.FC = () => {
                     </h1>
                     <p className="text-slate-600 mt-1">Gestão e acompanhamento de contribuições</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <button
                         onClick={handleExportExcel}
                         className="px-4 py-2 bg-white border border-gray-200 text-slate-700 hover:bg-gray-50 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-sm"

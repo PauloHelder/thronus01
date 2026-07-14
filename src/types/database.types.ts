@@ -174,6 +174,32 @@ export interface Member {
     education_level: string | null;
     notes: string | null;
 
+    // Extended fields
+    nickname?: string | null;
+    blood_type?: string | null;
+    emergency_contact?: string | null;
+    spouse_member_id?: string | null;
+    spouse_name?: string | null;
+    marriage_date?: string | null;
+    father_member_id?: string | null;
+    father_name?: string | null;
+    mother_member_id?: string | null;
+    mother_name?: string | null;
+    children_data?: { memberId: string | null; name: string }[] | null;
+    custom_relationships?: { name: string; relationshipType: string }[] | null;
+    conversion_date?: string | null;
+    conversion_church?: string | null;
+    baptism_church?: string | null;
+    entry_date?: string | null;
+    entry_reason?: string | null;
+    entry_origin_church?: string | null;
+    exit_date?: string | null;
+    exit_reason?: string | null;
+    exit_destination_church?: string | null;
+    transition_history?: any[] | null;
+    ecclesiastical_titles?: string[] | null;
+    ecclesiastical_functions?: string[] | null;
+
     // Metadata
     created_at: string;
     updated_at: string;

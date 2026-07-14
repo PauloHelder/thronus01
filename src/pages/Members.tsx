@@ -263,7 +263,7 @@ const Members: React.FC = () => {
           </h1>
           <p className="text-slate-600 mt-1">Gerencie os membros da igreja</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={handleExport}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 rounded-lg font-medium flex items-center gap-2 transition-colors">

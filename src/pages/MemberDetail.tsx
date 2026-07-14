@@ -19,7 +19,6 @@ import {
     MessageCircle
 } from 'lucide-react';
 import MemberModal from '../components/modals/MemberModal';
-import AddFamilyRelationshipModal from '../components/modals/AddFamilyRelationshipModal';
 import CommunicationModal from '../components/modals/CommunicationModal';
 import GenericDeleteModal from '../components/modals/GenericDeleteModal';
 import { Member } from '../types';
@@ -57,7 +56,6 @@ const MemberDetail: React.FC = () => {
     const [member, setMember] = useState<ExtendedMember | null>(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isAddFamilyModalOpen, setIsAddFamilyModalOpen] = useState(false);
     const [isCommModalOpen, setIsCommModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -337,34 +335,7 @@ const MemberDetail: React.FC = () => {
         setItemToDelete(null);
     };
 
-    const handleAddFamilyRelationship = async (relatedMemberId: string, relationshipType: string) => {
-        if (!member) return;
-        try {
-            const { data, error } = await supabase
-                .from('member_relationships')
-                .insert({
-                    member_id: member.id,
-                    related_member_id: relatedMemberId,
-                    relationship_type: relationshipType
-                })
-                .select('id, relationship_type, related:members!related_member_id(id, name, avatar_url, member_code)')
-                .single();
 
-            if (error) throw error;
-            
-            if (data) {
-                setFamilyRelationships(prev => [...prev, {
-                    id: data.id,
-                    type: data.relationship_type,
-                    relative: data.related,
-                    direction: 'source'
-                }]);
-            }
-        } catch (error) {
-            console.error('Erro ao adicionar vínculo:', error);
-            toast.error('Erro ao adicionar vínculo familiar. Tente novamente.');
-        }
-    };
 
 
     const getMaritalStatusTranslation = (status?: string) => {
@@ -472,6 +443,11 @@ const MemberDetail: React.FC = () => {
                                 />
                             </div>
                             <h2 className="text-2xl font-bold text-slate-800 mb-1">{member.name}</h2>
+                            {member.nickname && (
+                                <p className="text-sm font-semibold text-slate-400 italic mb-1">
+                                    "{member.nickname}"
+                                </p>
+                            )}
                             {member.memberCode && (
                                 <p className="text-slate-500 font-medium mb-2 text-sm tracking-wide">
                                     {member.memberCode}
@@ -523,9 +499,25 @@ const MemberDetail: React.FC = () => {
                                 <MapPin className="text-orange-500 flex-shrink-0 mt-1" size={20} />
                                 <div>
                                     <p className="text-sm text-slate-600">Endereço</p>
-                                    <p className="text-slate-800 font-medium">{member.address}</p>
+                                    <p className="text-slate-800 font-medium">
+                                        {[
+                                            member.address,
+                                            member.neighborhood,
+                                            member.district,
+                                            member.municipality && `${member.municipality} (${member.province || ''})`
+                                        ].filter(Boolean).join(', ') || 'Não informado'}
+                                    </p>
                                 </div>
                             </div>
+                            {member.emergencyContact && (
+                                <div className="flex items-start gap-3 border-t border-gray-100 pt-3">
+                                    <Activity className="text-red-500 flex-shrink-0 mt-1" size={20} />
+                                    <div>
+                                        <p className="text-sm text-slate-600">Contacto de Emergência</p>
+                                        <p className="text-slate-800 font-medium">{member.emergencyContact}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -536,7 +528,7 @@ const MemberDetail: React.FC = () => {
                             <div className="flex justify-between items-center">
                                 <span className="text-slate-600">Membro desde</span>
                                 <span className="font-bold text-slate-800">
-                                    {new Date(member.joinDate).toLocaleDateString('pt-BR')}
+                                    {member.joinDate ? new Date(member.joinDate).toLocaleDateString('pt-BR') : 'Não informado'}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
@@ -585,7 +577,7 @@ const MemberDetail: React.FC = () => {
                                     Data de Nascimento
                                 </label>
                                 <p className="text-slate-800 font-medium">
-                                    {new Date(member.birthDate).toLocaleDateString('pt-BR')}
+                                    {member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : 'Não informado'}
                                 </p>
                             </div>
                             <div>
@@ -593,7 +585,7 @@ const MemberDetail: React.FC = () => {
                                     Idade
                                 </label>
                                 <p className="text-slate-800 font-medium">
-                                    {new Date().getFullYear() - new Date(member.birthDate).getFullYear()} anos
+                                    {member.birthDate ? `${new Date().getFullYear() - new Date(member.birthDate).getFullYear()} anos` : 'Não informado'}
                                 </p>
                             </div>
                             <div>
@@ -602,46 +594,225 @@ const MemberDetail: React.FC = () => {
                                 </label>
                                 <p className="text-slate-800 font-medium">{getMaritalStatusTranslation(member.maritalStatus)}</p>
                             </div>
+                            {member.maritalStatus === 'Married' && member.marriageDate && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 mb-1">
+                                        Data do Casamento
+                                    </label>
+                                    <p className="text-slate-800 font-medium">
+                                        {new Date(member.marriageDate).toLocaleDateString('pt-BR')}
+                                    </p>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-slate-600 mb-1">
                                     Profissão
                                 </label>
-                                <p className="text-slate-800 font-medium">{member.occupation}</p>
+                                <p className="text-slate-800 font-medium">{member.occupation || 'Não informado'}</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-600 mb-1">
-                                    Data de Ingresso
+                                    Escolaridade
                                 </label>
                                 <p className="text-slate-800 font-medium">
-                                    {new Date(member.joinDate).toLocaleDateString('pt-BR')}
+                                    {member.educationLevel === 'Sem' && 'Sem Instrução'}
+                                    {member.educationLevel === 'Base' && 'Ensino Básico'}
+                                    {member.educationLevel === 'Medio' && 'Ensino Médio'}
+                                    {member.educationLevel === 'Universidade' && 'Universitário'}
+                                    {member.educationLevel === 'Pós-universitário' && 'Pós-universitário'}
+                                    {!member.educationLevel && 'Não informado'}
                                 </p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-600 mb-1">
-                                    Batizado
+                                    Tipo Sanguíneo
                                 </label>
+                                <p className="text-slate-800 font-medium">{member.bloodType || 'Não informado'}</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">
+                                    Nº do Bilhete (BI)
+                                </label>
+                                <p className="text-slate-800 font-medium">{member.biNumber || 'Não informado'}</p>
+                            </div>
+                        </div>
+
+                        {/* Pais e Cônjuge */}
+                        <div className="border-t border-gray-100 mt-6 pt-6 grid md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Pai</label>
+                                <p className="text-slate-800 font-medium">
+                                    {member.fatherName || 'Não registado'}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Mãe</label>
+                                <p className="text-slate-800 font-medium">
+                                    {member.motherName || 'Não registada'}
+                                </p>
+                            </div>
+                            {member.maritalStatus === 'Married' && (
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-600 mb-1">Cônjuge</label>
+                                    <p className="text-slate-800 font-medium">
+                                        {member.spouseName || 'Não registado(a)'}
+                                    </p>
+                                </div>
+                            )}
+                            {(member.childrenData || []).length > 0 && (
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-600 mb-2">Filhos ({member.childrenData.length})</label>
+                                    <ul className="list-disc list-inside text-slate-800 font-medium text-sm space-y-1">
+                                        {member.childrenData.map((child: any, idx: number) => {
+                                            const childMember = members.find(m => m.id === child.memberId);
+                                            let ageStr = '';
+                                            if (childMember?.birthDate) {
+                                                const birth = new Date(childMember.birthDate);
+                                                const today = new Date();
+                                                let age = today.getFullYear() - birth.getFullYear();
+                                                const m = today.getMonth() - birth.getMonth();
+                                                if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+                                                    age--;
+                                                }
+                                                ageStr = ` (${age} anos)`;
+                                            }
+                                            return (
+                                                <li key={idx}>
+                                                    {child.name}{ageStr}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Vida Eclesiástica Detalhada */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <BookOpen className="text-orange-500" size={24} />
+                            Histórico Eclesiástico
+                        </h3>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Data de Admissão</label>
+                                <p className="text-slate-800 font-medium">
+                                    {member.joinDate ? new Date(member.joinDate).toLocaleDateString('pt-BR') : 'Não informado'}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Batizado nas Águas</label>
                                 <p className="text-slate-800 font-medium">
                                     {member.isBaptized ? 'Sim' : 'Não'}
                                 </p>
                             </div>
-                            {member.ordinationDate && (
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-600 mb-1">
-                                        Data de Consagração
-                                    </label>
-                                    <p className="text-slate-800 font-medium">
-                                        {new Date(member.ordinationDate).toLocaleDateString('pt-BR')}
-                                    </p>
-                                </div>
+                            {member.isBaptized && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">Data do Batismo</label>
+                                        <p className="text-slate-800 font-medium">
+                                            {member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : 'Não informado'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">Igreja/Local do Batismo</label>
+                                        <p className="text-slate-800 font-medium">{member.baptismChurch || 'Não informado'}</p>
+                                    </div>
+                                </>
                             )}
-                            {member.ordinationCelebrant && (
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-600 mb-1">
-                                        Ministro Celebrante
-                                    </label>
-                                    <p className="text-slate-800 font-medium">
-                                        {member.ordinationCelebrant}
-                                    </p>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Data da Conversão</label>
+                                <p className="text-slate-800 font-medium">
+                                    {member.conversionDate ? new Date(member.conversionDate).toLocaleDateString('pt-BR') : 'Não informado'}
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Igreja da Conversão</label>
+                                <p className="text-slate-800 font-medium">{member.conversionChurch || 'Não informado'}</p>
+                            </div>
+                        </div>
+
+                        {/* Títulos e Funções Eclesiásticas */}
+                        {((member.ecclesiasticalTitles || []).length > 0 || (member.ecclesiasticalFunctions || []).length > 0) && (
+                            <div className="border-t border-gray-100 mt-6 pt-6 space-y-4">
+                                {(member.ecclesiasticalTitles || []).length > 0 && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Títulos Eclesiásticos</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {member.ecclesiasticalTitles.map((t: string) => (
+                                                <span key={t} className="px-3 py-1 bg-orange-50 text-orange-600 border border-orange-100 rounded-full text-xs font-semibold">
+                                                    {t}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {(member.ecclesiasticalFunctions || []).length > 0 && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Funções / Ministérios</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {member.ecclesiasticalFunctions.map((f: string) => (
+                                                <span key={f} className="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-xs font-semibold">
+                                                    {f}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Histórico de Transições */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <Activity className="text-orange-500" size={24} />
+                            Transições e Movimentações
+                        </h3>
+                        <div className="grid md:grid-cols-2 gap-6 pb-6 border-b border-gray-100">
+                            <div>
+                                <h5 className="text-xs font-bold text-slate-700 uppercase tracking-widest mb-3">Histórico de Entrada</h5>
+                                <div className="space-y-2 text-sm">
+                                    <p><span className="text-slate-500">Tipo de Entrada:</span> <span className="font-semibold text-slate-800">{member.entryReason || 'Conversão'}</span></p>
+                                    <p><span className="text-slate-500">Data de Entrada:</span> <span className="font-semibold text-slate-800">{member.entryDate ? new Date(member.entryDate).toLocaleDateString('pt-BR') : (member.joinDate ? new Date(member.joinDate).toLocaleDateString('pt-BR') : 'Não informado')}</span></p>
+                                    {member.entryOriginChurch && <p><span className="text-slate-500">Igreja de Origem:</span> <span className="font-semibold text-slate-800">{member.entryOriginChurch}</span></p>}
+                                </div>
+                            </div>
+                            <div>
+                                <h5 className="text-xs font-bold text-slate-700 uppercase tracking-widest mb-3">Histórico de Saída</h5>
+                                {member.exitReason ? (
+                                    <div className="space-y-2 text-sm">
+                                        <p><span className="text-slate-500">Motivo da Saída:</span> <span className="font-semibold text-red-600">{member.exitReason}</span></p>
+                                        <p><span className="text-slate-500">Data de Saída:</span> <span className="font-semibold text-slate-800">{member.exitDate ? new Date(member.exitDate).toLocaleDateString('pt-BR') : 'Não informado'}</span></p>
+                                        {member.exitDestinationChurch && <p><span className="text-slate-500">Igreja de Destino:</span> <span className="font-semibold text-slate-800">{member.exitDestinationChurch}</span></p>}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-slate-400 italic">Nenhum desligamento ou saída registrado.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Transition timeline */}
+                        <div className="mt-6 space-y-4">
+                            <h5 className="text-xs font-bold text-slate-700 uppercase tracking-widest mb-4">Linha do Tempo de Transições</h5>
+                            {(member.transitionHistory || []).length > 0 ? (
+                                <div className="border border-gray-100 rounded-xl divide-y divide-gray-100 text-xs">
+                                    {member.transitionHistory.map((t: any, idx: number) => (
+                                        <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-50 transition-all">
+                                            <div>
+                                                <span className="font-semibold text-slate-700 capitalize">{t.type}</span>
+                                                <span className="text-slate-400 mx-2">•</span>
+                                                <span className="text-slate-500">{t.reason}</span>
+                                                {t.church && <span className="text-slate-400 block mt-0.5">{t.church}</span>}
+                                            </div>
+                                            <span className="text-slate-400 font-medium">{t.date}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-4 bg-slate-50/50 rounded-xl border border-dashed border-gray-200">
+                                    <p className="text-xs text-slate-400 italic">Nenhum histórico registrado na linha do tempo.</p>
                                 </div>
                             )}
                         </div>
@@ -723,12 +894,6 @@ const MemberDetail: React.FC = () => {
                                 <Users className="text-orange-500" size={24} />
                                 Vínculos Familiares
                             </h3>
-                            <button
-                                onClick={() => setIsAddFamilyModalOpen(true)}
-                                className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-lg font-medium text-sm transition-colors"
-                            >
-                                Adicionar Vínculo
-                            </button>
                         </div>
                         
                         {familyRelationships.length > 0 ? (
@@ -855,14 +1020,7 @@ const MemberDetail: React.FC = () => {
                 member={member}
             />
 
-            {/* Add Family Relationship Modal */}
-            <AddFamilyRelationshipModal
-                isOpen={isAddFamilyModalOpen}
-                onClose={() => setIsAddFamilyModalOpen(false)}
-                onAdd={handleAddFamilyRelationship}
-                members={members}
-                currentMemberId={member.id}
-            />
+
 
             <GenericDeleteModal
                 isOpen={isDeleteModalOpen}

@@ -788,7 +788,7 @@ const Finance = () => {
                             : 'Gestão de tesouraria, dízimos, ofertas e despesas'}
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <button
                         onClick={() => setIsAccountModalOpen(true)}
                         className="px-4 py-2 bg-white border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors font-medium shadow-sm"

@@ -26,6 +26,32 @@ export interface Member {
   ordinationDate?: string;
   ordinationCelebrant?: string;
   createdAt?: string;
+  
+  // Extended fields
+  nickname?: string;
+  bloodType?: string;
+  emergencyContact?: string;
+  spouseMemberId?: string;
+  spouseName?: string;
+  marriageDate?: string;
+  fatherMemberId?: string;
+  fatherName?: string;
+  motherMemberId?: string;
+  motherName?: string;
+  childrenData?: { memberId: string | null; name: string }[];
+  customRelationships?: { name: string; relationshipType: string }[];
+  conversionDate?: string;
+  conversionChurch?: string;
+  baptismChurch?: string;
+  entryDate?: string;
+  entryReason?: string;
+  entryOriginChurch?: string;
+  exitDate?: string;
+  exitReason?: string;
+  exitDestinationChurch?: string;
+  transitionHistory?: any[];
+  ecclesiasticalTitles?: string[];
+  ecclesiasticalFunctions?: string[];
 }
 
 export interface Plan {
