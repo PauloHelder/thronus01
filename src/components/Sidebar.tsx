@@ -33,7 +33,8 @@ import {
   Wrench,
   Tag,
   MessageSquare,
-  Award
+  Award,
+  MapPin
 } from 'lucide-react';
 
 interface NavBaseItem {
@@ -150,6 +151,7 @@ const Sidebar: React.FC = () => {
         { to: "/admin?tab=churches", icon: Building, label: "Igrejas Cadastradas" },
         { to: "/admin?tab=plans", icon: CreditCard, label: "Gerenciar Planos" },
         { to: "/admin?tab=denominations", icon: BookOpenCheck, label: "Denominações" },
+        { to: "/admin?tab=provinces", icon: MapPin, label: "Províncias & Municípios" },
         { to: "/users", icon: Users, label: "Usuários" }
       );
     }

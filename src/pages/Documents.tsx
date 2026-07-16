@@ -43,9 +43,24 @@ const Documents: React.FC = () => {
         signer_role: '',
         signature_url: '',
         custom_logo_url: '',
-        certificate_subtitle: 'Catedral da Fé'
+        certificate_subtitle: 'Catedral da Fé',
+        church_phone: '',
+        church_email: '',
+        church_address: '',
+        church_province: '',
+        church_country: '',
+        signatures: [] as { id: string; name: string; role: string; url: string }[]
     });
     const [uploadingSign, setUploadingSign] = useState(false);
+
+    // Signature Modal and Form States
+    const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+    const [editingSignature, setEditingSignature] = useState<{ id: string; name: string; role: string; url: string } | null>(null);
+    const [sigFormName, setSigFormName] = useState('');
+    const [sigFormRole, setSigFormRole] = useState('');
+    const [sigFormFile, setSigFormFile] = useState<File | null>(null);
+    const [sigFormPreviewUrl, setSigFormPreviewUrl] = useState('');
+    const [uploadingSigForm, setUploadingSigForm] = useState(false);
 
     // Document Generation State
     const [selectedDocType, setSelectedDocType] = useState<IssuedDocument['document_type'] | null>(null);
@@ -62,6 +77,10 @@ const Documents: React.FC = () => {
         title: '',
         recipient_name: '',
         notes: '',
+        card_orientation: 'horizontal',
+        selected_signature_id: '',
+        card_role: '',
+        card_title: '',
         // Recommendation
         dest_church: '',
         expiry_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 90 days default
@@ -86,6 +105,33 @@ const Documents: React.FC = () => {
     // Refs for PDF capture
     const printContainerRef = useRef<HTMLDivElement>(null);
     const [previewDocData, setPreviewDocData] = useState<any | null>(null);
+
+    // Format name to show first and last name only
+    const getFirstAndLastName = (fullName: string) => {
+        if (!fullName) return '';
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length <= 2) return fullName;
+        return `${parts[0]} ${parts[parts.length - 1]}`;
+    };
+
+    // Render church logo if custom exists, else show initials placeholder
+    const renderChurchLogo = () => {
+        if (configData.custom_logo_url) {
+            return (
+                <img 
+                    src={configData.custom_logo_url} 
+                    alt="Logo" 
+                    className="w-7 h-7 object-contain rounded-lg border border-slate-100 bg-white" 
+                />
+            );
+        }
+        return (
+            <div className="w-7 h-7 bg-orange-500 rounded-lg flex items-center justify-center font-black text-xs text-white shrink-0 shadow-sm">
+                {user?.churchName ? user.churchName.substring(0, 2).toUpperCase() : 'Tr'}
+            </div>
+        );
+    };
+
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [docToDelete, setDocToDelete] = useState<IssuedDocument | null>(null);
 
@@ -105,7 +151,13 @@ const Documents: React.FC = () => {
                 signer_role: settings.signer_role || '',
                 signature_url: settings.signature_url || '',
                 custom_logo_url: settingsObj.logo_url || '',
-                certificate_subtitle: settings.certificate_subtitle || user?.churchName || ''
+                certificate_subtitle: settings.certificate_subtitle || user?.churchName || '',
+                church_phone: settingsObj.phone || '',
+                church_email: settingsObj.email || '',
+                church_address: settingsObj.address || '',
+                church_province: settingsObj.province || '',
+                church_country: settingsObj.country || '',
+                signatures: settings.signatures || []
             });
         }
     };
@@ -146,6 +198,133 @@ const Documents: React.FC = () => {
         }
     };
 
+    const getActiveSignature = () => {
+        if (formData.selected_signature_id) {
+            const found = (configData.signatures || []).find(s => s.id === formData.selected_signature_id);
+            if (found) return found;
+        }
+        return {
+            id: 'legacy',
+            name: configData.signer_name || 'PASTOR PRESIDENTE',
+            role: configData.signer_role || '',
+            url: configData.signature_url || ''
+        };
+    };
+
+    const handleSigFormFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setSigFormFile(file);
+        const reader = new FileReader();
+        reader.onload = () => {
+            setSigFormPreviewUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSaveSignature = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!sigFormName.trim() || !sigFormRole.trim()) {
+            toast.error('Por favor, preencha o nome e o cargo.');
+            return;
+        }
+
+        if (!editingSignature && !sigFormFile) {
+            toast.error('Por favor, selecione a imagem da assinatura.');
+            return;
+        }
+
+        setUploadingSigForm(true);
+        const toastId = toast.loading(editingSignature ? 'Atualizando assinatura...' : 'Enviando imagem da assinatura...');
+        try {
+            let url = editingSignature ? editingSignature.url : '';
+            if (sigFormFile) {
+                const uploadedUrl = await uploadSignature(sigFormFile);
+                if (uploadedUrl) {
+                    url = uploadedUrl;
+                } else {
+                    toast.error('Erro ao fazer upload do arquivo.', { id: toastId });
+                    setUploadingSigForm(false);
+                    return;
+                }
+            }
+
+            let updatedSignatures = [];
+            if (editingSignature) {
+                updatedSignatures = (configData.signatures || []).map(s => 
+                    s.id === editingSignature.id 
+                        ? { ...s, name: sigFormName.trim(), role: sigFormRole.trim(), url } 
+                        : s
+                );
+            } else {
+                const newSignature = {
+                    id: crypto.randomUUID(),
+                    name: sigFormName.trim(),
+                    role: sigFormRole.trim(),
+                    url
+                };
+                updatedSignatures = [...(configData.signatures || []), newSignature];
+            }
+
+            const success = await updateChurchSettings({
+                signatures: updatedSignatures
+            });
+
+            if (success) {
+                setConfigData(prev => ({ ...prev, signatures: updatedSignatures }));
+                setIsSignatureModalOpen(false);
+                setEditingSignature(null);
+                setSigFormName('');
+                setSigFormRole('');
+                setSigFormFile(null);
+                setSigFormPreviewUrl('');
+                toast.success(editingSignature ? 'Assinatura atualizada com sucesso!' : 'Assinatura adicionada com sucesso!', { id: toastId });
+            } else {
+                toast.error('Erro ao salvar no banco de dados.', { id: toastId });
+            }
+        } catch (err) {
+            console.error('Error saving signature:', err);
+            toast.error('Erro no processamento da assinatura.', { id: toastId });
+        } finally {
+            setUploadingSigForm(false);
+        }
+    };
+
+    const handleDeleteSignature = async (id: string) => {
+        if (!confirm('Deseja realmente excluir esta assinatura?')) return;
+        const updatedSignatures = (configData.signatures || []).filter(s => s.id !== id);
+        const success = await updateChurchSettings({
+            signatures: updatedSignatures
+        });
+        if (success) {
+            setConfigData(prev => ({ ...prev, signatures: updatedSignatures }));
+            if (formData.selected_signature_id === id) {
+                setFormData(prev => ({ ...prev, selected_signature_id: '' }));
+            }
+            toast.success('Assinatura removida com sucesso!');
+        } else {
+            toast.error('Erro ao excluir assinatura.');
+        }
+    };
+
+    const openAddSignatureModal = () => {
+        setEditingSignature(null);
+        setSigFormName('');
+        setSigFormRole('');
+        setSigFormFile(null);
+        setSigFormPreviewUrl('');
+        setIsSignatureModalOpen(true);
+    };
+
+    const openEditSignatureModal = (sig: { id: string; name: string; role: string; url: string }) => {
+        setEditingSignature(sig);
+        setSigFormName(sig.name);
+        setSigFormRole(sig.role);
+        setSigFormPreviewUrl(sig.url);
+        setSigFormFile(null);
+        setIsSignatureModalOpen(true);
+    };
+
     // Filter members for autocomplete
     const filteredMembers = members.filter(m => 
         m.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
@@ -162,7 +341,13 @@ const Documents: React.FC = () => {
             recipient_name: member.name,
             baptism_date: member.baptismDate || '',
             baptism_place: member.baptismPlace || '',
-            celebrant: prev.celebrant || configData.signer_name
+            celebrant: prev.celebrant || configData.signer_name,
+            card_role: member.ecclesiasticalFunctions && member.ecclesiasticalFunctions.length > 0 
+                ? member.ecclesiasticalFunctions.join(', ') 
+                : (member.churchRole || 'Membro'),
+            card_title: member.ecclesiasticalTitles && member.ecclesiasticalTitles.length > 0 
+                ? member.ecclesiasticalTitles.join(', ') 
+                : (member.churchRole || 'Membro')
         }));
     };
 
@@ -285,12 +470,17 @@ const Documents: React.FC = () => {
             let pdf;
 
             if (isBadge) {
-                // Member Card: Credit card dimensions (85.6mm x 54mm) -> Standard ID-1
+                const isVertical = formData.card_orientation === 'vertical';
+                const cardWidth = isVertical ? 54 : 85.6;
+                const cardHeight = isVertical ? 85.6 : 54;
+                const cardPdfOrientation = isVertical ? 'portrait' : 'landscape';
+
+                // Member Card: Credit card dimensions -> Standard ID-1
                 // We add two pages: Page 1 (Frente), Page 2 (Verso)
                 pdf = new jsPDF({
-                    orientation: 'landscape',
+                    orientation: cardPdfOrientation,
                     unit: 'mm',
-                    format: [85.6, 54]
+                    format: [cardWidth, cardHeight]
                 });
 
                 // Front side capture
@@ -299,16 +489,16 @@ const Documents: React.FC = () => {
                     useCORS: true
                 });
                 const frontImg = frontCanvas.toDataURL('image/png');
-                pdf.addImage(frontImg, 'PNG', 0, 0, 85.6, 54);
+                pdf.addImage(frontImg, 'PNG', 0, 0, cardWidth, cardHeight);
 
                 // Back side capture
-                pdf.addPage([85.6, 54], 'landscape');
+                pdf.addPage([cardWidth, cardHeight], cardPdfOrientation);
                 const backCanvas = await html2canvas(printElement.querySelector('.card-back') as HTMLDivElement, {
                     scale: 3.5,
                     useCORS: true
                 });
                 const backImg = backCanvas.toDataURL('image/png');
-                pdf.addImage(backImg, 'PNG', 0, 0, 85.6, 54);
+                pdf.addImage(backImg, 'PNG', 0, 0, cardWidth, cardHeight);
 
             } else {
                 // Certificates or Letters (A4 size)
@@ -631,7 +821,7 @@ const Documents: React.FC = () => {
                                                         className="w-full px-4 py-2 text-left hover:bg-slate-50 text-sm font-medium text-slate-700 flex items-center gap-3"
                                                     >
                                                         <img 
-                                                            src={m.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=random`} 
+                                                            src={m.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=random`} 
                                                             alt="" 
                                                             className="w-8 h-8 rounded-full object-cover"
                                                         />
@@ -651,14 +841,47 @@ const Documents: React.FC = () => {
 
                                 {/* Rest of specific forms */}
                                 {selectedDocType === 'member_card' && (
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Data de Expiração</label>
-                                        <input
-                                            type="date"
-                                            value={formData.expiry_date}
-                                            onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
-                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm text-slate-800"
-                                        />
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Orientação do Cartão</label>
+                                            <select
+                                                value={formData.card_orientation || 'horizontal'}
+                                                onChange={(e) => setFormData({ ...formData, card_orientation: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm text-slate-800"
+                                            >
+                                                <option value="horizontal">Horizontal (Deitado)</option>
+                                                <option value="vertical">Vertical (Em pé)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Função (Cargo)</label>
+                                            <input
+                                                type="text"
+                                                value={formData.card_role || ''}
+                                                onChange={(e) => setFormData({ ...formData, card_role: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm text-slate-800"
+                                                placeholder="Ex: Membro, Diácono, Coordenador"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título Ministerial</label>
+                                            <input
+                                                type="text"
+                                                value={formData.card_title || ''}
+                                                onChange={(e) => setFormData({ ...formData, card_title: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm text-slate-800"
+                                                placeholder="Ex: Irmão, Pastor, Presbítero"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Data de Expiração</label>
+                                            <input
+                                                type="date"
+                                                value={formData.expiry_date}
+                                                onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm text-slate-800"
+                                            />
+                                        </div>
                                     </div>
                                 )}
 
@@ -841,6 +1064,22 @@ const Documents: React.FC = () => {
                                 )}
 
                                 <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Assinatura do Documento</label>
+                                    <select
+                                        value={formData.selected_signature_id || ''}
+                                        onChange={(e) => setFormData({ ...formData, selected_signature_id: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm text-slate-800"
+                                    >
+                                        <option value="">Assinatura Padrão / Legada ({configData.signer_name || 'Pastor Presidente'})</option>
+                                        {(configData.signatures || []).map(sig => (
+                                            <option key={sig.id} value={sig.id}>
+                                                {sig.name} ({sig.role})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Notas Adicionais / Observação</label>
                                     <textarea
                                         value={formData.notes}
@@ -882,80 +1121,221 @@ const Documents: React.FC = () => {
                                 >
                                     {selectedDocType === 'member_card' && (
                                         <>
-                                            {/* Front Side */}
-                                            <div className="card-front w-[85.6mm] h-[54mm] bg-gradient-to-br from-white to-slate-50 text-slate-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden border border-slate-200 shadow-md shrink-0">
-                                                <div className="flex justify-between items-start z-10">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 bg-orange-500 rounded-lg flex items-center justify-center font-black text-xs text-white">Tr</div>
-                                                        <div>
-                                                            <h4 className="text-[9px] font-black uppercase tracking-wider text-slate-800">{user?.churchName || 'Igreja Local'}</h4>
-                                                            <p className="text-[6px] text-slate-500">Cartão de Membro</p>
+                                            {formData.card_orientation === 'vertical' ? (
+                                                <>
+                                                    {/* Vertical Front Side */}
+                                                    <div className="card-front w-[54mm] h-[85.6mm] bg-gradient-to-br from-white to-slate-50 text-slate-800 rounded-2xl p-4 flex flex-col relative overflow-hidden border border-slate-200 shadow-md shrink-0 mx-auto">
+                                                        <div className="flex flex-col items-center text-center z-10">
+                                                            {renderChurchLogo()}
+                                                            <h4 className="text-[9px] font-black uppercase tracking-wider text-slate-800 mt-1.5 leading-tight max-w-[48mm] truncate">
+                                                                {user?.churchName || 'Igreja Local'}
+                                                            </h4>
+                                                            <p className="text-[5.5px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Cartão de Membro</p>
                                                         </div>
-                                                    </div>
-                                                    <span className="px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 rounded-full text-[6px] font-black uppercase tracking-widest">Ativo</span>
-                                                </div>
 
-                                                <div className="flex gap-3 items-center z-10">
-                                                    <img 
-                                                        src={selectedMember?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.recipient_name || 'M')}&background=f97316&color=fff`} 
-                                                        alt="" 
-                                                        className="w-16 h-16 rounded-full border border-slate-200 object-cover shrink-0"
-                                                    />
-                                                    <div className="overflow-hidden">
-                                                        <h5 className="font-black text-[12px] tracking-wide truncate text-slate-900">{formData.recipient_name || 'Nome do Membro'}</h5>
-                                                        <p className="text-[7px] text-orange-600 font-bold uppercase mt-0.5">{selectedMember?.churchRole || 'Membro do Corpo'}</p>
-                                                        <p className="text-[7px] text-slate-500 font-mono mt-1">Cód: {selectedMember?.memberCode || 'M000'}</p>
-                                                    </div>
-                                                </div>
+                                                        <div className="flex justify-center my-3 z-10">
+                                                            <img 
+                                                                src={selectedMember?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.recipient_name || 'M')}&background=f97316&color=fff`} 
+                                                                alt="" 
+                                                                className="w-16 h-16 rounded-2xl border border-slate-200 object-cover shadow-md shrink-0"
+                                                            />
+                                                        </div>
 
-                                                <div className="flex justify-between items-end text-[6px] text-slate-500 z-10 border-t border-slate-200 pt-1.5">
-                                                    <div>
-                                                        <span className="block font-bold text-[5px] text-slate-400">MEMBRO DESDE</span>
-                                                        <span className="font-mono text-slate-700 font-bold">
-                                                            {selectedMember?.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <span className="block font-bold text-[5px] text-slate-400">EXPIRA EM</span>
-                                                        <span className="font-mono text-slate-700 font-bold">{new Date(formData.expiry_date).toLocaleDateString('pt-BR')}</span>
-                                                    </div>
-                                                </div>
+                                                        <div className="text-center z-10 overflow-hidden space-y-0.5 px-1">
+                                                            <h5 className="font-black text-[11px] tracking-wide truncate text-slate-900 leading-tight">
+                                                                {getFirstAndLastName(formData.recipient_name || 'Nome do Membro')}
+                                                            </h5>
+                                                            <p className="text-[7px] text-orange-600 font-black uppercase leading-tight">
+                                                                {formData.card_title || 'Membro'}
+                                                            </p>
+                                                            <p className="text-[6.5px] text-slate-500 font-bold uppercase tracking-wide leading-tight">
+                                                                Cargo: {formData.card_role || 'Membro'}
+                                                            </p>
+                                                            <p className="text-[6px] text-slate-400 font-mono mt-0.5">Cód: {selectedMember?.memberCode || 'M000'}</p>
+                                                            <p className="text-[5.5px] text-slate-500 font-bold mt-0.5">
+                                                                Batizado em: <span className="font-mono text-slate-700">{selectedMember?.baptismDate ? new Date(selectedMember.baptismDate).toLocaleDateString('pt-BR') : 'N/D'}</span>
+                                                            </p>
+                                                        </div>
 
-                                                {/* Decorative background shapes */}
-                                                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full -mr-12 -mt-12 blur-xl" />
-                                                <div className="absolute bottom-0 left-0 w-16 h-16 bg-slate-500/5 rounded-full -ml-8 -mb-8 blur-lg" />
-                                            </div>
+                                                        <div className="flex justify-between items-end text-[5.5px] text-slate-500 z-10 border-t border-slate-200/80 pt-1.5 mt-auto">
+                                                            <div className="text-left">
+                                                                <span className="block font-bold text-[4.5px] text-slate-400 uppercase">Membro Desde</span>
+                                                                <span className="font-mono text-slate-700 font-bold">
+                                                                    {selectedMember?.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <span className="block font-bold text-[4.5px] text-slate-400 uppercase">Expira Em</span>
+                                                                <span className="font-mono text-slate-700 font-bold">
+                                                                    {formData.expiry_date ? new Date(formData.expiry_date).toLocaleDateString('pt-BR') : 'N/A'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
 
-                                            {/* Back Side */}
-                                            <div className="card-back w-[85.6mm] h-[54mm] bg-gradient-to-br from-white to-slate-50 text-slate-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden border border-slate-200 shadow-md shrink-0">
-                                                <div className="flex justify-between items-start gap-4">
-                                                    <div className="flex-1 text-[7px] text-slate-600 space-y-1">
-                                                        <p><span className="font-bold text-[6px] text-slate-400">BI:</span> {selectedMember?.biNumber || 'N/A'}</p>
-                                                        <p><span className="font-bold text-[6px] text-slate-400">NASCIMENTO:</span> {selectedMember?.birthDate ? new Date(selectedMember.birthDate).toLocaleDateString() : 'N/A'}</p>
-                                                        <p><span className="font-bold text-[6px] text-slate-400">BATISMO:</span> {selectedMember?.baptismDate ? new Date(selectedMember.baptismDate).toLocaleDateString() : 'N/A'}</p>
-                                                        <p><span className="font-bold text-[6px] text-slate-400">TELEFONE:</span> {selectedMember?.phone || 'N/A'}</p>
+                                                        {/* Decorative background shapes */}
+                                                        <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full -mr-12 -mt-12 blur-xl" />
+                                                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-slate-500/5 rounded-full -ml-8 -mb-8 blur-lg" />
                                                     </div>
-                                                    
-                                                    {/* QR Code validation */}
-                                                    <div className="shrink-0 bg-white p-1 rounded-lg border border-slate-200">
-                                                        <img 
-                                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TRONUS-VERIFY-${previewDocData?.hashCode || 'VALID'}`}
-                                                            alt="QR Code" 
-                                                            className="w-12 h-12"
-                                                        />
-                                                    </div>
-                                                </div>
 
-                                                <div className="flex flex-col items-center border-t border-slate-200 pt-2">
-                                                    {configData.signature_url ? (
-                                                        <img src={configData.signature_url} alt="" className="h-6 max-w-[60px] object-contain opacity-95" />
-                                                    ) : (
-                                                        <div className="h-6 flex items-end"><p className="text-[5px] text-slate-400 font-mono">Assinatura Manual</p></div>
-                                                    )}
-                                                    <span className="block border-t border-slate-200 w-32 mt-0.5"></span>
-                                                    <p className="text-[5px] text-slate-500 tracking-wider mt-0.5">{configData.signer_name || 'PASTOR PRESIDENTE'}</p>
-                                                </div>
-                                            </div>
+                                                    {/* Vertical Back Side */}
+                                                    <div className="card-back w-[54mm] h-[85.6mm] bg-gradient-to-br from-white to-slate-50 text-slate-800 rounded-2xl p-4 flex flex-col relative overflow-hidden border border-slate-200 shadow-md shrink-0 mx-auto">
+                                                        <div className="text-center">
+                                                            <h4 className="font-black text-[7.5px] text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-1 mb-2">
+                                                                Disposições Gerais
+                                                            </h4>
+                                                        </div>
+
+                                                        <div className="text-[6.2px] text-slate-600 space-y-1.5 flex-1 px-1 leading-snug">
+                                                            <p><span className="font-bold text-slate-800">1.</span> Este passe é pessoal e intransferível.</p>
+                                                            <p><span className="font-bold text-slate-800">2.</span> Em caso de perda deve comunicar oportunamente.</p>
+                                                            <p><span className="font-bold text-slate-800">3.</span> Emitido: {selectedMember?.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+                                                            <p><span className="font-bold text-slate-800">4.</span> Validade: {formData.expiry_date ? new Date(formData.expiry_date).toLocaleDateString() : 'N/A'}</p>
+                                                            {(configData.church_phone || configData.church_email) && (
+                                                                <p className="truncate text-[5.5px] text-slate-500 mt-1 border-t border-slate-100 pt-1">
+                                                                    <span className="font-bold text-slate-600">Igreja: </span>
+                                                                    {configData.church_phone || configData.church_email}
+                                                                </p>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex flex-col items-center gap-1 my-2 shrink-0">
+                                                            <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+                                                                <img 
+                                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TRONUS-VERIFY-${previewDocData?.hashCode || 'VALID'}`}
+                                                                    alt="QR Code" 
+                                                                    className="w-10 h-10"
+                                                                />
+                                                            </div>
+                                                            <p className="text-[5px] font-mono text-slate-400">Validação Online</p>
+                                                        </div>
+
+                                                        <div className="flex flex-col items-center border-t border-slate-200/80 pt-1.5 mt-auto text-center shrink-0">
+                                                            {configData.signature_url ? (
+                                                                <img src={configData.signature_url} alt="" className="h-6 max-w-[65px] object-contain opacity-95" />
+                                                            ) : (
+                                                                <div className="h-6 flex items-end"><p className="text-[5px] text-slate-400 font-mono">Assinatura do Responsável</p></div>
+                                                            )}
+                                                            <span className="block border-t border-slate-200/80 w-36 mt-0.5"></span>
+                                                            <p className="text-[5.5px] text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate max-w-[50mm]">
+                                                                {configData.signer_name || 'PASTOR PRESIDENTE'}
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Decorative background shapes */}
+                                                        <div className="absolute top-0 left-0 w-24 h-24 bg-slate-500/5 rounded-full -ml-12 -mt-12 blur-xl" />
+                                                        <div className="absolute bottom-0 right-0 w-16 h-16 bg-orange-500/5 rounded-full -mr-8 -mb-8 blur-lg" />
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* Horizontal Front Side */}
+                                                    <div className="card-front w-[85.6mm] h-[54mm] bg-gradient-to-br from-white to-slate-50 text-slate-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden border border-slate-200 shadow-md shrink-0 mx-auto">
+                                                        <div className="flex justify-between items-start z-10">
+                                                            <div className="flex items-center gap-2">
+                                                                {renderChurchLogo()}
+                                                                <div>
+                                                                    <h4 className="text-[9px] font-black uppercase tracking-wider text-slate-800 leading-tight">
+                                                                        {user?.churchName || 'Igreja Local'}
+                                                                    </h4>
+                                                                    <p className="text-[5.5px] text-slate-500 font-bold uppercase tracking-wider">Cartão de Membro</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex gap-3.5 items-center z-10 my-auto">
+                                                            <img 
+                                                                src={selectedMember?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.recipient_name || 'M')}&background=f97316&color=fff`} 
+                                                                alt="" 
+                                                                className="w-14 h-14 rounded-xl border border-slate-200 object-cover shrink-0 shadow-sm"
+                                                            />
+                                                            <div className="overflow-hidden space-y-0.5">
+                                                                <h5 className="font-black text-[11px] tracking-wide truncate text-slate-900 leading-tight">
+                                                                    {getFirstAndLastName(formData.recipient_name || 'Nome do Membro')}
+                                                                </h5>
+                                                                <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                                                                    <p className="text-[6.5px] text-orange-600 font-bold uppercase">
+                                                                        Título: <span className="text-slate-800">{formData.card_title || 'Membro'}</span>
+                                                                    </p>
+                                                                    <p className="text-[6.5px] text-orange-600 font-bold uppercase">
+                                                                        Função: <span className="text-slate-800">{formData.card_role || 'Membro'}</span>
+                                                                    </p>
+                                                                </div>
+                                                                <p className="text-[6px] text-slate-400 font-mono">Cód: {selectedMember?.memberCode || 'M000'}</p>
+                                                                <p className="text-[5.5px] text-slate-500 font-bold">
+                                                                    Batizado em: <span className="font-mono text-slate-700">{selectedMember?.baptismDate ? new Date(selectedMember.baptismDate).toLocaleDateString('pt-BR') : 'N/D'}</span>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex justify-between items-end text-[6px] text-slate-500 z-10 border-t border-slate-200/80 pt-1.5 mt-auto">
+                                                            <div>
+                                                                <span className="block font-bold text-[5px] text-slate-400 uppercase">Membro Desde</span>
+                                                                <span className="font-mono text-slate-700 font-bold">
+                                                                    {selectedMember?.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <span className="block font-bold text-[5px] text-slate-400 uppercase">Expira Em</span>
+                                                                <span className="font-mono text-slate-700 font-bold">
+                                                                    {formData.expiry_date ? new Date(formData.expiry_date).toLocaleDateString('pt-BR') : 'N/A'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Decorative background shapes */}
+                                                        <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full -mr-12 -mt-12 blur-xl" />
+                                                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-slate-500/5 rounded-full -ml-8 -mb-8 blur-lg" />
+                                                    </div>
+
+                                                    {/* Horizontal Back Side */}
+                                                    <div className="card-back w-[85.6mm] h-[54mm] bg-gradient-to-br from-white to-slate-50 text-slate-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden border border-slate-200 shadow-md shrink-0 mx-auto">
+                                                        <div className="flex justify-between items-start gap-4">
+                                                            <div className="flex-1 text-[6.5px] text-slate-600 space-y-1">
+                                                                <h4 className="font-black text-[7px] text-slate-800 uppercase tracking-wider mb-1 border-b border-slate-100 pb-0.5">
+                                                                    Disposições Gerais
+                                                                </h4>
+                                                                <p><span className="font-bold text-slate-850">1.</span> Este passe é pessoal e intransferível.</p>
+                                                                <p><span className="font-bold text-slate-850">2.</span> Em caso de perda deve comunicar oportunamente.</p>
+                                                                <p><span className="font-bold text-slate-850">3.</span> Emitido: {selectedMember?.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+                                                                <p><span className="font-bold text-slate-850">4.</span> Validade: {formData.expiry_date ? new Date(formData.expiry_date).toLocaleDateString() : 'N/A'}</p>
+                                                                {(configData.church_phone || configData.church_email) && (
+                                                                    <p className="truncate text-[5.5px] text-slate-400 mt-1.5 pt-1 border-t border-slate-100">
+                                                                        <span className="font-bold text-slate-500">Contatos: </span>
+                                                                        {configData.church_phone || configData.church_email}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="shrink-0 flex flex-col items-center gap-1">
+                                                                <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+                                                                    <img 
+                                                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TRONUS-VERIFY-${previewDocData?.hashCode || 'VALID'}`}
+                                                                        alt="QR Code" 
+                                                                        className="w-11 h-11"
+                                                                    />
+                                                                </div>
+                                                                <p className="text-[5px] font-mono text-slate-400">Validação Online</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex flex-col items-center border-t border-slate-200/80 pt-1.5 mt-auto">
+                                                            {configData.signature_url ? (
+                                                                <img src={configData.signature_url} alt="" className="h-6 max-w-[65px] object-contain opacity-95" />
+                                                            ) : (
+                                                                <div className="h-6 flex items-end"><p className="text-[5px] text-slate-400 font-mono">Assinatura do Responsável</p></div>
+                                                            )}
+                                                            <span className="block border-t border-slate-200/80 w-36 mt-0.5"></span>
+                                                            <p className="text-[5.5px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                                                                {configData.signer_name || 'PASTOR PRESIDENTE'}
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Decorative background shapes */}
+                                                        <div className="absolute top-0 left-0 w-24 h-24 bg-slate-500/5 rounded-full -ml-12 -mt-12 blur-xl" />
+                                                        <div className="absolute bottom-0 right-0 w-16 h-16 bg-orange-500/5 rounded-full -mr-8 -mb-8 blur-lg" />
+                                                    </div>
+                                                </>
+                                            )}
                                         </>
                                     )}
 
@@ -1011,14 +1391,14 @@ const Documents: React.FC = () => {
 
                                             {/* Signature and Hash */}
                                             <div className="flex flex-col items-center mt-20 gap-2 font-sans">
-                                                {configData.signature_url ? (
-                                                    <img src={configData.signature_url} alt="Assinatura" className="h-16 max-w-[200px] object-contain" />
+                                                {getActiveSignature().url ? (
+                                                    <img src={getActiveSignature().url} alt="Assinatura" className="h-16 max-w-[200px] object-contain" />
                                                 ) : (
                                                     <div className="h-16 flex items-end text-slate-400 italic text-xs">Assinatura do Pastor</div>
                                                 )}
                                                 <span className="block border-t border-slate-300 w-64"></span>
-                                                <h4 className="font-bold text-slate-800 text-sm">{configData.signer_name || 'Nome do Pastor'}</h4>
-                                                <p className="text-xs text-slate-500 uppercase tracking-widest">{configData.signer_role || 'Presidente'}</p>
+                                                <h4 className="font-bold text-slate-800 text-sm">{getActiveSignature().name}</h4>
+                                                <p className="text-xs text-slate-500 uppercase tracking-widest">{getActiveSignature().role || 'Pastor'}</p>
                                                 
                                                 <div className="mt-12 text-[8px] text-slate-400 font-mono text-center">
                                                     Código de Validação: {previewDocData?.hashCode || 'TRN-XXXXXX-XXXX'}
@@ -1061,14 +1441,14 @@ const Documents: React.FC = () => {
                                                 </div>
 
                                                 <div className="flex flex-col items-center">
-                                                    {configData.signature_url ? (
-                                                        <img src={configData.signature_url} alt="" className="h-10 max-w-[150px] object-contain" />
+                                                    {getActiveSignature().url ? (
+                                                        <img src={getActiveSignature().url} alt="" className="h-10 max-w-[150px] object-contain" />
                                                     ) : (
                                                         <div className="h-10"></div>
                                                     )}
                                                     <span className="block border-t border-slate-300 w-48"></span>
-                                                    <p className="text-xs font-bold text-slate-700 mt-1">{configData.signer_name || 'Nome do Pastor'}</p>
-                                                    <p className="text-[10px] text-slate-400">{configData.signer_role || 'Pastor Presidente'}</p>
+                                                    <p className="text-xs font-bold text-slate-700 mt-1">{getActiveSignature().name}</p>
+                                                    <p className="text-[10px] text-slate-400">{getActiveSignature().role || 'Pastor Presidente'}</p>
                                                 </div>
                                             </div>
 
@@ -1115,14 +1495,14 @@ const Documents: React.FC = () => {
                                                 </div>
 
                                                 <div className="flex flex-col items-center">
-                                                    {configData.signature_url ? (
-                                                        <img src={configData.signature_url} alt="" className="h-10 max-w-[150px] object-contain" />
+                                                    {getActiveSignature().url ? (
+                                                        <img src={getActiveSignature().url} alt="" className="h-10 max-w-[150px] object-contain" />
                                                     ) : (
                                                         <div className="h-10"></div>
                                                     )}
                                                     <span className="block border-t border-slate-300 w-48"></span>
-                                                    <p className="text-xs font-bold text-slate-700 mt-1">{configData.signer_name || 'Nome do Pastor'}</p>
-                                                    <p className="text-[10px] text-slate-400">{configData.signer_role || 'Pastor Apresentador'}</p>
+                                                    <p className="text-xs font-bold text-slate-700 mt-1">{getActiveSignature().name}</p>
+                                                    <p className="text-[10px] text-slate-400">{getActiveSignature().role || 'Pastor'}</p>
                                                 </div>
                                             </div>
 
@@ -1164,14 +1544,14 @@ const Documents: React.FC = () => {
                                                 </div>
 
                                                 <div className="flex flex-col items-center">
-                                                    {configData.signature_url ? (
-                                                        <img src={configData.signature_url} alt="" className="h-10 max-w-[150px] object-contain" />
+                                                    {getActiveSignature().url ? (
+                                                        <img src={getActiveSignature().url} alt="" className="h-10 max-w-[150px] object-contain" />
                                                     ) : (
                                                         <div className="h-10"></div>
                                                     )}
                                                     <span className="block border-t border-slate-300 w-48"></span>
-                                                    <p className="text-xs font-bold text-slate-700 mt-1">{configData.signer_name || 'Nome do Pastor'}</p>
-                                                    <p className="text-[10px] text-slate-400">{configData.signer_role || 'Pastor Presidente'}</p>
+                                                    <p className="text-xs font-bold text-slate-700 mt-1">{getActiveSignature().name}</p>
+                                                    <p className="text-[10px] text-slate-400">{getActiveSignature().role || 'Pastor Presidente'}</p>
                                                 </div>
                                             </div>
 
@@ -1191,7 +1571,8 @@ const Documents: React.FC = () => {
                 )}
 
                 {activeTab === 'config' && (
-                    <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6 animate-in fade-in duration-300">
+                    <>
+                        <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6 animate-in fade-in duration-300">
                         <div>
                             <h2 className="text-xl font-black text-slate-800">Assinaturas e Configurações</h2>
                             <p className="text-sm text-slate-500">Configure as assinaturas e o cabeçalho padrão para os certificados e cartas emitidos.</p>
@@ -1274,6 +1655,80 @@ const Documents: React.FC = () => {
                             </button>
                         </form>
                     </div>
+
+                    <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6 mt-6 animate-in fade-in duration-300">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800">Assinaturas Adicionais</h2>
+                                <p className="text-sm text-slate-500">Cadastre assinaturas extras para selecionar ao emitir documentos específicos.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={openAddSignatureModal}
+                                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-slate-800 transition-colors shadow-lg shrink-0"
+                            >
+                                <Plus size={14} />
+                                Adicionar Assinatura
+                            </button>
+                        </div>
+
+                        {/* List of current additional signatures in a Table */}
+                        <div className="overflow-x-auto border border-gray-100 rounded-2xl">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">Assinatura</th>
+                                        <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">Nome</th>
+                                        <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">Cargo</th>
+                                        <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {(configData.signatures || []).map(sig => (
+                                        <tr key={sig.id} className="hover:bg-gray-50/50 transition-colors group">
+                                            <td className="px-4 py-3">
+                                                {sig.url ? (
+                                                    <img src={sig.url} alt="" className="h-8 w-14 object-contain bg-white border border-gray-200 rounded p-1" />
+                                                ) : (
+                                                    <div className="h-8 w-14 bg-gray-200 rounded flex items-center justify-center text-[8px] text-gray-400">Sem Img</div>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-semibold text-slate-850 truncate max-w-[120px]">{sig.name}</td>
+                                            <td className="px-4 py-3 text-xs text-slate-500 truncate max-w-[120px]">{sig.role}</td>
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openEditSignatureModal(sig)}
+                                                        className="p-1.5 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
+                                                        title="Editar Assinatura"
+                                                    >
+                                                        <Settings size={14} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteSignature(sig.id)}
+                                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                        title="Remover Assinatura"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(configData.signatures || []).length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-4 py-6 text-xs text-slate-400 italic text-center">
+                                                Nenhuma assinatura adicional cadastrada.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    </>
                 )}
             </div>
 
@@ -1302,6 +1757,99 @@ const Documents: React.FC = () => {
                                 Confirmar e Excluir
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add / Edit Signature Modal */}
+            {isSignatureModalOpen && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-in zoom-in duration-200 p-6 space-y-6">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                            <h3 className="text-lg font-black text-slate-800">
+                                {editingSignature ? 'Editar Assinatura' : 'Adicionar Assinatura'}
+                            </h3>
+                            <button 
+                                onClick={() => setIsSignatureModalOpen(false)}
+                                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-gray-100 rounded-xl transition-all"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveSignature} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Nome do Assinante</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Ex: Sec. Manuel Costa"
+                                    value={sigFormName}
+                                    onChange={(e) => setSigFormName(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm text-slate-800"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Cargo / Função</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Ex: Secretário Geral"
+                                    value={sigFormRole}
+                                    onChange={(e) => setSigFormRole(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-sm text-slate-800"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-2">Imagem da Assinatura</label>
+                                <div className="border border-dashed border-gray-200 rounded-2xl p-6 text-center space-y-3 bg-gray-50/50 hover:bg-gray-50 transition-colors relative">
+                                    {sigFormPreviewUrl ? (
+                                        <div className="flex flex-col items-center gap-1.5">
+                                            <img src={sigFormPreviewUrl} alt="Preview" className="h-12 object-contain" />
+                                            <p className="text-[10px] text-green-600 font-bold">Assinatura carregada</p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-slate-400 space-y-1">
+                                            <Upload className="mx-auto text-slate-300" size={24} />
+                                            <p className="text-[10px] font-bold">Faça upload da imagem</p>
+                                        </div>
+                                    )}
+
+                                    <input 
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={handleSigFormFileChange}
+                                        disabled={uploadingSigForm}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                                    />
+                                    {uploadingSigForm && (
+                                        <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-2xl">
+                                            <Loader2 className="animate-spin text-orange-500" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={uploadingSigForm}
+                                className="w-full py-3 bg-orange-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-orange-600 transition-all shadow-xl shadow-orange-200 disabled:opacity-80"
+                            >
+                                {uploadingSigForm ? (
+                                    <>
+                                        <Loader2 className="animate-spin" size={16} />
+                                        Salvando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check size={16} />
+                                        Salvar Assinatura
+                                    </>
+                                )}
+                            </button>
+                        </form>
                     </div>
                 </div>
             )}

@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Building, Users, CreditCard, Activity, Search, Trash2, Edit, Shield, Plus, Book, Save, X, Clock, CheckCircle, XCircle, AlertTriangle, ChevronRight, TrendingUp, TrendingDown, MessageSquare } from 'lucide-react';
+import { Building, Users, CreditCard, Activity, Search, Trash2, Edit, Shield, Plus, Book, Save, X, Clock, CheckCircle, XCircle, AlertTriangle, ChevronRight, TrendingUp, TrendingDown, MessageSquare, MapPin } from 'lucide-react';
 import EditChurchModal from '../../components/modals/EditChurchModal';
 import PlanModal from '../../components/modals/PlanModal';
 import { useDenominations } from '../../hooks/useDenominations';
+import { useLocations } from '../../hooks/useLocations';
 import { toast } from 'sonner';
 import { formatAOA } from '../../utils/currency';
 import GenericDeleteModal from '../../components/modals/GenericDeleteModal';
@@ -62,7 +63,35 @@ const AdminDashboard: React.FC = () => {
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
     const [plans, setPlans] = useState<any[]>([]);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'church' | 'plan' | 'denomination' } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: 'church' | 'plan' | 'denomination' | 'country' | 'province' | 'municipality' } | null>(null);
+
+    // Locations CRUD state
+    const {
+        countries,
+        provinces,
+        municipalities,
+        addCountry,
+        updateCountry,
+        deleteCountry,
+        addProvince,
+        updateProvince,
+        deleteProvince,
+        addMunicipality,
+        updateMunicipality,
+        deleteMunicipality
+    } = useLocations();
+
+    const [selectedCountryId, setSelectedCountryId] = useState('AO');
+    const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null);
+
+    const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
+    const [countryForm, setCountryForm] = useState({ id: '', name: '', isEdit: false });
+
+    const [isProvinceModalOpen, setIsProvinceModalOpen] = useState(false);
+    const [provinceForm, setProvinceForm] = useState({ id: '', name: '', isEdit: false });
+
+    const [isMunicipalityModalOpen, setIsMunicipalityModalOpen] = useState(false);
+    const [municipalityForm, setMunicipalityForm] = useState({ id: '', name: '', provinceId: '', isEdit: false });
 
     useEffect(() => {
         fetchData();
@@ -176,6 +205,19 @@ const AdminDashboard: React.FC = () => {
             } else if (itemToDelete.type === 'denomination') {
                 await deleteDenomination(itemToDelete.id);
                 toast.success('Denominação excluída com sucesso.');
+            } else if (itemToDelete.type === 'country') {
+                await deleteCountry(itemToDelete.id);
+                if (selectedCountryId === itemToDelete.id) {
+                    setSelectedCountryId('');
+                    setSelectedProvinceId(null);
+                }
+            } else if (itemToDelete.type === 'province') {
+                await deleteProvince(itemToDelete.id);
+                if (selectedProvinceId === itemToDelete.id) {
+                    setSelectedProvinceId(null);
+                }
+            } else if (itemToDelete.type === 'municipality') {
+                await deleteMunicipality(itemToDelete.id);
             }
         } catch (error) {
             console.error('Error deleting:', error);
@@ -676,6 +718,228 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+                {activeTab === 'provinces' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
+                        {/* Left column - Countries & Provinces */}
+                        <div className="lg:col-span-5 space-y-6">
+                            {/* Country Selection Card */}
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">País Selecionado</label>
+                                    <button
+                                        onClick={() => {
+                                            setCountryForm({ id: '', name: '', isEdit: false });
+                                            setIsCountryModalOpen(true);
+                                        }}
+                                        className="text-xs font-semibold text-orange-600 hover:text-orange-700 flex items-center gap-1 transition-colors"
+                                    >
+                                        <Plus size={14} /> Novo País
+                                    </button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={selectedCountryId}
+                                        onChange={(e) => {
+                                            setSelectedCountryId(e.target.value);
+                                            setSelectedProvinceId(null);
+                                        }}
+                                        className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                                    >
+                                        <option value="">Selecione um país...</option>
+                                        {countries.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                                        ))}
+                                    </select>
+                                    {selectedCountryId && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    const c = countries.find(x => x.id === selectedCountryId);
+                                                    if (c) {
+                                                        setCountryForm({ id: c.id, name: c.name, isEdit: true });
+                                                        setIsCountryModalOpen(true);
+                                                    }
+                                                }}
+                                                className="px-3 py-2 border border-gray-200 hover:bg-gray-50 text-slate-600 rounded-lg text-sm transition-colors"
+                                                title="Editar nome do país"
+                                            >
+                                                <Edit size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const c = countries.find(x => x.id === selectedCountryId);
+                                                    if (c) {
+                                                        setItemToDelete({ id: c.id, name: c.name, type: 'country' });
+                                                        setIsDeleteModalOpen(true);
+                                                    }
+                                                }}
+                                                className="px-3 py-2 border border-red-200 hover:bg-red-50 text-red-500 rounded-lg text-sm transition-colors"
+                                                title="Excluir país"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Provinces Card */}
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                                <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 text-base">Províncias / Estados</h3>
+                                        <p className="text-xs text-slate-500 mt-0.5">Clique em uma província para gerenciar seus municípios</p>
+                                    </div>
+                                    <button
+                                        disabled={!selectedCountryId}
+                                        onClick={() => {
+                                            setProvinceForm({ id: '', name: '', isEdit: false });
+                                            setIsProvinceModalOpen(true);
+                                        }}
+                                        className="px-3 py-1.5 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors flex items-center gap-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Plus size={14} /> Add Província
+                                    </button>
+                                </div>
+                                <div className="divide-y divide-gray-100 max-h-[450px] overflow-y-auto">
+                                    {provinces.filter(p => p.country_id === selectedCountryId).length === 0 ? (
+                                        <div className="p-6 text-center text-slate-400 text-sm italic">
+                                            {!selectedCountryId ? 'Selecione um país acima.' : 'Nenhuma província cadastrada para este país.'}
+                                        </div>
+                                    ) : (
+                                        provinces.filter(p => p.country_id === selectedCountryId).map(p => {
+                                            const count = municipalities.filter(m => m.province_id === p.id).length;
+                                            const isSelected = selectedProvinceId === p.id;
+                                            return (
+                                                <div
+                                                    key={p.id}
+                                                    onClick={() => setSelectedProvinceId(p.id)}
+                                                    className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${isSelected ? 'bg-orange-50/80 border-r-4 border-orange-500' : 'hover:bg-slate-50'}`}
+                                                >
+                                                    <div className="min-w-0 pr-3">
+                                                        <p className={`font-semibold text-sm ${isSelected ? 'text-orange-800' : 'text-slate-700'}`}>{p.name}</p>
+                                                        <p className="text-slate-400 text-xs mt-0.5">{count} município(s)</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                        <button
+                                                            onClick={() => {
+                                                                setProvinceForm({ id: p.id, name: p.name, isEdit: true });
+                                                                setIsProvinceModalOpen(true);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                            title="Editar província"
+                                                        >
+                                                            <Edit size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setItemToDelete({ id: p.id, name: p.name, type: 'province' });
+                                                                setIsDeleteModalOpen(true);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                            title="Excluir província"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right column - Municipalities */}
+                        <div className="lg:col-span-7">
+                            {selectedProvinceId ? (() => {
+                                const prov = provinces.find(x => x.id === selectedProvinceId);
+                                const list = municipalities.filter(m => m.province_id === selectedProvinceId);
+                                return (
+                                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-in fade-in duration-200">
+                                        <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+                                            <div>
+                                                <h3 className="font-bold text-slate-800 text-base">Municípios / Cidades ({prov?.name})</h3>
+                                                <p className="text-xs text-slate-500 mt-0.5">Lista de municípios vinculados a esta província</p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setMunicipalityForm({ id: '', name: '', provinceId: selectedProvinceId, isEdit: false });
+                                                    setIsMunicipalityModalOpen(true);
+                                                }}
+                                                className="px-3 py-1.5 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors flex items-center gap-1 text-xs"
+                                            >
+                                                <Plus size={14} /> Novo Município
+                                            </button>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-slate-50/30 border-b border-gray-100">
+                                                        <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide">Nome</th>
+                                                        <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide">Província Atual</th>
+                                                        <th className="px-6 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wide text-right">Ações</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {list.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={3} className="px-6 py-8 text-center text-slate-400 text-sm italic">
+                                                                Nenhum município cadastrado para esta província.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        list.map(mun => (
+                                                            <tr key={mun.id} className="hover:bg-slate-50/50 transition-colors">
+                                                                <td className="px-6 py-4 text-sm font-semibold text-slate-800">
+                                                                    {mun.name}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-sm text-slate-500">
+                                                                    {prov?.name}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-right">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setMunicipalityForm({ id: mun.id, name: mun.name, provinceId: mun.province_id, isEdit: true });
+                                                                                setIsMunicipalityModalOpen(true);
+                                                                            }}
+                                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                            title="Editar ou Mudar de Província"
+                                                                        >
+                                                                            <Edit size={15} />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setItemToDelete({ id: mun.id, name: mun.name, type: 'municipality' });
+                                                                                setIsDeleteModalOpen(true);
+                                                                            }}
+                                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                            title="Excluir município"
+                                                                        >
+                                                                            <Trash2 size={15} />
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })() : (
+                                <div className="bg-white rounded-xl border border-gray-200 border-dashed shadow-sm p-12 text-center text-slate-400 flex flex-col items-center justify-center min-h-[300px]">
+                                    <MapPin size={48} className="text-slate-300 mb-4" />
+                                    <h4 className="font-semibold text-slate-700 mb-1">Nenhuma província selecionada</h4>
+                                    <p className="text-xs text-slate-500 max-w-sm">Selecione uma província na listagem lateral para visualizar e gerenciar seus municípios.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Denomination Modal */}
@@ -790,9 +1054,201 @@ const AdminDashboard: React.FC = () => {
                 itemType={
                     itemToDelete?.type === 'church' ? 'igreja' :
                     itemToDelete?.type === 'plan' ? 'plano' :
-                    'denominação'
+                    itemToDelete?.type === 'denomination' ? 'denominação' :
+                    itemToDelete?.type === 'country' ? 'país' :
+                    itemToDelete?.type === 'province' ? 'província' :
+                    'município'
                 }
             />
+
+            {/* Country Modal */}
+            {isCountryModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-slate-800">
+                                {countryForm.isEdit ? 'Editar País' : 'Novo País'}
+                            </h3>
+                            <button onClick={() => setIsCountryModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            try {
+                                if (countryForm.isEdit) {
+                                    await updateCountry(countryForm.id, countryForm.name);
+                                } else {
+                                    await addCountry(countryForm.id, countryForm.name);
+                                }
+                                setIsCountryModalOpen(false);
+                            } catch (err) {}
+                        }} className="space-y-4">
+                            {!countryForm.isEdit && (
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Código do País (Ex: BR, PT, US)</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={2}
+                                        value={countryForm.id}
+                                        onChange={e => setCountryForm({ ...countryForm, id: e.target.value.toUpperCase() })}
+                                        placeholder="Ex: BR"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                                    />
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Nome do País</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={countryForm.name}
+                                    onChange={e => setCountryForm({ ...countryForm, name: e.target.value })}
+                                    placeholder="Ex: Brasil"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                                />
+                            </div>
+                            <div className="flex gap-3 justify-end pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCountryModalOpen(false)}
+                                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-semibold flex items-center gap-1"
+                                >
+                                    <Save size={16} /> Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Province Modal */}
+            {isProvinceModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-slate-800">
+                                {provinceForm.isEdit ? 'Editar Província' : 'Nova Província'}
+                            </h3>
+                            <button onClick={() => setIsProvinceModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            try {
+                                if (provinceForm.isEdit) {
+                                    await updateProvince(provinceForm.id, provinceForm.name, selectedCountryId);
+                                } else {
+                                    await addProvince(provinceForm.name, selectedCountryId);
+                                }
+                                setIsProvinceModalOpen(false);
+                            } catch (err) {}
+                        }} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Nome da Província / Estado</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={provinceForm.name}
+                                    onChange={e => setProvinceForm({ ...provinceForm, name: e.target.value })}
+                                    placeholder="Ex: Luanda ou São Paulo"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                                />
+                            </div>
+                            <div className="flex gap-3 justify-end pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsProvinceModalOpen(false)}
+                                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-semibold flex items-center gap-1"
+                                >
+                                    <Save size={16} /> Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Municipality Modal */}
+            {isMunicipalityModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-slate-800">
+                                {municipalityForm.isEdit ? 'Editar Município' : 'Novo Município'}
+                            </h3>
+                            <button onClick={() => setIsMunicipalityModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            try {
+                                if (municipalityForm.isEdit) {
+                                    await updateMunicipality(municipalityForm.id, municipalityForm.name, municipalityForm.provinceId);
+                                } else {
+                                    await addMunicipality(municipalityForm.name, municipalityForm.provinceId);
+                                }
+                                setIsMunicipalityModalOpen(false);
+                            } catch (err) {}
+                        }} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Nome do Município / Cidade</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={municipalityForm.name}
+                                    onChange={e => setMunicipalityForm({ ...municipalityForm, name: e.target.value })}
+                                    placeholder="Ex: Viana ou Campinas"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Província / Estado de Vinculação</label>
+                                <select
+                                    required
+                                    value={municipalityForm.provinceId}
+                                    onChange={e => setMunicipalityForm({ ...municipalityForm, provinceId: e.target.value })}
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                                >
+                                    {provinces.filter(p => p.country_id === selectedCountryId).map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex gap-3 justify-end pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsMunicipalityModalOpen(false)}
+                                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-semibold flex items-center gap-1"
+                                >
+                                    <Save size={16} /> Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             <EditChurchModal
                 isOpen={isEditModalOpen}

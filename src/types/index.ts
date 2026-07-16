@@ -254,6 +254,10 @@ export interface Service {
       men: number;
       women: number;
     };
+    teenagers?: {
+      boys: number;
+      girls: number;
+    };
     children: {
       boys: number;
       girls: number;

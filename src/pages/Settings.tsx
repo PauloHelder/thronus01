@@ -232,6 +232,22 @@ const Settings: React.FC = () => {
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [savingBranding, setSavingBranding] = useState(false);
 
+    // Ecclesiastical Lists
+    const [churchRolesList, setChurchRolesList] = useState<string[]>([
+        'Membro', 'Líder de Célula', 'Professor', 'Supervisor'
+    ]);
+    const [ecclesiasticalTitlesList, setEcclesiasticalTitlesList] = useState<string[]>([
+        'Membro', 'Cooperador', 'Diácono', 'Presbítero', 'Pastor', 'Bispo', 'Apóstolo', 'Evangelista', 'Missionário', 'Mestre', 'Profeta', 'Ancião', 'Supervisor'
+    ]);
+    const [ecclesiasticalFunctionsList, setEcclesiasticalFunctionsList] = useState<string[]>([
+        'Pastor Presidente', 'Líder de Célula', 'Líder de Louvor', 'Professor da EBD', 'Sonoplasta', 'Secretário(a)', 'Tesoureiro(a)', 'Apoio Social', 'Protocolo', 'Líder de Jovens', 'Líder de Crianças'
+    ]);
+
+    // Form inputs for ecclesiastical lists
+    const [newChurchRole, setNewChurchRole] = useState('');
+    const [newEcclesiasticalTitle, setNewEcclesiasticalTitle] = useState('');
+    const [newEcclesiasticalFunction, setNewEcclesiasticalFunction] = useState('');
+
     // Initial Load
     useEffect(() => {
         if (!user?.churchId) return;
@@ -273,6 +289,16 @@ const Settings: React.FC = () => {
 
                     if (settings.shared_permissions) {
                         setSharedPermissions(settings.shared_permissions);
+                    }
+
+                    if (settings.church_roles && Array.isArray(settings.church_roles)) {
+                        setChurchRolesList(settings.church_roles);
+                    }
+                    if (settings.ecclesiastical_titles && Array.isArray(settings.ecclesiastical_titles)) {
+                        setEcclesiasticalTitlesList(settings.ecclesiastical_titles);
+                    }
+                    if (settings.ecclesiastical_functions && Array.isArray(settings.ecclesiastical_functions)) {
+                        setEcclesiasticalFunctionsList(settings.ecclesiastical_functions);
                     }
                 }
             } catch (err: any) {
@@ -371,6 +397,24 @@ const Settings: React.FC = () => {
                     await updateChurchSettings('custom_system_roles', updatedRoles);
                     if (selectedRole === itemToDelete.id) setSelectedRole('leader');
                     break;
+                case 'church_role': {
+                    const newList = churchRolesList.filter(r => r !== itemToDelete.id);
+                    setChurchRolesList(newList);
+                    await updateChurchSettings('church_roles', newList);
+                    break;
+                }
+                case 'ecclesiastical_title': {
+                    const newList = ecclesiasticalTitlesList.filter(t => t !== itemToDelete.id);
+                    setEcclesiasticalTitlesList(newList);
+                    await updateChurchSettings('ecclesiastical_titles', newList);
+                    break;
+                }
+                case 'ecclesiastical_function': {
+                    const newList = ecclesiasticalFunctionsList.filter(f => f !== itemToDelete.id);
+                    setEcclesiasticalFunctionsList(newList);
+                    await updateChurchSettings('ecclesiastical_functions', newList);
+                    break;
+                }
             }
             toast.success('Excluído com sucesso!');
         } catch (err) {
@@ -452,24 +496,41 @@ const Settings: React.FC = () => {
             if (logoFile) {
                 const fileExt = logoFile.name.split('.').pop();
                 const fileName = `${user.churchId}/logo-${Date.now()}.${fileExt}`;
-                const { error: uploadError, data } = await supabase.storage
+                
+                // Try church-assets first
+                let { error: uploadError } = await supabase.storage
                     .from('church-assets')
                     .upload(fileName, logoFile, { upsert: true });
 
                 if (uploadError) {
-                    // If bucket doesn't exist or permission denied, fallback to dataURL or error
-                    console.error('Upload error:', uploadError);
-
-                    // Fallback: If we can't upload, we might need to store Base64 in DB (not recommended but works for small images)
-                    // OR assume the user has to create the bucket.
-                    // For now, let's warn.
-                    toast.error(`Erro ao fazer upload da imagem: ${uploadError.message}. Verifique se o bucket 'church-assets' existe.`);
-                    // We continue saving colors anyway
+                    console.warn('church-assets upload failed, trying fallback to event-covers:', uploadError.message);
+                    
+                    // Fallback to event-covers
+                    const fallbackResult = await supabase.storage
+                        .from('event-covers')
+                        .upload(fileName, logoFile, { upsert: true });
+                    
+                    if (!fallbackResult.error) {
+                        uploadError = null;
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('event-covers')
+                            .getPublicUrl(fileName);
+                        finalLogoUrl = publicUrl;
+                    } else {
+                        uploadError = fallbackResult.error;
+                    }
                 } else {
                     const { data: { publicUrl } } = supabase.storage
                         .from('church-assets')
                         .getPublicUrl(fileName);
                     finalLogoUrl = publicUrl;
+                }
+
+                if (uploadError) {
+                    console.error('Upload error after fallback:', uploadError);
+                    toast.error(`Erro ao fazer upload da imagem: ${uploadError.message}. Verifique se o bucket 'church-assets' ou 'event-covers' existe.`);
+                    setSavingBranding(false);
+                    return;
                 }
             }
 
@@ -492,6 +553,66 @@ const Settings: React.FC = () => {
         } finally {
             setSavingBranding(false);
         }
+    };
+
+    const handleAddChurchRole = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const role = newChurchRole.trim();
+        if (!role) return;
+        if (churchRolesList.includes(role)) {
+            toast.warning('Este cargo já existe.');
+            return;
+        }
+        const newList = [...churchRolesList, role];
+        setChurchRolesList(newList);
+        await updateChurchSettings('church_roles', newList);
+        setNewChurchRole('');
+        toast.success('Cargo adicionado com sucesso!');
+    };
+
+    const handleDeleteChurchRole = (role: string) => {
+        setItemToDelete({ id: role, name: role, type: 'church_role' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleAddEcclesiasticalTitle = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const title = newEcclesiasticalTitle.trim();
+        if (!title) return;
+        if (ecclesiasticalTitlesList.includes(title)) {
+            toast.warning('Este título já existe.');
+            return;
+        }
+        const newList = [...ecclesiasticalTitlesList, title];
+        setEcclesiasticalTitlesList(newList);
+        await updateChurchSettings('ecclesiastical_titles', newList);
+        setNewEcclesiasticalTitle('');
+        toast.success('Título adicionado com sucesso!');
+    };
+
+    const handleDeleteEcclesiasticalTitle = (title: string) => {
+        setItemToDelete({ id: title, name: title, type: 'ecclesiastical_title' });
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleAddEcclesiasticalFunction = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const func = newEcclesiasticalFunction.trim();
+        if (!func) return;
+        if (ecclesiasticalFunctionsList.includes(func)) {
+            toast.warning('Esta função/ministério já existe.');
+            return;
+        }
+        const newList = [...ecclesiasticalFunctionsList, func];
+        setEcclesiasticalFunctionsList(newList);
+        await updateChurchSettings('ecclesiastical_functions', newList);
+        setNewEcclesiasticalFunction('');
+        toast.success('Função/Ministério adicionada com sucesso!');
+    };
+
+    const handleDeleteEcclesiasticalFunction = (func: string) => {
+        setItemToDelete({ id: func, name: func, type: 'ecclesiastical_function' });
+        setIsDeleteModalOpen(true);
     };
 
     const SHARED_PERMISSION_LABELS: Record<string, string> = {
@@ -702,6 +823,16 @@ const Settings: React.FC = () => {
                             }`}
                         >
                             Eventos
+                        </button>
+                        <button
+                            onClick={() => setCategoriesSubTab('roles_functions')}
+                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                                categoriesSubTab === 'roles_functions'
+                                    ? 'bg-orange-500 text-white shadow-sm'
+                                    : 'bg-gray-100 text-slate-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            Cargos e Ministérios
                         </button>
                     </div>
 
@@ -993,6 +1124,112 @@ const Settings: React.FC = () => {
                                     {eventTypes.length === 0 && (
                                         <p className="text-sm text-slate-500 text-center py-4">Nenhuma categoria de evento cadastrada ainda.</p>
                                     )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {categoriesSubTab === 'roles_functions' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Cargos Principais Column */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col h-[500px]">
+                                <div className="mb-4">
+                                    <h3 className="text-base font-bold text-slate-800">Cargos Principais</h3>
+                                    <p className="text-xs text-slate-500 mt-1">Cargos gerais da congregação (ex: Membro, Líder de Célula, Supervisor).</p>
+                                </div>
+                                <form onSubmit={handleAddChurchRole} className="flex gap-2 mb-4 shrink-0">
+                                    <input
+                                        type="text"
+                                        value={newChurchRole}
+                                        onChange={(e) => setNewChurchRole(e.target.value)}
+                                        placeholder="Novo cargo..."
+                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50"
+                                    />
+                                    <button type="submit" className="p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+                                        <Plus size={18} />
+                                    </button>
+                                </form>
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                                    {churchRolesList.map((role) => (
+                                        <div key={role} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100 group hover:border-orange-500/20 transition-all">
+                                            <span className="text-xs font-semibold text-slate-700">{role}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteChurchRole(role)}
+                                                className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Títulos Eclesiásticos Column */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col h-[500px]">
+                                <div className="mb-4">
+                                    <h3 className="text-base font-bold text-slate-800">Títulos Eclesiásticos</h3>
+                                    <p className="text-xs text-slate-500 mt-1">Títulos ministeriais e de ordenação (ex: Cooperador, Diácono, Pastor).</p>
+                                </div>
+                                <form onSubmit={handleAddEcclesiasticalTitle} className="flex gap-2 mb-4 shrink-0">
+                                    <input
+                                        type="text"
+                                        value={newEcclesiasticalTitle}
+                                        onChange={(e) => setNewEcclesiasticalTitle(e.target.value)}
+                                        placeholder="Novo título..."
+                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50"
+                                    />
+                                    <button type="submit" className="p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+                                        <Plus size={18} />
+                                    </button>
+                                </form>
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                                    {ecclesiasticalTitlesList.map((title) => (
+                                        <div key={title} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100 group hover:border-orange-500/20 transition-all">
+                                            <span className="text-xs font-semibold text-slate-700">{title}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteEcclesiasticalTitle(title)}
+                                                className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Funções e Ministérios Column */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col h-[500px]">
+                                <div className="mb-4">
+                                    <h3 className="text-base font-bold text-slate-800">Funções e Ministérios</h3>
+                                    <p className="text-xs text-slate-500 mt-1">Atividades e cargos na liderança (ex: Pastor Presidente, Secretário, Tesoureiro).</p>
+                                </div>
+                                <form onSubmit={handleAddEcclesiasticalFunction} className="flex gap-2 mb-4 shrink-0">
+                                    <input
+                                        type="text"
+                                        value={newEcclesiasticalFunction}
+                                        onChange={(e) => setNewEcclesiasticalFunction(e.target.value)}
+                                        placeholder="Nova função..."
+                                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50"
+                                    />
+                                    <button type="submit" className="p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+                                        <Plus size={18} />
+                                    </button>
+                                </form>
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                                    {ecclesiasticalFunctionsList.map((func) => (
+                                        <div key={func} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100 group hover:border-orange-500/20 transition-all">
+                                            <span className="text-xs font-semibold text-slate-700">{func}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteEcclesiasticalFunction(func)}
+                                                className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>

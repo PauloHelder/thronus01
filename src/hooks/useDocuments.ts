@@ -89,7 +89,7 @@ export const useDocuments = () => {
         try {
             const { data, error } = await (supabase as any)
                 .from('churches')
-                .select('settings, logo_url')
+                .select('settings, logo_url, phone, email, address, province, country')
                 .eq('id', user.churchId)
                 .single();
             if (error) throw error;

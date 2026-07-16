@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { Group } from '../../hooks/useGroups';
 import { Member } from '../../types';
-import { ANGOLA_PROVINCES, ANGOLA_MUNICIPALITIES } from '../../data/angolaLocations';
+import { useLocations } from '../../hooks/useLocations';
 
 interface GroupModalProps {
     isOpen: boolean;
@@ -23,6 +23,7 @@ const DAYS_OF_WEEK = [
 ];
 
 const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group, members = [] }) => {
+    const { countries, provinces, municipalities } = useLocations();
     const [formData, setFormData] = useState<{
         name: string;
         meetingDay: string;
@@ -47,7 +48,7 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
         address: '',
         neighborhood: '',
         district: '',
-        country: 'Angola',
+        country: 'AO',
         province: '',
         municipality: '',
         status: 'Ativo',
@@ -69,7 +70,7 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
                 address: group.address || '',
                 neighborhood: group.neighborhood || '',
                 district: group.district || '',
-                country: group.country || 'Angola',
+                country: group.country === 'Angola' || !group.country ? 'AO' : group.country,
                 province: group.province || '',
                 municipality: group.municipality || '',
                 status: group.status || 'Ativo',
@@ -88,7 +89,7 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
                 address: '',
                 neighborhood: '',
                 district: '',
-                country: 'Angola',
+                country: 'AO',
                 province: '',
                 municipality: '',
                 status: 'Ativo',
@@ -104,6 +105,16 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
     const handleProvinceChange = (newProvince: string) => {
         setGroupProvince(newProvince);
         setFormData({ ...formData, province: newProvince, municipality: '' });
+    };
+
+    const handleCountryChange = (countryId: string) => {
+        setFormData({
+            ...formData,
+            country: countryId,
+            province: '',
+            municipality: ''
+        });
+        setGroupProvince('');
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -299,10 +310,13 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
                             <label className="block text-sm font-medium text-slate-700 mb-1">País</label>
                             <select
                                 value={formData.country}
-                                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                                onChange={(e) => handleCountryChange(e.target.value)}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                             >
-                                <option value="Angola">Angola</option>
+                                <option value="">Selecione...</option>
+                                {countries.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
                             </select>
                         </div>
                         <div>
@@ -310,12 +324,15 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
                             <select
                                 value={groupProvince}
                                 onChange={(e) => handleProvinceChange(e.target.value)}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                                disabled={!formData.country}
+                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all disabled:opacity-50"
                             >
-                                <option value="">Selecione a província</option>
-                                {ANGOLA_PROVINCES.map(prov => (
-                                    <option key={prov.id} value={prov.id}>{prov.name}</option>
-                                ))}
+                                <option value="">Selecione...</option>
+                                {provinces
+                                    .filter(prov => prov.country_id === formData.country)
+                                    .map(prov => (
+                                        <option key={prov.id} value={prov.id}>{prov.name}</option>
+                                    ))}
                             </select>
                         </div>
                         <div>
@@ -326,9 +343,9 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, onSave, group,
                                 disabled={!groupProvince}
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <option value="">Selecione o município</option>
-                                {groupProvince && ANGOLA_MUNICIPALITIES
-                                    .filter(mun => mun.provinceId === groupProvince)
+                                <option value="">Selecione...</option>
+                                {groupProvince && municipalities
+                                    .filter(mun => mun.province_id === groupProvince)
                                     .map(mun => (
                                         <option key={mun.id} value={mun.id}>{mun.name}</option>
                                     ))}

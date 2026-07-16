@@ -21,6 +21,7 @@ const ServiceDetail: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [statistics, setStatistics] = useState({
         adults: { men: 0, women: 0 },
+        teenagers: { boys: 0, girls: 0 },
         children: { boys: 0, girls: 0 },
         visitors: { men: 0, women: 0 },
         newConverts: { men: 0, women: 0, children: 0 }
@@ -48,9 +49,10 @@ const ServiceDetail: React.FC = () => {
                     setService(serviceData);
                     setStatistics(serviceData.statistics || {
                         adults: { men: 0, women: 0 },
+                        teenagers: { boys: 0, girls: 0 },
                         children: { boys: 0, girls: 0 },
                         visitors: { men: 0, women: 0 },
-                        newConverts: 0
+                        newConverts: { men: 0, women: 0, children: 0 }
                     });
                 } else {
                     toast.error('Culto não encontrado');
@@ -248,7 +250,7 @@ const ServiceDetail: React.FC = () => {
         setIsSavingStats(true);
         try {
             await updateStatistics(id, statistics);
-            setService(prev => prev ? { ...prev, statistics } : null);
+            setService(prev => prev ? { ...prev, statistics, status: 'Concluído' } : null);
             toast.success('Estatísticas salvas com sucesso!');
         } catch (error) {
             console.error('Error saving statistics:', error);
@@ -281,10 +283,11 @@ const ServiceDetail: React.FC = () => {
     };
 
     const totalAdults = statistics.adults.men + statistics.adults.women;
+    const totalTeenagers = (statistics.teenagers?.boys || 0) + (statistics.teenagers?.girls || 0);
     const totalChildren = statistics.children.boys + statistics.children.girls;
     const totalVisitors = statistics.visitors.men + statistics.visitors.women;
     // Total geral NÃO inclui visitantes
-    const totalAttendance = totalAdults + totalChildren;
+    const totalAttendance = totalAdults + totalChildren + totalTeenagers;
 
     if (loading) {
         return (
@@ -450,7 +453,7 @@ const ServiceDetail: React.FC = () => {
                     </div>
 
                     {/* Resumo Total */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
                             <p className="text-blue-600 text-sm font-medium mb-1">Total Geral</p>
                             <p className="text-3xl font-bold text-blue-700">{totalAttendance}</p>
@@ -459,6 +462,10 @@ const ServiceDetail: React.FC = () => {
                         <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
                             <p className="text-purple-600 text-sm font-medium mb-1">Adultos</p>
                             <p className="text-3xl font-bold text-purple-700">{totalAdults}</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-lg border border-indigo-200">
+                            <p className="text-indigo-600 text-sm font-medium mb-1">Adolescentes</p>
+                            <p className="text-3xl font-bold text-indigo-700">{totalTeenagers}</p>
                         </div>
                         <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
                             <p className="text-green-600 text-sm font-medium mb-1">Crianças</p>
@@ -518,6 +525,51 @@ const ServiceDetail: React.FC = () => {
                                         value={totalAdults}
                                         disabled
                                         className="w-full px-4 py-2 bg-purple-100 border border-purple-200 rounded-lg text-purple-800 font-semibold"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Adolescentes */}
+                        <div className="p-4 bg-indigo-50/50 rounded-lg border border-indigo-200">
+                            <h3 className="font-semibold text-indigo-800 mb-3 flex items-center gap-2">
+                                <Users size={18} />
+                                Adolescentes
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-indigo-700 mb-1">Adolescentes Homens</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={statistics.teenagers?.boys || 0}
+                                        onChange={(e) => setStatistics({
+                                            ...statistics,
+                                            teenagers: { ...(statistics.teenagers || { boys: 0, girls: 0 }), boys: parseInt(e.target.value) || 0 }
+                                        })}
+                                        className="w-full px-4 py-2 bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-indigo-700 mb-1">Adolescentes Mulheres</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={statistics.teenagers?.girls || 0}
+                                        onChange={(e) => setStatistics({
+                                            ...statistics,
+                                            teenagers: { ...(statistics.teenagers || { boys: 0, girls: 0 }), girls: parseInt(e.target.value) || 0 }
+                                        })}
+                                        className="w-full px-4 py-2 bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-indigo-700 mb-1">Total</label>
+                                    <input
+                                        type="number"
+                                        value={totalTeenagers}
+                                        disabled
+                                        className="w-full px-4 py-2 bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-800 font-semibold"
                                     />
                                 </div>
                             </div>

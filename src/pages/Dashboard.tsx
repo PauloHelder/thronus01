@@ -262,10 +262,7 @@ const Dashboard: React.FC = () => {
 
   const handleSaveMember = async (member: Omit<Member, 'id'> | Member) => {
     try {
-      const success = await addMember(member);
-      if (success) {
-        setIsMemberModalOpen(false);
-      }
+      await addMember(member);
     } catch (error) {
       console.error('Error saving member:', error);
     }
@@ -450,21 +447,21 @@ const Dashboard: React.FC = () => {
 
           <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
             {membersList.filter(m => {
-              if (!m.birth_date) return false;
-              const bDate = new Date(m.birth_date);
+              if (!m.birthDate) return false;
+              const bDate = new Date(m.birthDate);
               return bDate.getMonth() === parseInt(birthdayMonth);
-            }).sort((a, b) => new Date(a.birth_date).getDate() - new Date(b.birth_date).getDate()).length > 0 ? (
+            }).sort((a, b) => new Date(a.birthDate).getDate() - new Date(b.birthDate).getDate()).length > 0 ? (
               membersList
                 .filter(m => {
-                  if (!m.birth_date) return false;
-                  const bDate = new Date(m.birth_date);
+                  if (!m.birthDate) return false;
+                  const bDate = new Date(m.birthDate);
                   return bDate.getMonth() === parseInt(birthdayMonth);
                 })
-                .sort((a, b) => new Date(a.birth_date).getDate() - new Date(b.birth_date).getDate())
+                .sort((a, b) => new Date(a.birthDate).getDate() - new Date(b.birthDate).getDate())
                 .map(m => (
                   <div key={m.id} className="flex items-center gap-3 p-2 hover:bg-pink-50 rounded-lg transition-colors border border-transparent hover:border-pink-100">
                     <img
-                      src={m.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'}
+                      src={m.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'}
                       alt={m.name}
                       className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
                     />
@@ -472,7 +469,7 @@ const Dashboard: React.FC = () => {
                       <p className="font-medium text-slate-800 text-sm line-clamp-1">{m.name}</p>
                       <p className="text-xs text-pink-600 font-bold flex items-center gap-1">
                         <span className="bg-pink-100 px-1.5 py-0.5 rounded text-[10px]">
-                          Dia {new Date(m.birth_date).getDate()}
+                          Dia {new Date(m.birthDate).getDate()}
                         </span>
                       </p>
                     </div>

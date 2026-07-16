@@ -81,7 +81,6 @@ const Members: React.FC = () => {
         await addMember(memberData);
       }
       toast.success('Membro salvo com sucesso!');
-      setIsModalOpen(false);
     } catch (err) {
       console.error("Error saving member:", err);
       toast.error("Erro ao salvar membro");

@@ -119,6 +119,10 @@ export function useServices() {
                             men: dbService.stats_adults_men || 0,
                             women: dbService.stats_adults_women || 0
                         },
+                        teenagers: {
+                            boys: dbService.stats_teenagers_boys || 0,
+                            girls: dbService.stats_teenagers_girls || 0
+                        },
                         children: {
                             boys: dbService.stats_children_boys || 0,
                             girls: dbService.stats_children_girls || 0
@@ -174,6 +178,8 @@ export function useServices() {
                 description: service.description || null,
                 stats_adults_men: service.statistics?.adults.men || 0,
                 stats_adults_women: service.statistics?.adults.women || 0,
+                stats_teenagers_boys: service.statistics?.teenagers?.boys || 0,
+                stats_teenagers_girls: service.statistics?.teenagers?.girls || 0,
                 stats_children_boys: service.statistics?.children.boys || 0,
                 stats_children_girls: service.statistics?.children.girls || 0,
                 stats_visitors_men: service.statistics?.visitors.men || 0,
@@ -248,6 +254,10 @@ export function useServices() {
                         men: insertedData.stats_adults_men || 0,
                         women: insertedData.stats_adults_women || 0
                     },
+                    teenagers: {
+                        boys: insertedData.stats_teenagers_boys || 0,
+                        girls: insertedData.stats_teenagers_girls || 0
+                    },
                     children: {
                         boys: insertedData.stats_children_boys || 0,
                         girls: insertedData.stats_children_girls || 0
@@ -296,6 +306,8 @@ export function useServices() {
             if (service.statistics) {
                 dbService.stats_adults_men = service.statistics.adults.men || 0;
                 dbService.stats_adults_women = service.statistics.adults.women || 0;
+                dbService.stats_teenagers_boys = service.statistics.teenagers?.boys || 0;
+                dbService.stats_teenagers_girls = service.statistics.teenagers?.girls || 0;
                 dbService.stats_children_boys = service.statistics.children.boys || 0;
                 dbService.stats_children_girls = service.statistics.children.girls || 0;
                 dbService.stats_visitors_men = service.statistics.visitors.men || 0;
@@ -370,6 +382,10 @@ export function useServices() {
                         men: updatedData.stats_adults_men || 0,
                         women: updatedData.stats_adults_women || 0
                     },
+                    teenagers: {
+                        boys: updatedData.stats_teenagers_boys || 0,
+                        girls: updatedData.stats_teenagers_girls || 0
+                    },
                     children: {
                         boys: updatedData.stats_children_boys || 0,
                         girls: updatedData.stats_children_girls || 0
@@ -431,6 +447,7 @@ export function useServices() {
             if (fetchError) throw fetchError;
 
             const serviceData = data as any;
+            console.log('[DEBUG] getService returned stats_teenagers_boys:', serviceData.stats_teenagers_boys, 'stats_teenagers_girls:', serviceData.stats_teenagers_girls);
 
             return {
                 id: serviceData.id,
@@ -460,6 +477,10 @@ export function useServices() {
                         men: serviceData.stats_adults_men || 0,
                         women: serviceData.stats_adults_women || 0
                     },
+                    teenagers: {
+                        boys: serviceData.stats_teenagers_boys || 0,
+                        girls: serviceData.stats_teenagers_girls || 0
+                    },
                     children: {
                         boys: serviceData.stats_children_boys || 0,
                         girls: serviceData.stats_children_girls || 0
@@ -483,30 +504,39 @@ export function useServices() {
 
     // Update service statistics
     const updateStatistics = async (id: string, statistics: Service['statistics']) => {
+        console.log('[DEBUG] updateStatistics called with statistics:', JSON.stringify(statistics, null, 2));
         try {
             const { error: updateError } = await supabase
                 .from('services')
                 .update({
                     stats_adults_men: statistics?.adults.men || 0,
                     stats_adults_women: statistics?.adults.women || 0,
+                    stats_teenagers_boys: statistics?.teenagers?.boys || 0,
+                    stats_teenagers_girls: statistics?.teenagers?.girls || 0,
                     stats_children_boys: statistics?.children.boys || 0,
                     stats_children_girls: statistics?.children.girls || 0,
                     stats_visitors_men: statistics?.visitors.men || 0,
                     stats_visitors_women: statistics?.visitors.women || 0,
                     stats_new_converts_men: statistics?.newConverts?.men || 0,
                     stats_new_converts_women: statistics?.newConverts?.women || 0,
-                    stats_new_converts_children: statistics?.newConverts?.children || 0
+                    stats_new_converts_children: statistics?.newConverts?.children || 0,
+                    status: 'Concluído'
                 } as Record<string, any>)
                 .eq('id', id);
 
-            if (updateError) throw updateError;
+            if (updateError) {
+                console.error('[DEBUG] updateStatistics database error:', updateError);
+                throw updateError;
+            }
+
+            console.log('[DEBUG] updateStatistics database success. Updating cache...');
 
             // Update local state and global cache
             updateCache(cachedServices.map(s =>
-                s.id === id ? { ...s, statistics } : s
+                s.id === id ? { ...s, statistics, status: 'Concluído' } : s
             ));
         } catch (err) {
-            console.error('Error updating statistics:', err);
+            console.error('[DEBUG] updateStatistics error caught:', err);
             throw err;
         }
     };

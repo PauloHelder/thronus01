@@ -292,7 +292,6 @@ const MemberDetail: React.FC = () => {
         try {
             await updateMember(member.id, updatedData);
             await refetch(); // Garante que temos os dados mais recentes do servidor
-            setIsEditModalOpen(false);
         } catch (error) {
             console.error('Erro ao atualizar membro:', error);
             toast.error('Erro ao atualizar membro. Tente novamente.');

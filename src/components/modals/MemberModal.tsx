@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Modal from '../Modal';
 import { Member } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
-import { ANGOLA_PROVINCES, ANGOLA_MUNICIPALITIES } from '../../data/angolaLocations';
+import { useLocations } from '../../hooks/useLocations';
 import { formatDateForInput } from '../../utils/dateUtils';
 import { Camera, X, Plus, Trash2, User, Heart, Shield, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,8 +32,7 @@ const EDUCATION_LEVELS = [
     { value: 'Pós-universitário', label: 'Pós-universitário' }
 ];
 
-const ECO_TITLES = ['Membro', 'Cooperador', 'Diácono', 'Presbítero', 'Pastor', 'Bispo', 'Apóstolo', 'Evangelista', 'Missionário', 'Mestre', 'Profeta', 'Ancião', 'Supervisor'];
-const ECO_FUNCTIONS = ['Líder de Célula', 'Líder de Louvor', 'Professor da EBD', 'Sonoplasta', 'Secretário(a)', 'Tesoureiro(a)', 'Apoio Social', 'Protocolo', 'Líder de Jovens', 'Líder de Crianças'];
+
 
 // Sub-component for member search dropdown or manual input
 const MemberSearchInput: React.FC<{
@@ -106,6 +105,7 @@ const MemberSearchInput: React.FC<{
 
 const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, member }) => {
     const { user } = useAuth();
+    const { countries, provinces, municipalities } = useLocations();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [activeTab, setActiveTab] = useState<'personal' | 'contact' | 'family' | 'relationships' | 'ecclesiastical' | 'transition'>('personal');
@@ -128,7 +128,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
         neighborhood: '',
         district: '',
         province: '',
-        country: 'Angola',
+        country: 'AO',
         municipality: '',
         occupation: '',
         notes: '',
@@ -162,6 +162,12 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
     const [avatarUrl, setAvatarUrl] = useState<string>('');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [churchRoles, setChurchRoles] = useState<string[]>([]);
+    const [dbEcclesiasticalTitles, setDbEcclesiasticalTitles] = useState<string[]>([
+        'Membro', 'Cooperador', 'Diácono', 'Presbítero', 'Pastor', 'Bispo', 'Apóstolo', 'Evangelista', 'Missionário', 'Mestre', 'Profeta', 'Ancião', 'Supervisor'
+    ]);
+    const [dbEcclesiasticalFunctions, setDbEcclesiasticalFunctions] = useState<string[]>([
+        'Pastor Presidente', 'Líder de Célula', 'Líder de Louvor', 'Professor da EBD', 'Sonoplasta', 'Secretário(a)', 'Tesoureiro(a)', 'Apoio Social', 'Protocolo', 'Líder de Jovens', 'Líder de Crianças'
+    ]);
     const [memberProvince, setMemberProvince] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -179,7 +185,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
             if (user?.churchId) {
                 const { data } = await supabase
                     .from('members')
-                    .select('id, name, member_code, avatar_url')
+                    .select('id, name, member_code, avatar_url, birth_date')
                     .eq('church_id', user.churchId)
                     .is('deleted_at', null)
                     .order('name', { ascending: true });
@@ -188,7 +194,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                         id: m.id,
                         name: m.name,
                         memberCode: m.member_code,
-                        avatar: m.avatar_url
+                        avatar: m.avatar_url,
+                        birthDate: m.birth_date
                     } as Member)));
                 }
             }
@@ -221,9 +228,42 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
     }, [member, isOpen]);
 
     useEffect(() => {
-        const storedChurchRoles = JSON.parse(localStorage.getItem('thronus_church_roles') || '[]');
-        setChurchRoles(storedChurchRoles);
+        if (!isOpen || !user?.churchId) return;
 
+        const loadChurchConfig = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('churches')
+                    .select('settings')
+                    .eq('id', user.churchId)
+                    .single();
+                if (data && !error) {
+                    const settings = (data as any).settings || {};
+                    
+                    if (settings.church_roles && Array.isArray(settings.church_roles)) {
+                        setChurchRoles(settings.church_roles);
+                    } else {
+                        const stored = JSON.parse(localStorage.getItem('thronus_church_roles') || '[]');
+                        setChurchRoles(stored.length > 0 ? stored : ['Membro', 'Líder de Célula', 'Professor', 'Supervisor']);
+                    }
+
+                    if (settings.ecclesiastical_titles && Array.isArray(settings.ecclesiastical_titles)) {
+                        setDbEcclesiasticalTitles(settings.ecclesiastical_titles);
+                    }
+                    
+                    if (settings.ecclesiastical_functions && Array.isArray(settings.ecclesiastical_functions)) {
+                        setDbEcclesiasticalFunctions(settings.ecclesiastical_functions);
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching church config in MemberModal:", err);
+            }
+        };
+
+        loadChurchConfig();
+    }, [isOpen, user?.churchId]);
+
+    useEffect(() => {
         if (member) {
             setFormData({
                 name: member.name,
@@ -241,7 +281,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 neighborhood: member.neighborhood || '',
                 district: member.district || '',
                 province: member.province || '',
-                country: member.country || 'Angola',
+                country: member.country === 'Angola' || !member.country ? 'AO' : member.country,
                 municipality: member.municipality || '',
                 occupation: member.occupation || '',
                 notes: member.notes || '',
@@ -291,7 +331,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                 neighborhood: '',
                 district: '',
                 province: '',
-                country: 'Angola',
+                country: 'AO',
                 municipality: '',
                 occupation: '',
                 notes: '',
@@ -365,6 +405,16 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
     const handleProvinceChange = (newProvince: string) => {
         setMemberProvince(newProvince);
         setFormData({ ...formData, province: newProvince, municipality: '' });
+    };
+
+    const handleCountryChange = (countryId: string) => {
+        setFormData({
+            ...formData,
+            country: countryId,
+            province: '',
+            municipality: ''
+        });
+        setMemberProvince('');
     };
 
     const getOppositeRelationship = (type: string, gender?: 'Male' | 'Female') => {
@@ -499,6 +549,37 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                         .from('members')
                         .update({ children_data: motherChildren })
                         .eq('id', formData.motherMemberId);
+                }
+            }
+
+            // 3. Sync Sibling Relationships between children (if there are 2 or more children)
+            const registeredChildrenIds = (formData.childrenData || [])
+                .map((c: any) => c.memberId)
+                .filter(Boolean) as string[];
+
+            if (registeredChildrenIds.length >= 2) {
+                for (let i = 0; i < registeredChildrenIds.length; i++) {
+                    for (let j = i + 1; j < registeredChildrenIds.length; j++) {
+                        const childA = registeredChildrenIds[i];
+                        const childB = registeredChildrenIds[j];
+
+                        // Check if relationship already exists
+                        const { data: existingRel } = await supabase
+                            .from('member_relationships')
+                            .select('id')
+                            .eq('member_id', childA)
+                            .eq('related_member_id', childB)
+                            .maybeSingle();
+
+                        if (!existingRel) {
+                            await supabase
+                                .from('member_relationships')
+                                .insert([
+                                    { member_id: childA, related_member_id: childB, relationship_type: 'Irmão/Irmã' },
+                                    { member_id: childB, related_member_id: childA, relationship_type: 'Irmão/Irmã' }
+                                ]);
+                        }
+                    }
                 }
             }
 
@@ -846,11 +927,35 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profissão / Ocupação</label>
                                     <input
                                         type="text"
+                                        list="common-occupations"
                                         value={formData.occupation || ''}
                                         onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
                                         className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all text-sm"
-                                        placeholder="Profissão actual"
+                                        placeholder="Pesquise ou escreva a profissão..."
                                     />
+                                    <datalist id="common-occupations">
+                                        <option value="Estudante" />
+                                        <option value="Professor(a)" />
+                                        <option value="Enfermeiro(a)" />
+                                        <option value="Médico(a)" />
+                                        <option value="Engenheiro(a)" />
+                                        <option value="Administrador(a)" />
+                                        <option value="Contabilista" />
+                                        <option value="Pastor(a)" />
+                                        <option value="Militar / Polícia" />
+                                        <option value="Funcionário(a) Público(a)" />
+                                        <option value="Trabalhador(a) Independente" />
+                                        <option value="Dona de Casa" />
+                                        <option value="Desempregado(a)" />
+                                        <option value="Aposentado(a) / Reformado(a)" />
+                                        <option value="Comerciante" />
+                                        <option value="Motorista" />
+                                        <option value="Eletricista" />
+                                        <option value="Mecânico(a)" />
+                                        <option value="Pedreiro" />
+                                        <option value="Carpinteiro(a)" />
+                                        <option value="Técnico(a) de Informática" />
+                                    </datalist>
                                 </div>
                             </div>
 
@@ -886,16 +991,32 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                         />
                                     </div>
                                     <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">País</label>
+                                        <select
+                                            value={formData.country || ''}
+                                            onChange={(e) => handleCountryChange(e.target.value)}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all text-sm"
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {countries.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Província</label>
                                         <select
                                             value={memberProvince}
                                             onChange={(e) => handleProvinceChange(e.target.value)}
-                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all text-sm"
+                                            disabled={!formData.country}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all text-sm disabled:opacity-50"
                                         >
                                             <option value="">Selecione...</option>
-                                            {ANGOLA_PROVINCES.map(prov => (
-                                                <option key={prov.id} value={prov.id}>{prov.name}</option>
-                                            ))}
+                                            {provinces
+                                                .filter(prov => prov.country_id === formData.country)
+                                                .map(prov => (
+                                                    <option key={prov.id} value={prov.id}>{prov.name}</option>
+                                                ))}
                                         </select>
                                     </div>
                                     <div>
@@ -907,8 +1028,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                             className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all text-sm disabled:opacity-50"
                                         >
                                             <option value="">Selecione...</option>
-                                            {memberProvince && ANGOLA_MUNICIPALITIES
-                                                .filter(mun => mun.provinceId === memberProvince)
+                                            {memberProvince && municipalities
+                                                .filter(mun => mun.province_id === memberProvince)
                                                 .map(mun => (
                                                     <option key={mun.id} value={mun.id}>{mun.name}</option>
                                                 ))}
@@ -1216,7 +1337,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                         <Shield size={12} /> Títulos Eclesiásticos (Selecione vários)
                                     </label>
                                     <div className="flex flex-wrap gap-2">
-                                        {ECO_TITLES.map(title => {
+                                        {dbEcclesiasticalTitles.map(title => {
                                             const active = (formData.ecclesiasticalTitles || []).includes(title);
                                             return (
                                                 <button
@@ -1241,7 +1362,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ isOpen, onClose, onSave, memb
                                         <User size={12} /> Funções e Ministérios (Selecione várias)
                                     </label>
                                     <div className="flex flex-wrap gap-2">
-                                        {ECO_FUNCTIONS.map(func => {
+                                        {dbEcclesiasticalFunctions.map(func => {
                                             const active = (formData.ecclesiasticalFunctions || []).includes(func);
                                             return (
                                                 <button
