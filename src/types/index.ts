@@ -21,6 +21,7 @@ export interface Member {
   groupId?: string;
   biNumber?: string;
   occupation?: string;
+  educationLevel?: string;
   notes?: string;
   joinDate?: string;
   ordinationDate?: string;

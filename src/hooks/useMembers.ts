@@ -77,6 +77,7 @@ export const useMembers = () => {
         groupId: data.group_id,
         biNumber: data.bi_number,
         occupation: data.occupation,
+        educationLevel: data.education_level,
         notes: data.notes,
         joinDate: data.join_date,
         ordinationDate: data.ordination_date,
@@ -143,6 +144,8 @@ export const useMembers = () => {
             delete dbData.ordinationCelebrant;
         }
 
+        if (data.educationLevel !== undefined) { dbData.education_level = data.educationLevel; delete dbData.educationLevel; }
+
         // Extended fields mapping
         if (data.nickname !== undefined) dbData.nickname = data.nickname;
         if (data.bloodType !== undefined) { dbData.blood_type = data.bloodType; delete dbData.bloodType; }
@@ -168,6 +171,10 @@ export const useMembers = () => {
         if (data.transitionHistory !== undefined) { dbData.transition_history = data.transitionHistory; delete dbData.transitionHistory; }
         if (data.ecclesiasticalTitles !== undefined) { dbData.ecclesiastical_titles = data.ecclesiasticalTitles; delete dbData.ecclesiasticalTitles; }
         if (data.ecclesiasticalFunctions !== undefined) { dbData.ecclesiastical_functions = data.ecclesiasticalFunctions; delete dbData.ecclesiasticalFunctions; }
+
+        // Clean read-only system fields
+        delete dbData.created_at;
+        delete dbData.createdAt;
 
         return dbData;
     };

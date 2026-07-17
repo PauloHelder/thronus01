@@ -437,6 +437,11 @@ const Documents: React.FC = () => {
 
         try {
             // Wait brief moment for React DOM state to update template ref container
+            // Calculate sequential order number for this document type (recommendation, baptism_cert, etc.)
+            const sameTypeDocs = documents.filter(d => d.document_type === selectedDocType);
+            const docNumber = sameTypeDocs.length + 1;
+            const formattedDocNumber = String(docNumber).padStart(3, '0');
+
             const hashCode = `TRN-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
             
             // Build preview mock info
@@ -444,7 +449,15 @@ const Documents: React.FC = () => {
                 hashCode,
                 issue_date: new Date().toLocaleDateString('pt-BR'),
                 ...formData,
-                recipient_name: rName
+                recipient_name: rName,
+                metadata: {
+                    notes: formData.notes || '',
+                    signer_name: configData.signer_name,
+                    signer_role: configData.signer_role,
+                    hashCode,
+                    issuer_name: user?.fullName || 'Sistema',
+                    doc_number: formattedDocNumber
+                }
             };
             
             setPreviewDocData(previewData);
@@ -552,7 +565,9 @@ const Documents: React.FC = () => {
                     notes: formData.notes || '',
                     signer_name: configData.signer_name,
                     signer_role: configData.signer_role,
-                    hashCode
+                    hashCode,
+                    issuer_name: user?.fullName || 'Sistema',
+                    doc_number: formattedDocNumber
                 }
             });
 
@@ -565,6 +580,18 @@ const Documents: React.FC = () => {
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const getDocumentSequenceNumber = (doc: any) => {
+        const sameTypeDocs = documents.filter(d => d.document_type === doc.document_type);
+        const sorted = [...sameTypeDocs].sort((a, b) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : (a.issue_date ? new Date(a.issue_date).getTime() : 0);
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : (b.issue_date ? new Date(b.issue_date).getTime() : 0);
+            return timeA - timeB;
+        });
+        const index = sorted.findIndex(s => s.id === doc.id);
+        const sequenceNum = index !== -1 ? index + 1 : sameTypeDocs.length + 1;
+        return String(sequenceNum).padStart(3, '0');
     };
 
     // Filter historical documents
@@ -697,7 +724,7 @@ const Documents: React.FC = () => {
                                         filteredDocs.map((doc) => (
                                             <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-6 py-4 font-mono text-xs font-bold text-orange-600">
-                                                    {doc.hash_code}
+                                                    #{doc.metadata?.doc_number || getDocumentSequenceNumber(doc)} <span className="text-slate-400 font-normal">({doc.hash_code})</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-xs font-medium text-slate-500">
                                                     {new Date(doc.issue_date).toLocaleDateString('pt-BR')}
@@ -1354,10 +1381,13 @@ const Documents: React.FC = () => {
                                             </div>
 
                                             {/* Title */}
-                                            <div className="text-center my-8">
+                                            <div className="text-center my-8 space-y-1">
                                                 <h2 className="text-2xl font-black tracking-widest text-slate-900 uppercase underline decoration-2 underline-offset-8">
                                                     Carta de Recomendação
                                                 </h2>
+                                                <p className="text-xs font-mono font-bold text-slate-500 pt-2">
+                                                    Ref. Nº {previewDocData?.metadata?.doc_number || getDocumentSequenceNumber({ id: 'preview', document_type: 'recommendation' })}
+                                                </p>
                                             </div>
 
                                             {/* Letter Body */}
@@ -1403,6 +1433,9 @@ const Documents: React.FC = () => {
                                                 <div className="mt-12 text-[8px] text-slate-400 font-mono text-center">
                                                     Código de Validação: {previewDocData?.hashCode || 'TRN-XXXXXX-XXXX'}
                                                 </div>
+                                                <div className="text-[6.5px] text-slate-350 font-mono text-center mt-1">
+                                                    Emitido por: {previewDocData?.metadata?.issuer_name || user?.fullName || 'Sistema'}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -1416,10 +1449,13 @@ const Documents: React.FC = () => {
                                             </div>
 
                                             {/* Certificate Title */}
-                                            <div className="text-center my-6">
+                                            <div className="text-center my-6 space-y-1">
                                                 <h1 className="font-black text-4xl text-amber-900 tracking-wider font-serif uppercase">
                                                     Certificado de Batismo
                                                 </h1>
+                                                <p className="text-xs font-mono font-bold text-amber-800">
+                                                    Reg. Nº {previewDocData?.metadata?.doc_number || getDocumentSequenceNumber({ id: 'preview', document_type: 'baptism_cert' })}
+                                                </p>
                                                 <div className="w-32 h-1 bg-amber-800 mx-auto mt-2 rounded-full"></div>
                                             </div>
 
@@ -1456,6 +1492,9 @@ const Documents: React.FC = () => {
                                             <div className="text-[8px] text-slate-400 font-mono text-center mt-6">
                                                 Cód. Autenticidade: {previewDocData?.hashCode || 'TRN-XXXXXX-XXXX'}
                                             </div>
+                                            <div className="text-[6.5px] text-slate-300 font-mono text-center mt-1">
+                                                Emitido por: {previewDocData?.metadata?.issuer_name || user?.fullName || 'Sistema'}
+                                            </div>
 
                                             {/* Background vintage badge decoration */}
                                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-dashed border-amber-900/10 rounded-full flex items-center justify-center pointer-events-none -z-10">
@@ -1471,10 +1510,13 @@ const Documents: React.FC = () => {
                                                 <h3 className="text-xs font-bold text-slate-500 mt-1">{configData.certificate_subtitle}</h3>
                                             </div>
 
-                                            <div className="text-center my-6">
+                                            <div className="text-center my-6 space-y-1">
                                                 <h1 className="font-black text-4xl text-indigo-900 tracking-wider font-serif uppercase">
                                                     Certificado de Apresentação
                                                 </h1>
+                                                <p className="text-xs font-mono font-bold text-indigo-800">
+                                                    Reg. Nº {previewDocData?.metadata?.doc_number || getDocumentSequenceNumber({ id: 'preview', document_type: 'presentation_cert' })}
+                                                </p>
                                                 <div className="w-32 h-1 bg-indigo-800 mx-auto mt-2 rounded-full"></div>
                                             </div>
 
@@ -1509,6 +1551,9 @@ const Documents: React.FC = () => {
                                             <div className="text-[8px] text-slate-400 font-mono text-center mt-6">
                                                 Cód. Autenticidade: {previewDocData?.hashCode || 'TRN-XXXXXX-XXXX'}
                                             </div>
+                                            <div className="text-[6.5px] text-slate-300 font-mono text-center mt-1">
+                                                Emitido por: {previewDocData?.metadata?.issuer_name || user?.fullName || 'Sistema'}
+                                            </div>
 
                                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-dashed border-indigo-900/10 rounded-full flex items-center justify-center pointer-events-none -z-10">
                                                 <Sparkles size={96} className="text-indigo-900/[0.03]" />
@@ -1523,10 +1568,13 @@ const Documents: React.FC = () => {
                                                 <h3 className="text-xs font-bold text-slate-500 mt-1">{configData.certificate_subtitle}</h3>
                                             </div>
 
-                                            <div className="text-center my-6">
+                                            <div className="text-center my-6 space-y-1">
                                                 <h1 className="font-black text-4xl text-emerald-900 tracking-wider font-serif uppercase">
                                                     Certificado de Conclusão
                                                 </h1>
+                                                <p className="text-xs font-mono font-bold text-emerald-850">
+                                                    Reg. Nº {previewDocData?.metadata?.doc_number || getDocumentSequenceNumber({ id: 'preview', document_type: 'course_cert' })}
+                                                </p>
                                                 <div className="w-32 h-1 bg-emerald-800 mx-auto mt-2 rounded-full"></div>
                                             </div>
 
@@ -1557,6 +1605,9 @@ const Documents: React.FC = () => {
 
                                             <div className="text-[8px] text-slate-400 font-mono text-center mt-6">
                                                 Cód. Autenticidade: {previewDocData?.hashCode || 'TRN-XXXXXX-XXXX'}
+                                            </div>
+                                            <div className="text-[6.5px] text-slate-300 font-mono text-center mt-1">
+                                                Emitido por: {previewDocData?.metadata?.issuer_name || user?.fullName || 'Sistema'}
                                             </div>
 
                                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-dashed border-emerald-900/10 rounded-full flex items-center justify-center pointer-events-none -z-10">
