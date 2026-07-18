@@ -102,9 +102,7 @@ const LoginPage: React.FC = () => {
             <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-purple-50 flex items-center justify-center p-4">
                 <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 border border-gray-100 animate-in zoom-in-95 duration-300">
                     <div className="flex justify-center mb-6">
-                        <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
-                            <span className="font-bold text-white text-3xl">Tr</span>
-                        </div>
+                        <img src="/logo_system.jpg" alt="Logo" className="w-16 h-16 rounded-2xl object-cover shadow-lg" />
                     </div>
                     <h2 className="text-2xl font-bold text-slate-800 mb-2 text-center">Selecione a Igreja</h2>
                     <p className="text-slate-500 text-center mb-8">Você possui acesso a múltiplas igrejas. Escolha qual deseja acessar agora.</p>
@@ -176,9 +174,7 @@ const LoginPage: React.FC = () => {
                 {/* Left Side - Branding */}
                 <div className="hidden lg:block space-y-8 animate-in fade-in slide-in-from-left duration-700">
                     <div className="flex items-center gap-3">
-                        <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center shadow-2xl transform -rotate-6 hover:rotate-0 transition-transform duration-500">
-                            <span className="font-bold text-white text-3xl tracking-tighter">Tr</span>
-                        </div>
+                        <img src="/logo_system.jpg" alt="Logo" className="w-16 h-16 rounded-2xl object-cover shadow-2xl transform -rotate-6 hover:rotate-0 transition-transform duration-500" />
                         <div>
                             <h1 className="font-bold text-3xl tracking-tight text-slate-800">Tronus</h1>
                             <p className="text-slate-500">Plataforma de Gestão de Igrejas</p>

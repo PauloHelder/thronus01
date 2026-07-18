@@ -193,9 +193,7 @@ const Sidebar: React.FC = () => {
         {/* Header */}
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center font-bold">
-              Tr
-            </div>
+            <img src="/logo_system.jpg" alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
             <div>
               <h1 className="font-bold text-lg">Tronus</h1>
               <p className="text-xs text-slate-400">Gestão de Igrejas</p>

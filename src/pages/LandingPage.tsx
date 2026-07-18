@@ -143,9 +143,7 @@ const LandingPage: React.FC = () => {
                     <div className="flex justify-between items-center h-16">
                         {/* Logo */}
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg transform -rotate-3">
-                                <span className="font-bold text-white text-xl tracking-tighter">Tr</span>
-                            </div>
+                            <img src="/logo_system.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg transform -rotate-3" />
                             <div>
                                 <h1 className="font-bold text-xl tracking-tight text-slate-800">Tronus</h1>
                                 <p className="text-xs text-slate-500 hidden sm:block">Church Management</p>
@@ -443,9 +441,7 @@ const LandingPage: React.FC = () => {
                     <div className="grid md:grid-cols-4 gap-8 mb-8">
                         <div>
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                                    <span className="font-bold text-white text-xl">Tr</span>
-                                </div>
+                                <img src="/logo_system.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-lg" />
                                 <span className="font-bold text-white text-xl">Tronus</span>
                             </div>
                             <p className="text-sm">Plataforma moderna de gestão de igrejas</p>

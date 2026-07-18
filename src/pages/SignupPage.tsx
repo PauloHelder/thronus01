@@ -258,11 +258,8 @@ const SignupPage: React.FC = () => {
 
             <div className="w-full max-w-4xl relative z-10">
                 <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-10 border border-gray-100">
-                    {/* Logo */}
                     <div className="flex items-center justify-center gap-3 mb-8">
-                        <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="font-bold text-white text-2xl">Tr</span>
-                        </div>
+                        <img src="/logo_system.jpg" alt="Logo" className="w-12 h-12 rounded-xl object-cover shadow-lg" />
                         <div>
                             <h1 className="font-bold text-2xl text-slate-800">Tronus</h1>
                             <p className="text-xs text-slate-500">Gestão de Igrejas</p>

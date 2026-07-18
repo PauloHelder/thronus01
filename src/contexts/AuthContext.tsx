@@ -109,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (userData) {
                     const { data: churchData } = await supabase
                         .from('churches')
-                        .select('name, slug, settings')
+                        .select('name, slug, settings, logo_url')
                         .eq('id', (userData as any).church_id)
                         .single();
 
@@ -177,7 +177,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         : [primaryRole];
 
                     if (!churchData) throw new Error('Church data not found');
-                    const currentSettings = (churchData as any).settings || {};
+                    const currentSettings = {
+                        ...((churchData as any).settings || {}),
+                        logo_url: (churchData as any).logo_url
+                    };
                     const rolePermissionsMap = currentSettings.role_permissions || {};
 
                     const defaultPermissions: Record<string, string[]> = {
